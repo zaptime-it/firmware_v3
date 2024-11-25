@@ -284,6 +284,10 @@ void setupPreferences()
     preferences.putBool("flDisable", isWhiteVersion() ? false : true);
   }
 
+  if (!preferences.isKey("gitReleaseUrl")) {
+    preferences.putString("gitReleaseUrl", DEFAULT_GIT_RELEASE_URL);
+  }
+
   if (!preferences.isKey("fgColor")) {
     preferences.putUInt("fgColor", isWhiteVersion() ? GxEPD_BLACK : GxEPD_WHITE);
     preferences.putUInt("bgColor", isWhiteVersion() ? GxEPD_WHITE : GxEPD_BLACK);

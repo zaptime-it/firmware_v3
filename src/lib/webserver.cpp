@@ -510,7 +510,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                         settings["timePerScreen"].as<uint>() * 60);
   }
 
-  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "nostrZapPubkey", "httpAuthUser", "httpAuthPass"};
+  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl"};
 
   for (String setting : strSettings)
   {
@@ -701,6 +701,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 
   root["nostrZapNotify"] = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
   root["nostrZapPubkey"] = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
+  root["gitReleaseUrl"] = preferences.getString("gitReleaseUrl", DEFAULT_GIT_RELEASE_URL);
 
   root["bitaxeEnabled"] = preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED);
   root["bitaxeHostname"] = preferences.getString("bitaxeHostname", DEFAULT_BITAXE_HOSTNAME);

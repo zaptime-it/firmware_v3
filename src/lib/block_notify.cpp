@@ -302,7 +302,7 @@ int getBlockFetch()
     WiFiClientSecure client;
 
     if (preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE)) {
-      client.setCACert(mempoolWsCert);
+      client.setCACertBundle(rootca_crt_bundle_start);
     }
 
     String mempoolInstance =

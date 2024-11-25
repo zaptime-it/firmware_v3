@@ -106,9 +106,12 @@ void handleOTATask(void *parameter)
 
 ReleaseInfo getLatestRelease(const String &fileToDownload)
 {
-  String releaseUrl = "https://api.github.com/repos/btclock/btclock_v3/releases/latest";
+  String releaseUrl = preferences.getString("gitReleaseUrl");
   WiFiClientSecure client;
-  client.setCACert(github_root_ca);
+//  client.setCACert(isrg_root_x1cert);
+  client.setCACertBundle(rootca_crt_bundle_start);
+
+
   HTTPClient http;
   http.begin(client, releaseUrl);
   http.setUserAgent(USER_AGENT);
@@ -153,7 +156,7 @@ ReleaseInfo getLatestRelease(const String &fileToDownload)
 int downloadUpdateHandler(char updateType)
 {
   WiFiClientSecure client;
-  client.setCACert(github_root_ca);
+  client.setCACertBundle(rootca_crt_bundle_start);
   HTTPClient http;
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
@@ -303,7 +306,7 @@ int downloadUpdateHandler(char updateType)
 void updateWebUi(String latestRelease, int command)
 {
   WiFiClientSecure client;
-  client.setCACert(github_root_ca);
+  client.setCACertBundle(rootca_crt_bundle_start);
   HTTPClient http;
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   http.begin(client, latestRelease);
@@ -421,7 +424,7 @@ String downloadSHA256(const String &sha256Url)
   }
 
   WiFiClientSecure client;
-  client.setCACert(github_root_ca);
+  client.setCACertBundle(rootca_crt_bundle_start);
   HTTPClient http;
   http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   http.begin(client, sha256Url);

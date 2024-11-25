@@ -9,6 +9,7 @@
 #include <GxEPD2.h>
 #include <GxEPD2_BW.h>
 #include <mbedtls/md.h>
+#include "esp_crt_bundle.h"
 #include <Update.h>
 
 #include <mutex>
@@ -68,7 +69,11 @@ const PROGMEM int screens[SCREEN_COUNT] = {
 const int usPerSecond = 1000000;
 const int usPerMinute = 60 * usPerSecond;
 
-extern const char *github_root_ca;
+// extern const char *github_root_ca;
+extern const char *isrg_root_x1cert;
+
+extern const uint8_t rootca_crt_bundle_start[] asm("_binary_x509_crt_bundle_start");
+
 
 const PROGMEM char UPDATE_FIRMWARE = U_FLASH;
 const PROGMEM char UPDATE_WEBUI = U_SPIFFS;

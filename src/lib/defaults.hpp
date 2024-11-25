@@ -61,3 +61,5 @@
 #define DEFAULT_HTTP_AUTH_PASSWORD "satoshi"
 
 #define DEFAULT_ACTIVE_CURRENCIES "USD,EUR,JPY"
+
+#define DEFAULT_GIT_RELEASE_URL "https://git.btclock.dev/api/v1/repos/btclock/btclock_v3/releases/latest"
