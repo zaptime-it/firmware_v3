@@ -1,3 +1,5 @@
+name: 'BTClock CI'
+
 on:
   push:
     tags:
