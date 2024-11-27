@@ -283,7 +283,10 @@ void prepareDisplayUpdateTask(void *pvParameters)
       }
       else
       {
-        if (epdContent[epdIndex].length() > 1 && epdContent[epdIndex].indexOf(".") == -1)
+        if (epdContent[epdIndex].length() == 2) {
+          showChars(epdIndex, epdContent[epdIndex], updatePartial, &FONT_BIG);
+        }
+        else if (epdContent[epdIndex].length() > 1 && epdContent[epdIndex].indexOf(".") == -1)
         {
           if (epdContent[epdIndex].equals("STS"))
           {
@@ -407,6 +410,32 @@ void splitText(const uint dispNum, const String &top, const String &bottom,
   displays[dispNum].print(bottom);
 }
 
+// void showChars(const uint dispNum, const String &chars, bool partial,
+//                const GFXfont *font)
+// {
+//   displays[dispNum].setRotation(2);
+//   displays[dispNum].setFont(font);
+//   displays[dispNum].setTextColor(getFgColor());
+//   int16_t tbx, tby;
+//   uint16_t tbw, tbh;
+
+//   displays[dispNum].getTextBounds(chars, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+//   // center the bounding box by transposition of the origin:
+//   uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
+//   uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
+
+//   displays[dispNum].fillScreen(getBgColor());
+
+//   displays[dispNum].setCursor(x, y);
+//   displays[dispNum].print(chars);
+
+//   // displays[dispNum].setCursor(10, 3);
+//   // displays[dispNum].setFont(&FONT_SMALL);
+//   // displays[dispNum].setTextColor(getFgColor());
+//   // displays[dispNum].println("Y = " + y);
+// }
+
 void showDigit(const uint dispNum, char chr, bool partial,
                const GFXfont *font)
 {
@@ -466,6 +495,18 @@ void showDigit(const uint dispNum, char chr, bool partial,
   // displays[dispNum].println("Y = " + y);
 }
 
+int16_t calculateDescent(const GFXfont *font) {
+  int16_t maxDescent = 0;
+  for (uint16_t i = font->first; i <= font->last; i++) {
+    GFXglyph *glyph = &font->glyph[i - font->first];
+    int16_t descent = glyph->yOffset;
+    if (descent > maxDescent) {
+      maxDescent = descent;
+    }
+  }
+  return maxDescent;
+}
+
 void showChars(const uint dispNum, const String &chars, bool partial,
                const GFXfont *font)
 {
@@ -475,12 +516,35 @@ void showChars(const uint dispNum, const String &chars, bool partial,
   int16_t tbx, tby;
   uint16_t tbw, tbh;
   displays[dispNum].getTextBounds(chars, 0, 0, &tbx, &tby, &tbw, &tbh);
+
+  int16_t descent = calculateDescent(font);
+
   // center the bounding box by transposition of the origin:
   uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
   uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
   displays[dispNum].fillScreen(getBgColor());
-  displays[dispNum].setCursor(x, y);
-  displays[dispNum].print(chars);
+  // displays[dispNum].setCursor(x, y);
+  // displays[dispNum].print(chars);
+
+  for (int i = 0; i < chars.length(); i++) {
+    char c = chars[i];
+    if (c == '.' || c == ',') {
+      // For the dot, calculate its specific descent
+      GFXglyph *dotGlyph = &font->glyph[c -font->first];
+      int16_t dotDescent = dotGlyph->yOffset;
+      
+      // Draw the dot with adjusted y-position
+      displays[dispNum].setCursor(x, y + dotDescent + dotGlyph->height);
+      displays[dispNum].print(c);
+    } else {
+      // For other characters, use the original y-position
+      displays[dispNum].setCursor(x, y);
+      displays[dispNum].print(c);
+    }
+    
+    // Move x-position for the next character
+    x += font->glyph[c - font->first].xAdvance;
+  }
 }
 
 int getBgColor() { return bgColor; }

@@ -41,7 +41,7 @@ void workerTask(void *pvParameters) {
           uint price = getPrice(currency);
 
           if (getCurrentScreen() == SCREEN_BTC_TICKER) {
-            taskEpdContent = parsePriceData(price, currency, preferences.getBool("suffixPrice", DEFAULT_SUFFIX_PRICE));
+            taskEpdContent = parsePriceData(price, currency, preferences.getBool("suffixPrice", DEFAULT_SUFFIX_PRICE), preferences.getBool("mowMode", DEFAULT_MOW_MODE));
           } else if (getCurrentScreen() == SCREEN_SATS_PER_CURRENCY) {
             taskEpdContent = parseSatsPerCurrency(price, currency, preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL));
           } else {

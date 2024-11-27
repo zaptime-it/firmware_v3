@@ -546,6 +546,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                            "mdnsEnabled", "otaEnabled", "stealFocus",
                            "mcapBigChar", "useSatsSymbol", "useBlkCountdown",
                            "suffixPrice", "disableLeds", "ownDataSource",
+                           "mowMode",
                            "flAlwaysOn", "flDisable", "flFlashOnUpd",
                            "mempoolSecure", "useNostr", "bitaxeEnabled",
                            "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
@@ -687,6 +688,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["useBlkCountdown"] = preferences.getBool("useBlkCountdown", DEFAULT_USE_BLOCK_COUNTDOWN);
   root["suffixPrice"] = preferences.getBool("suffixPrice", DEFAULT_SUFFIX_PRICE);
   root["disableLeds"] = preferences.getBool("disableLeds", DEFAULT_DISABLE_LEDS);
+  root["mowMode"] = preferences.getBool("mowMode", DEFAULT_MOW_MODE);
 
   root["hostnamePrefix"] = preferences.getString("hostnamePrefix", DEFAULT_HOSTNAME_PREFIX);
   root["hostname"] = getMyHostname();

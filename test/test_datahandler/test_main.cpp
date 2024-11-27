@@ -86,6 +86,33 @@ void test_PriceOf1MillionUsd(void)
     TEST_ASSERT_EQUAL_STRING("M", output[NUM_SCREENS - 1].c_str());
 }
 
+void test_PriceSuffixMode(void)
+{
+    std::array<std::string, NUM_SCREENS> output = parsePriceData(93000, '$', true, false);
+    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
+
+    TEST_ASSERT_EQUAL_STRING("9", output[NUM_SCREENS - 5].c_str());
+    TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("K", output[NUM_SCREENS - 1].c_str());
+}
+
+void test_PriceSuffixModeMow(void)
+{
+    std::array<std::string, NUM_SCREENS> output = parsePriceData(93000, '$', true, true);
+
+    std::string joined = joinArrayWithBrackets(output);
+
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[0].c_str(), joined.c_str());
+
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 5].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 3].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("3", output[NUM_SCREENS - 2].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+}
+
 void test_McapLowerUsd(void)
 {
     std::array<std::string, NUM_SCREENS> output = parseMarketCap(810000, 26000, '$', true);
@@ -203,6 +230,8 @@ int runUnityTests(void)
     RUN_TEST(test_Mcap1TrillionEurSmallChars);
     RUN_TEST(test_Mcap1TrillionJpy);
     RUN_TEST(test_Mcap1TrillionJpySmallChars);
+    RUN_TEST(test_PriceSuffixMode);
+    RUN_TEST(test_PriceSuffixModeMow);
 
     return UNITY_END();
 }
