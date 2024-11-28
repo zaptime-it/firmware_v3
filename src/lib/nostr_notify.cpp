@@ -252,7 +252,10 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
 
                 setEpdContent(textEpdContent);
                 vTaskDelay(pdMS_TO_TICKS(315 * NUM_SCREENS) + pdMS_TO_TICKS(250));
-                queueLedEffect(LED_EFFECT_NOSTR_ZAP);
+                if (preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP))
+                {
+                    queueLedEffect(LED_EFFECT_NOSTR_ZAP);
+                }
                 if (timerPeriod > 0)
                 {
                     esp_timer_start_periodic(screenRotateTimer,

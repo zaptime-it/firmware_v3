@@ -546,7 +546,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                            "mdnsEnabled", "otaEnabled", "stealFocus",
                            "mcapBigChar", "useSatsSymbol", "useBlkCountdown",
                            "suffixPrice", "disableLeds", "ownDataSource",
-                           "mowMode",
+                           "mowMode", "suffixShareDot",
                            "flAlwaysOn", "flDisable", "flFlashOnUpd",
                            "mempoolSecure", "useNostr", "bitaxeEnabled",
                            "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
@@ -689,6 +689,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["suffixPrice"] = preferences.getBool("suffixPrice", DEFAULT_SUFFIX_PRICE);
   root["disableLeds"] = preferences.getBool("disableLeds", DEFAULT_DISABLE_LEDS);
   root["mowMode"] = preferences.getBool("mowMode", DEFAULT_MOW_MODE);
+  root["suffixShareDot"] = preferences.getBool("suffixShareDot", DEFAULT_SUFFIX_SHARE_DOT);
 
   root["hostnamePrefix"] = preferences.getString("hostnamePrefix", DEFAULT_HOSTNAME_PREFIX);
   root["hostname"] = getMyHostname();
@@ -703,6 +704,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 
   root["nostrZapNotify"] = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
   root["nostrZapPubkey"] = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
+  root["ledFlashOnZap"] = preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP);
+
   root["gitReleaseUrl"] = preferences.getString("gitReleaseUrl", DEFAULT_GIT_RELEASE_URL);
 
   root["bitaxeEnabled"] = preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED);
@@ -719,6 +722,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["flAlwaysOn"] = preferences.getBool("flAlwaysOn", DEFAULT_FL_ALWAYS_ON);
   root["flEffectDelay"] = preferences.getUInt("flEffectDelay", DEFAULT_FL_EFFECT_DELAY);
   root["flFlashOnUpd"] = preferences.getBool("flFlashOnUpd", DEFAULT_FL_FLASH_ON_UPDATE);
+  root["flFlashOnZap"] = preferences.getBool("flFlashOnZap", DEFAULT_FL_FLASH_ON_ZAP);
+
   root["hasLightLevel"] = hasLightLevel();
   root["luxLightToggle"] = preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE);
 #else

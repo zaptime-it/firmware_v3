@@ -67,7 +67,7 @@ char getCurrencyChar(const std::string& input)
         return CURRENCY_USD;  // Assuming USD is the default for unknown inputs
 }
 
-std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char currencySymbol, bool useSuffixFormat, bool mowMode)
+std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char currencySymbol, bool useSuffixFormat, bool mowMode, bool shareDot)
 {
     std::array<std::string, NUM_SCREENS> ret;
     std::string priceString;
@@ -80,7 +80,7 @@ std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char cu
         priceString = getCurrencySymbol(currencySymbol) + std::to_string(price);
     }
     std::uint32_t firstIndex = 0;
-    if (priceString.length() < (NUM_SCREENS))
+    if ((shareDot && priceString.length() <= (NUM_SCREENS)) || priceString.length() < (NUM_SCREENS))
     {
         priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
 
@@ -89,11 +89,41 @@ std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char cu
 
         firstIndex = 1;
     }
-
-    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
+    
+    if (shareDot)
     {
-        ret[i] = priceString[i];
+        std::vector<std::string> tempArray;
+        size_t dotPosition = priceString.find('.');
+        if (dotPosition != std::string::npos && dotPosition > 0)
+        {
+            for (size_t i = 0; i < priceString.length(); ++i)
+            {
+                if (i == dotPosition - 1)
+                {
+                    tempArray.push_back(std::string(1, priceString[i]) + ".");
+                    ++i; // Skip the dot in the next iteration
+                }
+                else
+                {
+                    tempArray.push_back(std::string(1, priceString[i]));
+                }
+            }
+
+            // Copy from tempArray to ret
+            for (std::uint32_t i = firstIndex; i < NUM_SCREENS && i - firstIndex < tempArray.size(); ++i)
+            {
+                ret[i] = tempArray[i - firstIndex];
+            }
+        }
     }
+    else
+    {
+        for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
+        {
+            ret[i] = std::string(1, priceString[i]);
+        }
+    }
+
 
     return ret;
 }

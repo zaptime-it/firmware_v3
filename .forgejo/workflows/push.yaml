@@ -116,7 +116,7 @@ jobs:
             0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
             0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
             0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0x369000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin
+            0x370000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin
             # Adjust the offset for littlefs or other files as needed for the original case
           fi
 

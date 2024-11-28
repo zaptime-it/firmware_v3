@@ -534,7 +534,7 @@ void showChars(const uint dispNum, const String &chars, bool partial,
       int16_t dotDescent = dotGlyph->yOffset;
       
       // Draw the dot with adjusted y-position
-      displays[dispNum].setCursor(x, y + dotDescent + dotGlyph->height);
+      displays[dispNum].setCursor(x, y + dotDescent + dotGlyph->height + 8);
       displays[dispNum].print(c);
     } else {
       // For other characters, use the original y-position

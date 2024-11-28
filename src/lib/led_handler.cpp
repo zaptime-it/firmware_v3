@@ -285,7 +285,7 @@ void ledTask(void *parameter)
 #ifdef HAS_FRONTLIGHT
           bool frontlightWasOn = false;
 
-          if (preferences.getBool("flFlashOnUpd", DEFAULT_FL_FLASH_ON_UPDATE))
+          if (preferences.getBool("flFlashOnZap", DEFAULT_FL_FLASH_ON_ZAP))
           {
             if (frontlightOn)
             {
@@ -307,7 +307,7 @@ void ledTask(void *parameter)
           //   blinkDelayTwoColor(250, 3, pixels.Color(142, 48, 235),
           //                    pixels.Color(169, 21, 255));
 #ifdef HAS_FRONTLIGHT
-          if (preferences.getBool("flFlashOnUpd", DEFAULT_FL_FLASH_ON_UPDATE))
+          if (preferences.getBool("flFlashOnZap", DEFAULT_FL_FLASH_ON_ZAP))
           {
             vTaskDelay(pdMS_TO_TICKS(10));
             if (frontlightWasOn)
