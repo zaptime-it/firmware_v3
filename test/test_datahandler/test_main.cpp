@@ -98,6 +98,30 @@ void test_PriceSuffixMode(void)
     TEST_ASSERT_EQUAL_STRING("K", output[NUM_SCREENS - 1].c_str());
 }
 
+void test_PriceSuffixModeCompact1(void)
+{
+    std::array<std::string, NUM_SCREENS> output = parsePriceData(100000, '$', true, false, true);
+    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
+
+    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 5].c_str());
+    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("K", output[NUM_SCREENS - 1].c_str());
+}
+
+void test_PriceSuffixModeCompact2(void)
+{
+    std::array<std::string, NUM_SCREENS> output = parsePriceData(1000000, '$', true, false, true);
+    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
+
+    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 5].c_str());
+    TEST_ASSERT_EQUAL_STRING("1.", output[NUM_SCREENS - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("M", output[NUM_SCREENS - 1].c_str());
+}
+
 void test_PriceSuffixModeMow(void)
 {
     std::array<std::string, NUM_SCREENS> output = parsePriceData(93000, '$', true, true);
@@ -246,6 +270,8 @@ int runUnityTests(void)
     RUN_TEST(test_Mcap1TrillionJpy);
     RUN_TEST(test_Mcap1TrillionJpySmallChars);
     RUN_TEST(test_PriceSuffixMode);
+    RUN_TEST(test_PriceSuffixModeCompact1);
+    RUN_TEST(test_PriceSuffixModeCompact2);
     RUN_TEST(test_PriceSuffixModeMow);
     RUN_TEST(test_PriceSuffixModeMowCompact);
 

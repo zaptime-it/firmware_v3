@@ -90,10 +90,11 @@ std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char cu
         firstIndex = 1;
     }
     
-    if (shareDot)
+    size_t dotPosition = priceString.find('.');
+
+    if (shareDot && dotPosition != std::string::npos && dotPosition > 0)
     {
         std::vector<std::string> tempArray;
-        size_t dotPosition = priceString.find('.');
         if (dotPosition != std::string::npos && dotPosition > 0)
         {
             for (size_t i = 0; i < priceString.length(); ++i)
@@ -322,9 +323,9 @@ emscripten::val parseBlockHeightArray(std::uint32_t blockHeight)
     return arrayToStringArray(parseBlockHeight(blockHeight));
 }
 
-emscripten::val parsePriceDataArray(std::uint32_t price, const std::string &currencySymbol, bool useSuffixFormat = false)
+emscripten::val parsePriceDataArray(std::uint32_t price, const std::string &currencySymbol, bool useSuffixFormat = false, bool mowMode = false, bool shareDot = false)
 {
-    return arrayToStringArray(parsePriceData(price, currencySymbol[0], useSuffixFormat));
+    return arrayToStringArray(parsePriceData(price, currencySymbol[0], useSuffixFormat, mowMode, shareDot));
 }
 
 emscripten::val parseHalvingCountdownArray(std::uint32_t blockHeight, bool asBlocks)

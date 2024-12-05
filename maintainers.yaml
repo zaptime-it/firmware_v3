@@ -1,0 +1,20 @@
+identifier: BTClock
+maintainers:
+- npub1k5f85zx0xdskyayqpfpc0zq6n7vwqjuuxugkayk72fgynp34cs3qfcvqg2
+relays:
+- wss://relay.noderunners.network/
+- wss://nostr.sathoarder.com/
+- wss://offchain.pub/
+- wss://nostr3.daedaluslabs.io/
+- wss://nostr4.daedaluslabs.io/
+- wss://nostr.dbtc.link/
+- wss://purplepag.es/
+- wss://nos.lol/
+- wss://nostr1.daedaluslabs.io/
+- wss://nostr.noderunners.network/
+- wss://nostr.lnbitcoin.cz/
+- wss://relay.primal.net/
+- wss://relay.damus.io
+- wss://nostr-relay.derekross.me/
+- wss://nostr2.azzamo.net/
+- wss://nostr2.daedaluslabs.io/
