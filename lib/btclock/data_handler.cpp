@@ -73,7 +73,8 @@ std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char cu
     std::string priceString;
     if (std::to_string(price).length() >= NUM_SCREENS || useSuffixFormat)
     {
-        priceString = getCurrencySymbol(currencySymbol) + formatNumberWithSuffix(price, NUM_SCREENS - 2, mowMode);
+        int numScreens = shareDot && !mowMode ? NUM_SCREENS - 1 : NUM_SCREENS - 2;
+        priceString = getCurrencySymbol(currencySymbol) + formatNumberWithSuffix(price, numScreens, mowMode);
     }
     else
     {
