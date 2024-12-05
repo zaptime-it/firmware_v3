@@ -8,7 +8,7 @@ const char *wsServerPrice = "wss://ws.coincap.io/prices?assets=bitcoin";
 // WebsocketsClient client;
 esp_websocket_client_handle_t clientPrice = NULL;
 esp_websocket_client_config_t config;
-uint currentPrice = 50000;
+uint currentPrice = 90000;
 unsigned long int lastPriceUpdate;
 bool priceNotifyInit = false;
 std::map<char, std::uint64_t> currencyMap;
