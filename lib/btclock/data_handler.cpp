@@ -139,9 +139,26 @@ std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price,ch
 
     if (priceString.length() < (NUM_SCREENS))
     {
-        priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
+        // Check if price is greater than 1 billion
+        if (price >= 100000000)
+        {
+            double satsPerCurrency = (1.0 / static_cast<double>(price)) * 1e8; // Calculate satoshis
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(3) << satsPerCurrency; // Format with 3 decimal places
+            priceString = oss.str();
+        }
+        else
+        {
+            priceString = std::to_string(static_cast<int>(round(1.0 / static_cast<double>(price) * 1e8))); // Default formatting
+        }
 
-        if (currencySymbol != CURRENCY_USD)
+        // Pad the string with spaces if necessary
+        if (priceString.length() < NUM_SCREENS)
+        {
+            priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
+        }
+
+        if (currencySymbol != CURRENCY_USD || price >= 100000000) // no time anymore when earlier than 1
             ret[0] = "SATS/" + getCurrencyCode(currencySymbol);
         else 
             ret[0] = "MSCW/TIME";

@@ -33,6 +33,17 @@ void test_CorrectSatsPerDollarConversion(void)
     TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
 }
 
+void test_SatsPerDollarAfter1B(void)
+{
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(120000000, CURRENCY_USD, false);
+    TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 5].c_str());
+    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 1].c_str());
+}
+
 void test_CorrectSatsPerPoundConversion(void)
 {
     std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_GBP, false);
@@ -101,25 +112,33 @@ void test_PriceSuffixMode(void)
 void test_PriceSuffixModeCompact1(void)
 {
     std::array<std::string, NUM_SCREENS> output = parsePriceData(100000, '$', true, false, true);
-    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
 
-    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("K", output[NUM_SCREENS - 1].c_str());
+    std::string joined = joinArrayWithBrackets(output);
+
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(), joined.c_str());
+
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("1", output[NUM_SCREENS - 5].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("0.", output[NUM_SCREENS - 3].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 2].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("K", output[NUM_SCREENS - 1].c_str(), joined.c_str());
 }
 
 void test_PriceSuffixModeCompact2(void)
 {
     std::array<std::string, NUM_SCREENS> output = parsePriceData(1000000, '$', true, false, true);
-    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
 
-    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING("1.", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("M", output[NUM_SCREENS - 1].c_str());
+    std::string joined = joinArrayWithBrackets(output);
+
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(), joined.c_str());
+
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("1.", output[NUM_SCREENS - 5].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 3].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 2].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(), joined.c_str());
 }
 
 void test_PriceSuffixModeMow(void)
@@ -143,7 +162,8 @@ void test_PriceSuffixModeMowCompact(void)
 
     std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(), joined.c_str());
+
     TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(), joined.c_str());
     TEST_ASSERT_EQUAL_STRING_MESSAGE("0.", output[NUM_SCREENS - 5].c_str(), joined.c_str());
     TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
@@ -258,6 +278,7 @@ int runUnityTests(void)
     UNITY_BEGIN();
     RUN_TEST(test_CorrectSatsPerDollarConversion);
     RUN_TEST(test_CorrectSatsPerPoundConversion);
+    RUN_TEST(test_SatsPerDollarAfter1B);
     RUN_TEST(test_SixCharacterBlockHeight);
     RUN_TEST(test_SevenCharacterBlockHeight);
     RUN_TEST(test_FeeRateDisplay);
