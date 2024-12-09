@@ -1,5 +1,4 @@
 #include "utils.hpp"
-#include <iostream>
 
 int modulo(int x, int N)
 {
