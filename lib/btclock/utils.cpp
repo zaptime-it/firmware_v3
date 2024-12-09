@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include <iostream>
 
 int modulo(int x, int N)
 {
@@ -83,14 +84,31 @@ std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters, bool mo
     }
 
     // Add suffix
-    int len = snprintf(result, sizeof(result), "%.0f%c", numDouble, suffix);
+    int len;
+
+    // Mow Mode always uses string truncation to avoid rounding
+    std::string mowAsString = std::to_string(numDouble);
+    if (mowMode) {
+        // Default to one decimal place
+        len = snprintf(result, sizeof(result), "%s%c", mowAsString.substr(0, mowAsString.find(".") + 2).c_str(), suffix);
+    }
+    else
+    {
+        len = snprintf(result, sizeof(result), "%.0f%c", numDouble, suffix);
+    }
 
     // If there's room, add more decimal places
     if (len < numCharacters)
     {
         int restLen = mowMode ? numCharacters - len : numCharacters - len - 1;
-        
-        snprintf(result, sizeof(result), "%.*f%c", restLen, numDouble, suffix);
+
+        if (mowMode) {
+            snprintf(result, sizeof(result), "%s%c", mowAsString.substr(0, mowAsString.find(".") + 2 + restLen).c_str(), suffix);
+        }
+        else
+        {
+            snprintf(result, sizeof(result), "%.*f%c", restLen, numDouble, suffix);
+        }
     }
 
     return result;
