@@ -143,7 +143,7 @@ void test_PriceSuffixModeCompact2(void)
 
 void test_PriceSuffixModeMow(void)
 {
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(93000, '$', true, true);
+    std::array<std::string, NUM_SCREENS> output = parsePriceData(93600, '$', true, true);
 
     std::string joined = joinArrayWithBrackets(output);
 
@@ -158,11 +158,11 @@ void test_PriceSuffixModeMow(void)
 
 void test_PriceSuffixModeMowCompact(void)
 {
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(93000, '$', true, true, true);
+    std::array<std::string, NUM_SCREENS> output = parsePriceData(93600, '$', true, true, true);
 
     std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("MOW/UNITS", output[0].c_str(), joined.c_str());
 
     TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(), joined.c_str());
     TEST_ASSERT_EQUAL_STRING_MESSAGE("0.", output[NUM_SCREENS - 5].c_str(), joined.c_str());
