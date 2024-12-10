@@ -51,7 +51,7 @@ extern "C" void app_main()
       if (hasLightLevel()) {
         if (preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) != 0)
         {
-          if (hasLightLevel() && getLightLevel() <= 2)
+          if (hasLightLevel() && getLightLevel() <= 1 && preferences.getBool("flOffWhenDark", DEFAULT_FL_OFF_WHEN_DARK))
           {
             if (frontlightIsOn()) {
               frontlightFadeOutAll();

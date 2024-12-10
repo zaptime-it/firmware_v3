@@ -546,7 +546,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                            "mdnsEnabled", "otaEnabled", "stealFocus",
                            "mcapBigChar", "useSatsSymbol", "useBlkCountdown",
                            "suffixPrice", "disableLeds", "ownDataSource",
-                           "mowMode", "suffixShareDot",
+                           "mowMode", "suffixShareDot", "flOffWhenDark",
                            "flAlwaysOn", "flDisable", "flFlashOnUpd",
                            "mempoolSecure", "useNostr", "bitaxeEnabled",
                            "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
@@ -726,6 +726,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 
   root["hasLightLevel"] = hasLightLevel();
   root["luxLightToggle"] = preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE);
+  root["flOffWhenDark"] = preferences.getBool("flOffWhenDark", DEFAULT_FL_OFF_WHEN_DARK);
+
 #else
   root["hasFrontlight"] = false;
   root["hasLightLevel"] = false;
