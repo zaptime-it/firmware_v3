@@ -24,7 +24,7 @@ std::array<std::string, NUM_SCREENS> parseBitaxeHashRate(std::string text)
     }
 
     ret[NUM_SCREENS - 1] = "GH/S";
-    ret[0] = "BIT/AXE";
+    ret[0] = "mdi:bitaxe";
 
     return ret;
 }
@@ -37,7 +37,7 @@ std::array<std::string, NUM_SCREENS> parseBitaxeBestDiff(std::string text)
     if (text.length() < NUM_SCREENS)
     {
         text.insert(text.begin(), NUM_SCREENS - text.length(), ' ');
-        ret[0] = "BIT/AXE";
+        ret[0] = "mdi:bitaxe";
         ret[1] = "mdi:rocket";
         firstIndex = 2;
     }
