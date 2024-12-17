@@ -549,6 +549,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                            "mowMode", "suffixShareDot", "flOffWhenDark",
                            "flAlwaysOn", "flDisable", "flFlashOnUpd",
                            "mempoolSecure", "useNostr", "bitaxeEnabled",
+                           "verticalDesc",
                            "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
 
   for (String setting : boolSettings)
@@ -689,6 +690,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["suffixPrice"] = preferences.getBool("suffixPrice", DEFAULT_SUFFIX_PRICE);
   root["disableLeds"] = preferences.getBool("disableLeds", DEFAULT_DISABLE_LEDS);
   root["mowMode"] = preferences.getBool("mowMode", DEFAULT_MOW_MODE);
+  root["verticalDesc"] = preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC);
+
   root["suffixShareDot"] = preferences.getBool("suffixShareDot", DEFAULT_SUFFIX_SHARE_DOT);
 
   root["hostnamePrefix"] = preferences.getString("hostnamePrefix", DEFAULT_HOSTNAME_PREFIX);

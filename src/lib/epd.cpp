@@ -373,7 +373,11 @@ extern "C" void updateDisplay(void *pvParameters) noexcept
 void splitText(const uint dispNum, const String &top, const String &bottom,
                bool partial)
 {
-  displays[dispNum].setRotation(2);
+  if(preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC) && dispNum == 0) {
+    displays[dispNum].setRotation(1);
+  } else {
+    displays[dispNum].setRotation(2);
+  }
   displays[dispNum].setFont(&FONT_SMALL);
   displays[dispNum].setTextColor(getFgColor());
 
