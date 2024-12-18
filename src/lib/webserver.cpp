@@ -510,7 +510,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                         settings["timePerScreen"].as<uint>() * 60);
   }
 
-  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl"};
+  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl"};
 
   for (String setting : strSettings)
   {
@@ -549,7 +549,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                            "mowMode", "suffixShareDot", "flOffWhenDark",
                            "flAlwaysOn", "flDisable", "flFlashOnUpd",
                            "mempoolSecure", "useNostr", "bitaxeEnabled",
-                           "verticalDesc",
+                           "miningPoolStatsEnabled", "verticalDesc",
                            "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
 
   for (String setting : boolSettings)
@@ -713,6 +713,10 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 
   root["bitaxeEnabled"] = preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED);
   root["bitaxeHostname"] = preferences.getString("bitaxeHostname", DEFAULT_BITAXE_HOSTNAME);
+
+  root["miningPoolStatsEnabled"] = preferences.getBool("miningPoolStatsEnabled", DEFAULT_MINING_POOL_STATS_ENABLED);
+  root["miningPoolName"] = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME);
+  root["miningPoolUser"] = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
 
   root["httpAuthEnabled"] = preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED);
   root["httpAuthUser"] = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);

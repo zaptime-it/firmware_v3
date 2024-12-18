@@ -33,9 +33,19 @@ void workerTask(void *pvParameters) {
                 parseBitaxeBestDiff(getBitaxeBestDiff());
           }
           setEpdContent(taskEpdContent);
-
+          break;
         }
-        break;
+        case TASK_MINING_POOL_STATS_UPDATE: {
+          if (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE) {
+          taskEpdContent =
+                parseMiningPoolStatsHashRate(preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str(), getMiningPoolStatsHashRate());
+          // } else if (getCurrentScreen() == SCREEN_BITAXE_BESTDIFF) {
+          // taskEpdContent =
+          //       parseBitaxeBestDiff(getBitaxeBestDiff());
+          }
+          setEpdContent(taskEpdContent);
+          break;
+        }
         case TASK_PRICE_UPDATE: {
           uint currency = getCurrentCurrency();
           uint price = getPrice(currency);
@@ -174,6 +184,16 @@ void setCurrentScreen(uint newScreen) {
       if (preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED)) {
         WorkItem bitaxeUpdate = {TASK_BITAXE_UPDATE, 0};
         xQueueSend(workQueue, &bitaxeUpdate, portMAX_DELAY);
+      } else {
+        setCurrentScreen(SCREEN_BLOCK_HEIGHT);
+        return;
+      }
+      break;
+    }
+	  case SCREEN_MINING_POOL_STATS_HASHRATE: {
+      if (preferences.getBool("miningPoolStatsEnabled", DEFAULT_MINING_POOL_STATS_ENABLED)) {
+        WorkItem miningPoolStatsUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
+        xQueueSend(workQueue, &miningPoolStatsUpdate, portMAX_DELAY);
       } else {
         setCurrentScreen(SCREEN_BLOCK_HEIGHT);
         return;

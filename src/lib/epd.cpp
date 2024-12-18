@@ -613,6 +613,12 @@ void renderIcon(const uint dispNum, const String &text, bool partial)
   else if (text.endsWith("bitaxe"))  {
     iconIndex = 4;
   }
+  else if (text.endsWith("ocean_logo"))  {
+    iconIndex = 5;
+  }
+  else if (text.endsWith("braiins_logo"))  {
+    iconIndex = 6;
+  }
 
   
  

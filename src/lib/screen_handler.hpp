@@ -6,6 +6,7 @@
 
 #include <data_handler.hpp>
 #include <bitaxe_handler.hpp>
+#include <mining_pool_stats_handler.hpp>
 
 #include "lib/epd.hpp"
 #include "lib/shared.hpp"
@@ -23,7 +24,8 @@ typedef enum {
   TASK_BLOCK_UPDATE,
   TASK_FEE_UPDATE,
   TASK_TIME_UPDATE,
-  TASK_BITAXE_UPDATE
+  TASK_BITAXE_UPDATE,
+  TASK_MINING_POOL_STATS_UPDATE
 } TaskType;
 
 typedef struct {

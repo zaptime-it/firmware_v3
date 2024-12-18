@@ -18,6 +18,7 @@
 #include "lib/ota.hpp"
 #include "lib/nostr_notify.hpp"
 #include "lib/bitaxe_fetch.hpp"
+#include "lib/mining_pool_stats_fetch.hpp"
 
 #include "lib/v2_notify.hpp"
 
