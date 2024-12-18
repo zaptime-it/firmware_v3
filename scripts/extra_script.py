@@ -5,6 +5,9 @@ from shutil import copyfileobj, rmtree
 from pathlib import Path
 import subprocess
 
+
+
+
 revision = (
     subprocess.check_output(["git", "rev-parse", "HEAD"])
     .strip()
@@ -43,5 +46,15 @@ def before_buildfs(source, target, env):
     output_directory = 'data/build_gz'
     process_directory(input_directory, output_directory)
 
+flash_size = env.BoardConfig().get("upload.flash_size", "4MB")
+fs_image_name = f"littlefs_{flash_size}"
+env.Replace(ESP32_FS_IMAGE_NAME=fs_image_name)
+env.Replace(ESP8266_FS_IMAGE_NAME=fs_image_name)
+
 os.environ["PUBLIC_BASE_URL"] = ""
-env.AddPreAction("$BUILD_DIR/littlefs.bin", before_buildfs)
+fs_name = env.get("ESP32_FS_IMAGE_NAME", "littlefs.bin")
+# Or alternatively:
+# fs_name = env.get("FSTOOLNAME", "littlefs.bin")
+
+# Use the variable in the pre-action
+env.AddPreAction(f"$BUILD_DIR/{fs_name}.bin", before_buildfs)
