@@ -3,13 +3,17 @@
 TaskHandle_t miningPoolStatsFetchTaskHandle;
 
 std::string miningPoolStatsHashrate;
-std::string miningPoolStatsBestDiff;
+int miningPoolStatsDailyEarnings;
 
 std::string getMiningPoolStatsHashRate()
 {
     return miningPoolStatsHashrate;
 }
 
+int getMiningPoolStatsDailyEarnings()
+{
+    return miningPoolStatsDailyEarnings;
+}
 
 void taskMiningPoolStatsFetch(void *pvParameters)
 {
@@ -21,25 +25,15 @@ void taskMiningPoolStatsFetch(void *pvParameters)
         http.setUserAgent(USER_AGENT);
         String miningPoolStatsApiUrl;
 
-        // TODO: Remove when webui gets proper update
-        Serial.println("FORCING miningPoolUser");
-        preferences.putString("miningPoolName", MINING_POOL_NAME_OCEAN);
-
-        Serial.println("miningPoolName: \"" + preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) + "\"");
-        Serial.println("miningPoolUser: \"" + preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER) + "\"");
-
         std::string httpHeaderKey = "";
         std::string httpHeaderValue;
         if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_OCEAN) {
             miningPoolStatsApiUrl = "https://api.ocean.xyz/v1/statsnap/" + preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
-            Serial.println(miningPoolStatsApiUrl);
-
         }
         else if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_BRAIINS) {
             miningPoolStatsApiUrl = "https://pool.braiins.com/accounts/profile/json/btc/";
             httpHeaderKey = "Pool-Auth-Token";
             httpHeaderValue = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER).c_str();
-            Serial.println(miningPoolStatsApiUrl);
         }
         else
         {
@@ -64,14 +58,12 @@ void taskMiningPoolStatsFetch(void *pvParameters)
             Serial.println(doc.as<String>());
 
             if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_OCEAN) {
-                Serial.println(doc["result"].as<String>());
-                Serial.println(doc["result"]["hashrate_300s"].as<String>());
                 miningPoolStatsHashrate = doc["result"]["hashrate_300s"].as<std::string>();
+                miningPoolStatsDailyEarnings = int(doc["result"]["estimated_earn_next_block"].as<float>() * 100000000);
             }
             else if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_BRAIINS) {
                 // Reports hashrate in specific hashrate units (e.g. Gh/s); we want raw total hashes per second.
                 std::string hashrateUnit = doc["btc"]["hash_rate_unit"].as<std::string>();
-                Serial.println(doc["btc"]["hash_rate_unit"].as<String>());
                 int multiplier = 0;
                 if (hashrateUnit == "Zh/s") {
                     multiplier = 21;
@@ -91,11 +83,11 @@ void taskMiningPoolStatsFetch(void *pvParameters)
 
                 // Add zeroes to pad to a full h/s output
                 miningPoolStatsHashrate = std::to_string(static_cast<int>(std::round(doc["btc"]["hash_rate_5m"].as<float>()))) + std::string(multiplier, '0');
-                Serial.println(miningPoolStatsHashrate.c_str());
+
+                miningPoolStatsDailyEarnings = int(doc["btc"]["today_reward"].as<float>() * 100000000);
             }
 
-            // if (workQueue != nullptr && (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || getCurrentScreen() == SCREEN_MINING_POOL_STATS_BESTDIFF))
-            if (workQueue != nullptr && (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE))
+            if (workQueue != nullptr && (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS))
             {
                 WorkItem priceUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
                 xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);

@@ -39,9 +39,9 @@ void workerTask(void *pvParameters) {
           if (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE) {
           taskEpdContent =
                 parseMiningPoolStatsHashRate(preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str(), getMiningPoolStatsHashRate());
-          // } else if (getCurrentScreen() == SCREEN_BITAXE_BESTDIFF) {
-          // taskEpdContent =
-          //       parseBitaxeBestDiff(getBitaxeBestDiff());
+          } else if (getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS) {
+          taskEpdContent =
+                parseMiningPoolStatsDailyEarnings(preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str(), getMiningPoolStatsDailyEarnings());
           }
           setEpdContent(taskEpdContent);
           break;
@@ -190,7 +190,8 @@ void setCurrentScreen(uint newScreen) {
       }
       break;
     }
-	  case SCREEN_MINING_POOL_STATS_HASHRATE: {
+	  case SCREEN_MINING_POOL_STATS_HASHRATE:
+	  case SCREEN_MINING_POOL_STATS_EARNINGS: {
       if (preferences.getBool("miningPoolStatsEnabled", DEFAULT_MINING_POOL_STATS_ENABLED)) {
         WorkItem miningPoolStatsUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
         xQueueSend(workQueue, &miningPoolStatsUpdate, portMAX_DELAY);

@@ -12,4 +12,4 @@ void setupMiningPoolStatsFetchTask();
 void taskMiningPoolStatsFetch(void *pvParameters);
 
 std::string getMiningPoolStatsHashRate();
-// std::string getMiningPoolStatsBestDiff();
+int getMiningPoolStatsDailyEarnings();

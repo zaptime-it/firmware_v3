@@ -41,16 +41,10 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string mi
     // Account for the position of the mining pool logo and the hashrate label
     std::size_t startIndex = NUM_SCREENS - 1 - textLength;
 
-    std::cout << "miningPoolName: " << miningPoolName << std::endl;
-
-    // Insert the mining pool logo icon just before the digits
+    // Insert the pickaxe icon just before the digits
     if (startIndex > 0)
     {
-        if (miningPoolName == "ocean") {
-            ret[startIndex - 1] = "mdi:braiins_logo";
-        } else if (miningPoolName == "braiins") {
-            ret[startIndex - 1] = "mdi:braiins_logo";
-        }
+        ret[startIndex - 1] = "mdi:pickaxe";
     }
 
     // Place the digits
@@ -60,7 +54,79 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string mi
     }
 
     ret[NUM_SCREENS - 1] = label;
-    ret[0] = "POOL/STATS";
+
+    // Set the mining pool logo
+    if (miningPoolName == "ocean") {
+        ret[0] = "mdi:ocean_logo";
+    } else if (miningPoolName == "braiins") {
+        ret[0] = "mdi:braiins_logo";
+    }
+
+    return ret;
+}
+
+
+std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(std::string miningPoolName, int sats)
+{
+    std::array<std::string, NUM_SCREENS> ret;
+    ret.fill(""); // Initialize all elements to empty strings
+    std::string satsDisplay = std::to_string(sats);
+    std::string label;
+
+    if (miningPoolName == "braiins") {
+        // fpps guarantees payout; report current daily earnings
+        label = "sats/earned";
+    } else {
+        // TIDES can only estimate earnings on the next block Ocean finds
+        label = "sats/block";
+    }
+
+    if (sats >= 100000000) {
+        // A whale mining 1+ BTC per day! No decimal points; whales scoff at such things.
+        label = "BTC" + label.substr(4);
+        satsDisplay = satsDisplay.substr(0, satsDisplay.length() - 8);
+    } else if (sats >= 10000000) {
+        // 10.0M to 99.9M you get one decimal point
+        satsDisplay = satsDisplay.substr(0, satsDisplay.length() - 6) + "." + satsDisplay[2] + "M";
+    } else if (sats >= 1000000) {
+        // 1.00M to 9.99M you get two decimal points
+        satsDisplay = satsDisplay.substr(0, satsDisplay.length() - 6) + "." + satsDisplay.substr(2, 2) + "M";
+    } else if (sats >= 100000) {
+        // 100K to 999K you get no extra precision
+        satsDisplay = satsDisplay.substr(0, satsDisplay.length() - 3) + "K";
+    } else if (sats >= 10000) {
+        // 10.0K to 99.9K you get one decimal point
+        satsDisplay = satsDisplay.substr(0, satsDisplay.length() - 3) + "." + satsDisplay[2] + "K";
+    } else {
+        // Pleb miner! 4 digit or fewer sats will fit as-is. no-op.
+    }
+
+    std::size_t textLength = satsDisplay.length();
+
+    // Calculate the position where the digits should start
+    // Account for the position of the mining pool logo
+    std::size_t startIndex = NUM_SCREENS - 1 - textLength;
+
+    // Insert the pickaxe icon just before the digits if there's room
+    if (startIndex > 0)
+    {
+        ret[startIndex - 1] = "mdi:pickaxe";
+    }
+
+    // Place the digits
+    for (std::size_t i = 0; i < textLength; ++i)
+    {
+        ret[startIndex + i] = satsDisplay.substr(i, 1);
+    }
+
+    ret[NUM_SCREENS - 1] = label;
+
+    // Set the mining pool logo
+    if (miningPoolName == "ocean") {
+        ret[0] = "mdi:ocean_logo";
+    } else if (miningPoolName == "braiins") {
+        ret[0] = "mdi:braiins_logo";
+    }
 
     return ret;
 }
