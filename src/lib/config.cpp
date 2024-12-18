@@ -799,6 +799,19 @@ const char* getFirmwareFilename() {
     }
 }
 
+const char* getWebUiFilename() {
+    if (HW_REV == "REV_B_EPD_2_13") {
+        return "littlefs_8MB.bin";
+    } else if (HW_REV == "REV_A_EPD_2_13") {
+        return "littlefs_4MB.bin";
+    } else if (HW_REV == "REV_A_EPD_2_9") {
+        return "littlefs_4MB.bin";
+    } else {
+        return "littlefs_4MB.bin";
+    }
+}
+
+
 // void loadIcons() {
 //   size_t ocean_logo_size = 886;
 

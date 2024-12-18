@@ -84,5 +84,5 @@ void addScreenMapping(int value, const char* name);
 int findScreenIndexByValue(int value);
 String replaceAmbiguousChars(String input);
 const char* getFirmwareFilename();
-
+const char* getWebUiFilename();
 // void loadIcons();
