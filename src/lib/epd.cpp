@@ -607,9 +607,11 @@ void renderIcon(const uint dispNum, const String &text, bool partial)
   if (text.endsWith("rocket"))  {
     iconIndex = 1;
   }
-
-  if (text.endsWith("lnbolt"))  {
+  else if (text.endsWith("lnbolt"))  {
     iconIndex = 3;
+  }
+  else if (text.endsWith("bitaxe"))  {
+    iconIndex = 4;
   }
 
   displays[dispNum].drawInvertedBitmap(0,0, epd_icons_allArray[iconIndex], 122, 250, getFgColor());
