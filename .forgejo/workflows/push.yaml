@@ -1,4 +1,4 @@
-name: 'BTClock CI'
+name: "BTClock CI"
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
         with:
           node-version: lts/*
           cache: yarn
-          cache-dependency-path: '**/yarn.lock'
+          cache-dependency-path: "**/yarn.lock"
       - uses: actions/cache@v4
         with:
           path: |
@@ -34,8 +34,8 @@ jobs:
           key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-          cache: 'pip'
+          python-version: "3.9"
+          cache: "pip"
       - name: Get current date
         id: dateAndTime
         shell: bash
@@ -48,7 +48,7 @@ jobs:
         run: mkdir -p junit-reports && pio test -e native_test_only --junit-output-path junit-reports/
       - name: Build BTClock firmware
         shell: bash
-        run: pio run 
+        run: pio run
       - name: Build BTClock filesystem
         shell: bash
         run: pio run --target buildfs
@@ -81,9 +81,9 @@ jobs:
             version: esp32s3
         epd_variant: [213epd, 29epd]
         exclude:
-          - chip: {name: btclock_rev_b, version: esp32s3}
+          - chip: { name: btclock_rev_b, version: esp32s3 }
             epd_variant: 29epd
-          - chip: {name: btclock_v8, version: esp32s3}
+          - chip: { name: btclock_v8, version: esp32s3 }
             epd_variant: 29epd
     steps:
       - uses: https://code.forgejo.org/forgejo/download-artifact@v4
@@ -93,7 +93,9 @@ jobs:
       - name: Install esptools.py
         run: pip install --upgrade esptool
       - name: Create merged firmware binary
+        shell: bash
         run: |
+          mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} 
           if [ "${{ matrix.chip.name }}" == "btclock_v8" ]; then
             esptool.py --chip ${{ matrix.chip.version }} merge_bin \
             -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
@@ -106,7 +108,6 @@ jobs:
             0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
             0xDF0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_16MB.bin
           elif [ "${{ matrix.chip.name }}" == "btclock_rev_b" ]; then
-            mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} && \
             esptool.py --chip ${{ matrix.chip.version }} merge_bin \
             -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
             --flash_mode dio \
@@ -118,8 +119,6 @@ jobs:
             0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
             0x6F0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_8MB.bin;
           else
-            # Original command for other cases
-            mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} && \
             esptool.py --chip ${{ matrix.chip.version }} merge_bin \
             -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
             --flash_mode dio \
@@ -132,17 +131,20 @@ jobs:
           fi
 
       - name: Create checksum for firmware
+        shell: bash
         run: shasum -a 256 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}_firmware.bin.sha256
 
       - name: Create checksum for merged binary
+        shell: bash
         run: shasum -a 256 ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin.sha256
 
       - name: Create checksum for littlefs partition
+        shell: bash
         run: |
           fs_file=$(find .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }} -name "littlefs*.bin")
           shasum -a 256 "$fs_file" | awk '{print $1}' > "${fs_file}.sha256"
-            - name: Copy all artifacts to output folder
-              run: cp .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin .pio/boot_app0.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}
+      - name: Copy all artifacts to output folder
+        run: cp .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin .pio/boot_app0.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}
 
       - name: Create OTA binary file
         run: mv ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}_firmware.bin
@@ -173,11 +175,11 @@ jobs:
       - name: Create release
         uses: https://code.forgejo.org/actions/forgejo-release@v2.4.0
         with:
-          url: 'https://git.btclock.dev'
-          repo: '${{ github.repository }}'
+          url: "https://git.btclock.dev"
+          repo: "${{ github.repository }}"
           direction: upload
-          tag: '${{ github.ref_name }}'
-          sha: '${{ github.sha }}'
+          tag: "${{ github.ref_name }}"
+          sha: "${{ github.sha }}"
           release-dir: release
           token: ${{ secrets.TOKEN }}
           override: ${{ github.ref_type != 'tag' && github.ref_name != 'main' }}
