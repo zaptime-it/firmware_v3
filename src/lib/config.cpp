@@ -95,7 +95,7 @@ void setup()
     setupBitaxeFetchTask();
   }
 
-  if (preferences.getBool("miningPoolStatsEnabled", DEFAULT_MINING_POOL_STATS_ENABLED))
+  if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
   {
     setupMiningPoolStatsFetchTask();
   }
@@ -337,7 +337,7 @@ void setupPreferences()
     addScreenMapping(SCREEN_BITAXE_BESTDIFF, "BitAxe Best Difficulty");
   }
 
-  if (preferences.getBool("miningPoolStatsEnabled", DEFAULT_MINING_POOL_STATS_ENABLED))
+  if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
   {
     addScreenMapping(SCREEN_MINING_POOL_STATS_HASHRATE, "Mining Pool Hashrate");
     addScreenMapping(SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings");

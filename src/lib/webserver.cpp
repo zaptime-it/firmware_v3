@@ -549,7 +549,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                            "mowMode", "suffixShareDot", "flOffWhenDark",
                            "flAlwaysOn", "flDisable", "flFlashOnUpd",
                            "mempoolSecure", "useNostr", "bitaxeEnabled",
-                           "miningPoolStatsEnabled", "verticalDesc",
+                           "miningPoolStats", "verticalDesc",
                            "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
 
   for (String setting : boolSettings)
@@ -714,7 +714,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["bitaxeEnabled"] = preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED);
   root["bitaxeHostname"] = preferences.getString("bitaxeHostname", DEFAULT_BITAXE_HOSTNAME);
 
-  root["miningPoolStatsEnabled"] = preferences.getBool("miningPoolStatsEnabled", DEFAULT_MINING_POOL_STATS_ENABLED);
+  root["miningPoolStats"] = preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED);
   root["miningPoolName"] = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME);
   root["miningPoolUser"] = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
 

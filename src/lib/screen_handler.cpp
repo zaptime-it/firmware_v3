@@ -192,7 +192,7 @@ void setCurrentScreen(uint newScreen) {
     }
 	  case SCREEN_MINING_POOL_STATS_HASHRATE:
 	  case SCREEN_MINING_POOL_STATS_EARNINGS: {
-      if (preferences.getBool("miningPoolStatsEnabled", DEFAULT_MINING_POOL_STATS_ENABLED)) {
+      if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED)) {
         WorkItem miningPoolStatsUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
         xQueueSend(workQueue, &miningPoolStatsUpdate, portMAX_DELAY);
       } else {
