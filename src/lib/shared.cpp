@@ -144,3 +144,11 @@ String calculateSHA256(WiFiClient *stream, size_t contentLength) {
   
   return result;
 }
+
+// uint8_t* getOceanIcon() {
+//   zlib_turbo zt;
+//   int iUncompSize = zt.gzip_info((uint8_t *)ocean_logo_comp, ocean_logo_size);
+//   uint8_t *pUncompressed;
+//   pUncompressed = (uint8_t *)malloc(iUncompSize+4);
+//   zt.gunzip((uint8_t *)ocean_logo_comp, ocean_logo_size, pUncompressed);
+// }

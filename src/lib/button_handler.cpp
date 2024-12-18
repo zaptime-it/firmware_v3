@@ -5,15 +5,15 @@ const TickType_t debounceDelay = pdMS_TO_TICKS(50);
 TickType_t lastDebounceTime = 0;
 
 #ifdef IS_BTCLOCK_V8
-#define BTN_1 0
-#define BTN_2 1
-#define BTN_3 2
-#define BTN_4 3
+#define BTN_1 256
+#define BTN_2 512
+#define BTN_3 1024
+#define BTN_4 2048
 #else
-#define BTN_1 3
-#define BTN_2 2
-#define BTN_3 1
-#define BTN_4 0
+#define BTN_1 2048
+#define BTN_2 1024
+#define BTN_3 512
+#define BTN_4 256
 #endif
 
 void buttonTask(void *parameter) {
@@ -22,11 +22,12 @@ void buttonTask(void *parameter) {
     std::lock_guard<std::mutex> lock(mcpMutex);
 
     TickType_t currentTime = xTaskGetTickCount();
+
     if ((currentTime - lastDebounceTime) >= debounceDelay) {
       lastDebounceTime = currentTime;
 
       if (!digitalRead(MCP_INT_PIN)) {
-        uint pin = mcp1.getLastInterruptPin();
+        uint pin = mcp1.getInterruptFlagRegister();
 
         switch (pin) {
           case BTN_1:
@@ -43,12 +44,12 @@ void buttonTask(void *parameter) {
             break;
         }
       }
-      mcp1.clearInterrupts();
+      mcp1.getInterruptCaptureRegister();
     } else {
     }
     // Very ugly, but for some reason this is necessary
     while (!digitalRead(MCP_INT_PIN)) {
-      mcp1.clearInterrupts();
+      mcp1.getInterruptCaptureRegister();
     }
   }
 }

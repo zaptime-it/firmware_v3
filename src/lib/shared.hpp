@@ -1,6 +1,7 @@
 #pragma once
 
-#include <Adafruit_MCP23X17.h>
+#include "MCP23017.h"
+// #include <zlib_turbo.h>
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include <Preferences.h>
@@ -17,9 +18,9 @@
 
 #include "defaults.hpp"
 
-extern Adafruit_MCP23X17 mcp1;
+extern MCP23017 mcp1;
 #ifdef IS_BTCLOCK_V8
-extern Adafruit_MCP23X17 mcp2;
+extern MCP23017 mcp2;
 #endif
 extern Preferences preferences;
 extern std::mutex mcpMutex;
@@ -73,7 +74,12 @@ const int usPerMinute = 60 * usPerSecond;
 extern const char *isrg_root_x1cert;
 
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_x509_crt_bundle_start");
+// extern const uint8_t ocean_logo_comp[] asm("_binary_ocean_gz_start");
+// extern const uint8_t ocean_logo_comp_end[] asm("_binary_ocean_gz_end");
 
+// uint8_t* getOceanIcon();
+
+// const size_t ocean_logo_size = ocean_logo_comp_end - ocean_logo_comp;
 
 const PROGMEM char UPDATE_FIRMWARE = U_FLASH;
 const PROGMEM char UPDATE_WEBUI = U_SPIFFS;

@@ -191,7 +191,7 @@ void setupDisplays()
   }
 
   // Hold lower button to enable "storage mode" (prevents burn-in of ePaper displays)
-  if (mcp1.digitalRead(0) == LOW)
+  if (mcp1.read1(0) == LOW)
   {
     setFgColor(GxEPD_BLACK);
     setBgColor(GxEPD_WHITE);
@@ -614,9 +614,18 @@ void renderIcon(const uint dispNum, const String &text, bool partial)
     iconIndex = 4;
   }
 
+  
+ 
+
   displays[dispNum].drawInvertedBitmap(0,0, epd_icons_allArray[iconIndex], 122, 250, getFgColor());
 
+
+//  displays[dispNum].drawInvertedBitmap(0,0, getOceanIcon(), 122, 250, getFgColor());
+
+
 }
+
+
 
 void renderQr(const uint dispNum, const String &text, bool partial)
 {

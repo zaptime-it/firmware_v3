@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Adafruit_MCP23X17.h>
+#include <MCP23017.h>
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFiClientSecure.h>
@@ -84,3 +84,5 @@ void addScreenMapping(int value, const char* name);
 int findScreenIndexByValue(int value);
 String replaceAmbiguousChars(String input);
 const char* getFirmwareFilename();
+
+// void loadIcons();

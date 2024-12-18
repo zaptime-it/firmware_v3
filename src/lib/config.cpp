@@ -2,10 +2,12 @@
 
 #define MAX_ATTEMPTS_WIFI_CONNECTION 20
 
+// zlib_turbo zt;
+
 Preferences preferences;
-Adafruit_MCP23X17 mcp1;
+MCP23017 mcp1(0x20);
 #ifdef IS_BTCLOCK_V8
-Adafruit_MCP23X17 mcp2;
+MCP23017 mcp2(0x21);
 #endif
 
 #ifdef HAS_FRONTLIGHT
@@ -35,7 +37,7 @@ void setup()
   }
   {
     std::lock_guard<std::mutex> lockMcp(mcpMutex);
-    if (mcp1.digitalRead(3) == LOW)
+    if (mcp1.read1(3) == LOW)
     {
       preferences.putBool("wifiConfigured", false);
       preferences.remove("txPower");
@@ -46,7 +48,7 @@ void setup()
   }
 
   {
-    if (mcp1.digitalRead(0) == LOW)
+    if (mcp1.read1(0) == LOW)
     {
       // Then loop forever to prevent anything else from writing to the screen
       while (true)
@@ -54,7 +56,7 @@ void setup()
         delay(1000);
       }
     }
-    else if (mcp1.digitalRead(1) == LOW)
+    else if (mcp1.read1(1) == LOW)
     {
       preferences.clear();
       queueLedEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
@@ -66,6 +68,7 @@ void setup()
   }
 
   setupWifi();
+  //  loadIcons();
 
   setupWebserver();
 
@@ -106,6 +109,7 @@ void setup()
 #endif
 
   forceFullRefresh();
+
 }
 
 void setupWifi()
@@ -132,7 +136,7 @@ void setupWifi()
     bool buttonPress = false;
     {
       std::lock_guard<std::mutex> lockMcp(mcpMutex);
-      buttonPress = (mcp1.digitalRead(2) == LOW);
+      buttonPress = (mcp1.read1(2) == LOW);
     }
 
     {
@@ -507,7 +511,7 @@ void setupHardware()
 
   Wire.begin(I2C_SDA_PIN, I2C_SCK_PIN, 400000);
 
-  if (!mcp1.begin_I2C(0x20))
+  if (!mcp1.begin())
   {
     Serial.println(F("Error MCP23017 1"));
 
@@ -517,17 +521,20 @@ void setupHardware()
   else
   {
     pinMode(MCP_INT_PIN, INPUT_PULLUP);
-    mcp1.setupInterrupts(false, false, LOW);
+//    mcp1.setupInterrupts(false, false, LOW);
+    mcp1.enableControlRegister(MCP23x17_IOCR_ODR);
+
+    mcp1.mirrorInterrupts(true);
 
     for (int i = 0; i < 4; i++)
     {
-      mcp1.pinMode(i, INPUT_PULLUP);
-      mcp1.setupInterruptPin(i, LOW);
+      mcp1.pinMode1(i, INPUT_PULLUP);
+      mcp1.enableInterrupt(i, LOW);
     }
 #ifndef IS_BTCLOCK_V8
     for (int i = 8; i <= 14; i++)
     {
-      mcp1.pinMode(i, OUTPUT);
+      mcp1.pinMode1(i, OUTPUT);
     }
 #endif
   }
@@ -538,7 +545,7 @@ void setupHardware()
 #endif
 
 #ifdef IS_BTCLOCK_V8
-  if (!mcp2.begin_I2C(0x21))
+  if (!mcp2.begin())
   {
     Serial.println(F("Error MCP23017 2"));
 
@@ -791,3 +798,18 @@ const char* getFirmwareFilename() {
         return "";
     }
 }
+
+// void loadIcons() {
+//   size_t ocean_logo_size = 886;
+
+//   int iUncompSize = zt.gzip_info((uint8_t *)epd_compress_bitaxe, ocean_logo_size);
+//       Serial.printf("uncompressed size = %d\n", iUncompSize);
+
+//   uint8_t *pUncompressed;
+//   pUncompressed = (uint8_t *)malloc(iUncompSize+4);
+//   int rc = zt.gunzip((uint8_t *)epd_compress_bitaxe, ocean_logo_size, pUncompressed);
+
+//    if (rc == ZT_SUCCESS) {
+//     Serial.println("Decode success");
+//    }
+// }
