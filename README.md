@@ -17,7 +17,7 @@ Biggest differences with v2 are:
 New features:
 - BitAxe integration
 - Zap notifier
-- 
+- Braiins Pool and Ocean mining stats integration
 
 "Steal focus on new block" means that when a new block is mined, the display will switch to the block height screen if it's not on it already.
 
@@ -28,3 +28,26 @@ Most [information](https://github.com/btclock/btclock_v2/wiki) about BTClock v2 
 ## Building
 
 Use PlatformIO to build it yourself. Make sure you fetch the [WebUI](https://github.com/btclock/webui) submodule.
+
+
+## Braiins Pool and Ocean integration
+Enable mining pool stats by accessing your btclock's web UI (point a web browser at the device's IP address).
+
+Under Settings -> Extra Features: toggle Enable Mining Pool Stats.
+
+New options will appear. Select your mining pool and enter your pool username (Ocean) or api key (Braiins).
+
+
+### Braiins Pool integration
+Create an API key based on the steps [here](https://academy.braiins.com/en/braiins-pool/monitoring/#api-configuration).
+
+The key's permissions should be:
+* Web Access: no
+* API Access: yes
+* Access Permissions: Read-only
+
+Copy the token that is created for the new key. Enter this as your "Mining Pool username or api key" in the btclock web UI.
+
+
+### Ocean integration
+Your "Mining Pool username" is just the onchain withdrawal address that you specify when pointing your miners at Ocean.
