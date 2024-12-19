@@ -2,6 +2,7 @@
 
 TaskHandle_t miningPoolStatsFetchTaskHandle;
 
+std::string miningPoolName;
 std::string miningPoolStatsHashrate;
 int miningPoolStatsDailyEarnings;
 
@@ -25,19 +26,21 @@ void taskMiningPoolStatsFetch(void *pvParameters)
         http.setUserAgent(USER_AGENT);
         String miningPoolStatsApiUrl;
 
+        miningPoolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
+
         std::string httpHeaderKey = "";
         std::string httpHeaderValue;
-        if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_OCEAN) {
+        if (miningPoolName == "ocean") {
             miningPoolStatsApiUrl = "https://api.ocean.xyz/v1/statsnap/" + preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
         }
-        else if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_BRAIINS) {
+        else if (miningPoolName == "braiins") {
             miningPoolStatsApiUrl = "https://pool.braiins.com/accounts/profile/json/btc/";
             httpHeaderKey = "Pool-Auth-Token";
             httpHeaderValue = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER).c_str();
         }
         else
         {
-            Serial.println("Unknown mining pool: \"" + preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) + "\"");
+            // Unknown mining pool / missing implementation
             continue;
         }
 
@@ -55,13 +58,11 @@ void taskMiningPoolStatsFetch(void *pvParameters)
             JsonDocument doc;
             deserializeJson(doc, payload);
 
-            Serial.println(doc.as<String>());
-
-            if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_OCEAN) {
+            if (miningPoolName == "ocean") {
                 miningPoolStatsHashrate = doc["result"]["hashrate_300s"].as<std::string>();
                 miningPoolStatsDailyEarnings = int(doc["result"]["estimated_earn_next_block"].as<float>() * 100000000);
             }
-            else if (preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME) == MINING_POOL_NAME_BRAIINS) {
+            else if (miningPoolName == "braiins") {
                 // Reports hashrate in specific hashrate units (e.g. Gh/s); we want raw total hashes per second.
                 std::string hashrateUnit = doc["btc"]["hash_rate_unit"].as<std::string>();
                 int multiplier = 0;
