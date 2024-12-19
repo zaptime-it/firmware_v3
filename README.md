@@ -37,6 +37,10 @@ Under Settings -> Extra Features: toggle Enable Mining Pool Stats.
 
 New options will appear. Select your mining pool and enter your pool username (Ocean) or api key (Braiins).
 
+The Mining Pool Earnings screen displays:
+* Braiins: Today's mining reward thus far
+* Ocean: Your estimated earnings if the pool were to find a block right now
+
 
 ### Braiins Pool integration
 Create an API key based on the steps [here](https://academy.braiins.com/en/braiins-pool/monitoring/#api-configuration).
