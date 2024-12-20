@@ -75,3 +75,5 @@
 
 #define DEFAULT_GIT_RELEASE_URL "https://git.btclock.dev/api/v1/repos/btclock/btclock_v3/releases/latest"
 #define DEFAULT_VERTICAL_DESC true
+
+#define DEFAULT_MINING_POOL_LOGOS_URL "https://git.btclock.dev/btclock/mining-pool-logos/raw/branch/main"

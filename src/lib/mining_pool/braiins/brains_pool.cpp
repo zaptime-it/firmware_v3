@@ -10,6 +10,13 @@ std::string BraiinsPool::getApiUrl() const {
 
 PoolStats BraiinsPool::parseResponse(const JsonDocument &doc) const
 {
+    if (doc["btc"].isNull()) {
+        return PoolStats{
+            .hashrate = "0",
+            .dailyEarnings = 0
+        };
+    }
+
     std::string unit = doc["btc"]["hash_rate_unit"].as<std::string>();
 
     static const std::unordered_map<std::string, int> multipliers = {
@@ -23,10 +30,3 @@ PoolStats BraiinsPool::parseResponse(const JsonDocument &doc) const
         .dailyEarnings = static_cast<int64_t>(doc["btc"]["today_reward"].as<float>() * 100000000)};
 }
 
-LogoData BraiinsPool::getLogo() const {
-    return LogoData{
-        .data = epd_icons_allArray[5],
-        .width = 37,
-        .height = 230
-    };
-}

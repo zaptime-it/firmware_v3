@@ -16,11 +16,3 @@ PoolStats OceanPool::parseResponse(const JsonDocument& doc) const {
         )
     };
 }
-
-LogoData OceanPool::getLogo() const {
-    return LogoData{
-        .data = epd_icons_allArray[4],
-        .width = 122,
-        .height = 122
-    };
-}

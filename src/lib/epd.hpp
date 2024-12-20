@@ -45,7 +45,7 @@ int getFgColor();
 void setBgColor(int color);
 void setFgColor(int color);
 
-void renderIcon(const uint dispNum, const String &text, bool partial);
+bool renderIcon(const uint dispNum, const String &text, bool partial);
 void renderText(const uint dispNum, const String &text, bool partial);
 void renderQr(const uint dispNum, const String &text, bool partial);
 

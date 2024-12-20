@@ -296,45 +296,27 @@ void restartBlockNotify()
 }
 
 
-int getBlockFetch()
-{
-  try {
-    WiFiClientSecure client;
+int getBlockFetch() {
+    try {
+        String mempoolInstance = preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
+        const String protocol = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE) ? "https" : "http";
+        String url = protocol + "://" + mempoolInstance + "/api/blocks/tip/height";
 
-    if (preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE)) {
-      client.setCACertBundle(rootca_crt_bundle_start);
+        HTTPClient* http = HttpHelper::begin(url);
+        Serial.println("Fetching block height from " + url);
+        int httpCode = http->GET();
+
+        if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
+            String blockHeightStr = http->getString();
+            HttpHelper::end(http);
+            return blockHeightStr.toInt();
+        }
+        HttpHelper::end(http);
+        Serial.println("HTTP code" + String(httpCode));
+    } catch (...) {
+        Serial.println(F("An exception occurred while trying to get the latest block"));
     }
-
-    String mempoolInstance =
-        preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
-
-    // Get current block height through regular API
-    HTTPClient http;
-
-    const String protocol = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE) ? "https" : "http";
-
-    if (preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE))
-      http.begin(client, protocol + "://" + mempoolInstance + "/api/blocks/tip/height");
-    else
-      http.begin(protocol + "://" + mempoolInstance + "/api/blocks/tip/height");
-
-    Serial.println("Fetching block height from " + protocol + "://" + mempoolInstance + "/api/blocks/tip/height");
-    int httpCode = http.GET();
-
-    if (httpCode > 0 && httpCode == HTTP_CODE_OK)
-    {
-      String blockHeightStr = http.getString();
-      return blockHeightStr.toInt();
-    } else {
-      Serial.println("HTTP code" + String(httpCode));
-      return 0;
-    }
-  }
-  catch (...) {
-    Serial.println(F("An exception occured while trying to get the latest block"));
-  }
-
-  return 2203; // B-T-C
+    return 2203; // B-T-C
 }
 
 uint getLastBlockUpdate()

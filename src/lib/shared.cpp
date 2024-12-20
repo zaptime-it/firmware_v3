@@ -152,3 +152,31 @@ String calculateSHA256(WiFiClient *stream, size_t contentLength) {
 //   pUncompressed = (uint8_t *)malloc(iUncompSize+4);
 //   zt.gunzip((uint8_t *)ocean_logo_comp, ocean_logo_size, pUncompressed);
 // }
+
+WiFiClientSecure HttpHelper::secureClient;
+WiFiClient HttpHelper::insecureClient;
+bool HttpHelper::certBundleSet = false;
+
+HTTPClient* HttpHelper::begin(const String& url) {
+    HTTPClient* http = new HTTPClient();
+    
+    if (url.startsWith("https://")) {
+        if (!certBundleSet) {
+            secureClient.setCACertBundle(rootca_crt_bundle_start);
+            certBundleSet = true;
+        }
+        http->begin(secureClient, url);
+    } else {
+        http->begin(insecureClient, url);
+    }
+    
+    http->setUserAgent(USER_AGENT);
+    return http;
+}
+
+void HttpHelper::end(HTTPClient* http) {
+    if (http) {
+        http->end();
+        delete http;
+    }
+}

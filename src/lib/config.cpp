@@ -439,15 +439,19 @@ void setupHardware()
     Serial.println(F("Error loading WebUI"));
   }
 
-  // if (!LittleFS.exists("/qr.txt"))
   // {
   //   File f = LittleFS.open("/qr.txt", "w");
 
   //   if(f) {
-
+  //     if (f.print("Hello")) {
+  //     Serial.println(F("Written QR to FS"));
+  //     Serial.printf("\nLittleFS free: %zu\n", LittleFS.totalBytes() - LittleFS.usedBytes()); 
+  //     }
   //   } else {
   //     Serial.println(F("Can't write QR to FS"));
   //   }
+
+  //   f.close();
   // }
 
   setupLeds();

@@ -176,7 +176,7 @@ void setupDisplays()
 
   updateQueue = xQueueCreate(UPDATE_QUEUE_SIZE, sizeof(UpdateDisplayTaskItem));
 
-  xTaskCreate(prepareDisplayUpdateTask, "PrepareUpd", EPD_TASK_STACK_SIZE, NULL, 11, NULL);
+  xTaskCreate(prepareDisplayUpdateTask, "PrepareUpd", EPD_TASK_STACK_SIZE*2, NULL, 11, NULL);
 
   for (uint i = 0; i < NUM_SCREENS; i++)
   {
@@ -275,7 +275,10 @@ void prepareDisplayUpdateTask(void *pvParameters)
       }
       else if (epdContent[epdIndex].startsWith(F("mdi")))
       {
-        renderIcon(epdIndex, epdContent[epdIndex], updatePartial);
+        bool updated = renderIcon(epdIndex, epdContent[epdIndex], updatePartial);
+        if (!updated) {
+          continue;
+        }
       }
       else if (epdContent[epdIndex].length() > 5)
       {
@@ -594,7 +597,7 @@ void renderText(const uint dispNum, const String &text, bool partial)
   }
 }
 
-void renderIcon(const uint dispNum, const String &text, bool partial)
+bool renderIcon(const uint dispNum, const String &text, bool partial)
 {
   displays[dispNum].setRotation(2);
 
@@ -620,12 +623,17 @@ void renderIcon(const uint dispNum, const String &text, bool partial)
   else if (text.endsWith("miningpool"))  {
     LogoData logo = getMiningPoolLogo();
 
+    if (logo.size == 0) {
+      Serial.println("No logo found");
+      return false;
+    } 
+
     int x_offset = (displays[dispNum].width() - logo.width) / 2;
     int y_offset = (displays[dispNum].height() - logo.height) / 2;
     // Close the file
 
     displays[dispNum].drawInvertedBitmap(x_offset,y_offset, logo.data, logo.width, logo.height, getFgColor());
-    return;
+    return true;
   }
 
 
@@ -635,7 +643,7 @@ void renderIcon(const uint dispNum, const String &text, bool partial)
 
   displays[dispNum].drawInvertedBitmap(x_offset,y_offset, epd_icons_allArray[iconIndex], width, height, getFgColor());
 
-
+  return true;
 //  displays[dispNum].drawInvertedBitmap(0,0, getOceanIcon(), 122, 250, getFgColor());
 
 

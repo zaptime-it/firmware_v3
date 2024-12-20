@@ -33,7 +33,6 @@
 
 #define NTP_SERVER "pool.ntp.org"
 #define DEFAULT_TIME_OFFSET_SECONDS 3600
-#define USER_AGENT "BTClock/3.0"
 #ifndef MCP_DEV_ADDR
 #define MCP_DEV_ADDR 0x20
 #endif

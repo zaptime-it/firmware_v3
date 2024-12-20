@@ -510,7 +510,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                         settings["timePerScreen"].as<uint>() * 60);
   }
 
-  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl"};
+  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl"};
 
   for (String setting : strSettings)
   {
@@ -768,6 +768,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
     o["enabled"] = preferences.getBool(key.c_str(), true);
   }
 
+  root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
+
   AsyncResponseStream *response =
       request->beginResponseStream("application/json");
   serializeJson(root, *response);
@@ -812,6 +814,9 @@ void onApiSystemStatus(AsyncWebServerRequest *request)
   root["espHeapSize"] = ESP.getHeapSize();
   root["espFreePsram"] = ESP.getFreePsram();
   root["espPsramSize"] = ESP.getPsramSize();
+  root["fsUsedBytes"] = LittleFS.usedBytes();
+  root["fsTotalBytes"] = LittleFS.totalBytes();
+
   root["rssi"] = WiFi.RSSI();
   root["txPower"] = WiFi.getTxPower();
 

@@ -12,11 +12,14 @@
 #include <mbedtls/md.h>
 #include "esp_crt_bundle.h"
 #include <Update.h>
+#include <HTTPClient.h>
 
 #include <mutex>
 #include <utils.hpp>
 
 #include "defaults.hpp"
+
+#define USER_AGENT "BTClock/3.0"
 
 extern MCP23017 mcp1;
 #ifdef IS_BTCLOCK_V8
@@ -95,3 +98,14 @@ namespace ArduinoJson {
     }
   };
 }
+
+class HttpHelper {
+public:
+    static HTTPClient* begin(const String& url);
+    static void end(HTTPClient* http);
+
+private:
+    static WiFiClientSecure secureClient;
+    static bool certBundleSet;
+    static WiFiClient insecureClient;
+};

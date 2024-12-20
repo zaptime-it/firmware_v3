@@ -18,6 +18,12 @@ int getMiningPoolStatsDailyEarnings()
 
 void taskMiningPoolStatsFetch(void *pvParameters)
 {
+    std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
+    auto poolInterface = PoolFactory::createPool(poolName);
+    
+    std::string poolUser = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER).c_str();
+
+    // Main stats fetching loop
     for (;;)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -25,16 +31,8 @@ void taskMiningPoolStatsFetch(void *pvParameters)
         HTTPClient http;
         http.setUserAgent(USER_AGENT);
 
-        std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
-        std::string poolUser = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER).c_str();
 
-        auto poolInterface = PoolFactory::createPool(poolName);
-        if (!poolInterface)
-        {
-            Serial.println("Unknown mining pool: \"" + String(poolName.c_str()) + "\"");
-            continue;
-        }
-
+     
         poolInterface->setPoolUser(poolUser);
         std::string apiUrl = poolInterface->getApiUrl();
         http.begin(apiUrl.c_str());
@@ -74,12 +72,36 @@ void taskMiningPoolStatsFetch(void *pvParameters)
     }
 }
 
-void setupMiningPoolStatsFetchTask()
-{
-    xTaskCreate(taskMiningPoolStatsFetch, "miningPoolStatsFetch", (6 * 1024), NULL, tskIDLE_PRIORITY,
-                &miningPoolStatsFetchTaskHandle);
+void downloadMiningPoolLogoTask(void *pvParameters) {
+    std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
+    auto poolInterface = PoolFactory::createPool(poolName);
+    PoolFactory::downloadPoolLogo(poolName, poolInterface.get());
+
+    // If we're on the mining pool stats screen, trigger a display update
+    if (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE) {
+        WorkItem priceUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
+        xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
+    }
 
     xTaskNotifyGive(miningPoolStatsFetchTaskHandle);
+    vTaskDelete(NULL);
+}
+
+void setupMiningPoolStatsFetchTask()
+{
+    xTaskCreate(downloadMiningPoolLogoTask, 
+                "logoDownload", 
+                (6 * 1024),  
+                NULL, 
+                12,
+                NULL);
+
+    xTaskCreate(taskMiningPoolStatsFetch, 
+                "miningPoolStatsFetch", 
+                (6 * 1024), 
+                NULL, 
+                tskIDLE_PRIORITY,
+                &miningPoolStatsFetchTaskHandle);
 }
 
 std::unique_ptr<MiningPoolInterface>& getMiningPool()
@@ -96,5 +118,6 @@ std::unique_ptr<MiningPoolInterface>& getMiningPool()
 
 LogoData getMiningPoolLogo()
 {
-    return getMiningPool()->getLogo();
+    LogoData logo =  getMiningPool()->getLogo();
+    return logo;
 }

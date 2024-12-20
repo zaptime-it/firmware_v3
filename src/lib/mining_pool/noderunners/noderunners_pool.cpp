@@ -25,11 +25,3 @@ PoolStats NoderunnersPool::parseResponse(const JsonDocument& doc) const {
         .dailyEarnings = std::nullopt
     };
 }
-
-LogoData NoderunnersPool::getLogo() const {
-    return LogoData {
-        .data = epd_icons_allArray[6],
-        .width = 122,
-        .height = 122
-    };
-}
