@@ -359,68 +359,6 @@ String replaceAmbiguousChars(String input)
   return input;
 }
 
-// void addCurrencyMappings(const std::vector<std::string>& currencies)
-// {
-//     for (const auto& currency : currencies)
-//     {
-//         int satsPerCurrencyScreen;
-//         int btcTickerScreen;
-//         int marketCapScreen;
-
-//         // Determine the corresponding screen IDs based on the currency code
-//         if (currency == "USD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_USD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_USD;
-//             marketCapScreen = SCREEN_MARKET_CAP_USD;
-//         }
-//         else if (currency == "EUR")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_EUR;
-//             btcTickerScreen = SCREEN_BTC_TICKER_EUR;
-//             marketCapScreen = SCREEN_MARKET_CAP_EUR;
-//         }
-//         else if (currency == "GBP")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_GBP;
-//             btcTickerScreen = SCREEN_BTC_TICKER_GBP;
-//             marketCapScreen = SCREEN_MARKET_CAP_GBP;
-//         }
-//         else if (currency == "JPY")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_JPY;
-//             btcTickerScreen = SCREEN_BTC_TICKER_JPY;
-//             marketCapScreen = SCREEN_MARKET_CAP_JPY;
-//         }
-//         else if (currency == "AUD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_AUD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_AUD;
-//             marketCapScreen = SCREEN_MARKET_CAP_AUD;
-//         }
-//         else if (currency == "CAD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_CAD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_CAD;
-//             marketCapScreen = SCREEN_MARKET_CAP_CAD;
-//         }
-//         else
-//         {
-//             continue;  // Unknown currency, skip it
-//         }
-
-//         // Create the string locally to ensure it persists
-//         std::string satsPerCurrencyString = "Sats per " + currency;
-//         std::string btcTickerString = "Ticker " + currency;
-//         std::string marketCapString = "Market Cap " + currency;
-
-//         // Pass the c_str() to the function
-//         addScreenMapping(satsPerCurrencyScreen, satsPerCurrencyString.c_str());
-//         addScreenMapping(btcTickerScreen, btcTickerString.c_str());
-//         addScreenMapping(marketCapScreen, marketCapString.c_str());
-//     }
-// }
-
 void setupWebsocketClients(void *pvParameters)
 {
   if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
@@ -823,19 +761,3 @@ const char* getWebUiFilename() {
         return "littlefs_4MB.bin";
     }
 }
-
-
-// void loadIcons() {
-//   size_t ocean_logo_size = 886;
-
-//   int iUncompSize = zt.gzip_info((uint8_t *)epd_compress_bitaxe, ocean_logo_size);
-//       Serial.printf("uncompressed size = %d\n", iUncompSize);
-
-//   uint8_t *pUncompressed;
-//   pUncompressed = (uint8_t *)malloc(iUncompSize+4);
-//   int rc = zt.gunzip((uint8_t *)epd_compress_bitaxe, ocean_logo_size, pUncompressed);
-
-//    if (rc == ZT_SUCCESS) {
-//     Serial.println("Decode success");
-//    }
-// }

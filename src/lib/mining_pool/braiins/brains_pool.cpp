@@ -26,7 +26,7 @@ PoolStats BraiinsPool::parseResponse(const JsonDocument &doc) const
 LogoData BraiinsPool::getLogo() const {
     return LogoData{
         .data = epd_icons_allArray[5],
-        .width = 122,
-        .height = 250
+        .width = 37,
+        .height = 230
     };
 }

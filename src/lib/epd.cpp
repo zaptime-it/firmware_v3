@@ -613,8 +613,8 @@ void renderIcon(const uint dispNum, const String &text, bool partial)
     iconIndex = 2;
   }
   else if (text.endsWith("bitaxe"))  {
-    width = 122;
-    height = 250;
+    width = 88;
+    height = 220;
     iconIndex = 3;
   }
   else if (text.endsWith("miningpool"))  {

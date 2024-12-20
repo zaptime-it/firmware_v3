@@ -47,6 +47,7 @@ void taskMiningPoolStatsFetch(void *pvParameters)
             deserializeJson(doc, payload);
 
             PoolStats stats = poolInterface->parseResponse(doc);
+
             miningPoolStatsHashrate = stats.hashrate;
 
             if (stats.dailyEarnings)

@@ -2,6 +2,7 @@
 
 #include "lib/mining_pool/mining_pool_interface.hpp"
 #include <icons/icons.h>
+#include <utils.hpp>
 
 class BraiinsPool : public MiningPoolInterface
 {
@@ -15,6 +16,4 @@ public:
     bool hasLogo() const override { return true; }
     std::string getDisplayLabel() const override { return "BRAIINS/POOL"; } // Fallback if needed
     std::string getDailyEarningsLabel() const override { return "sats/earned"; }
-private:
-    static int getHashrateMultiplier(const std::string &unit);
 };

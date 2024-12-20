@@ -3,6 +3,7 @@
 
 #include "lib/mining_pool/mining_pool_interface.hpp"
 #include <icons/icons.h>
+#include <utils.hpp>
 
 class NoderunnersPool : public MiningPoolInterface {
 public:
@@ -16,7 +17,4 @@ public:
     std::string getDailyEarningsLabel() const override { return ""; }
     bool hasLogo() const override { return true; }
     std::string getDisplayLabel() const override { return "NODE/RUNNERS"; } // Fallback if needed
-
-protected:
-    static int getHashrateMultiplier(char unit);
 };

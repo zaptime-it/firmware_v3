@@ -15,9 +15,13 @@ PoolStats NoderunnersPool::parseResponse(const JsonDocument& doc) const {
     std::string value = hashrateStr.substr(0, hashrateStr.size() - 1);
     
     int multiplier = getHashrateMultiplier(unit);
+    double hashrate = std::stod(value) * std::pow(10, multiplier);
+    
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%.0f", hashrate);
     
     return PoolStats{
-        .hashrate = value + std::string(multiplier, '0'),
+        .hashrate = buffer,
         .dailyEarnings = std::nullopt
     };
 }
@@ -28,15 +32,4 @@ LogoData NoderunnersPool::getLogo() const {
         .width = 122,
         .height = 122
     };
-}
-
-int NoderunnersPool::getHashrateMultiplier(char unit) {
-    if (unit == '0')
-        return 0;
-
-    static const std::unordered_map<char, int> multipliers = {
-        {'Z', 21}, {'E', 18}, {'P', 15}, {'T', 12},
-        {'G', 9},  {'M', 6},  {'K', 3}
-    };
-    return multipliers.at(unit);
 }
