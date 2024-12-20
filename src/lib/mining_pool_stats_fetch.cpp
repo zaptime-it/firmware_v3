@@ -24,68 +24,38 @@ void taskMiningPoolStatsFetch(void *pvParameters)
 
         HTTPClient http;
         http.setUserAgent(USER_AGENT);
-        String miningPoolStatsApiUrl;
 
-        miningPoolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
+        std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
+        std::string poolUser = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER).c_str();
 
-        std::string httpHeaderKey = "";
-        std::string httpHeaderValue;
-        if (miningPoolName == "ocean") {
-            miningPoolStatsApiUrl = "https://api.ocean.xyz/v1/statsnap/" + preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
-        }
-        else if (miningPoolName == "braiins") {
-            miningPoolStatsApiUrl = "https://pool.braiins.com/accounts/profile/json/btc/";
-            httpHeaderKey = "Pool-Auth-Token";
-            httpHeaderValue = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER).c_str();
-        }
-        else
+        auto poolInterface = PoolFactory::createPool(poolName);
+        if (!poolInterface)
         {
-            // Unknown mining pool / missing implementation
+            Serial.println("Unknown mining pool: \"" + String(poolName.c_str()) + "\"");
             continue;
         }
 
-        http.begin(miningPoolStatsApiUrl.c_str());
-
-        if (httpHeaderKey.length() > 0) {
-            http.addHeader(httpHeaderKey.c_str(), httpHeaderValue.c_str());
-        }
-
+        poolInterface->setPoolUser(poolUser);
+        std::string apiUrl = poolInterface->getApiUrl();
+        http.begin(apiUrl.c_str());
+        poolInterface->prepareRequest(http);
         int httpCode = http.GET();
- 
         if (httpCode == 200)
         {
             String payload = http.getString();
             JsonDocument doc;
             deserializeJson(doc, payload);
 
-            if (miningPoolName == "ocean") {
-                miningPoolStatsHashrate = doc["result"]["hashrate_300s"].as<std::string>();
-                miningPoolStatsDailyEarnings = int(doc["result"]["estimated_earn_next_block"].as<float>() * 100000000);
+            PoolStats stats = poolInterface->parseResponse(doc);
+            miningPoolStatsHashrate = stats.hashrate;
+
+            if (stats.dailyEarnings)
+            {
+                miningPoolStatsDailyEarnings = *stats.dailyEarnings;
             }
-            else if (miningPoolName == "braiins") {
-                // Reports hashrate in specific hashrate units (e.g. Gh/s); we want raw total hashes per second.
-                std::string hashrateUnit = doc["btc"]["hash_rate_unit"].as<std::string>();
-                int multiplier = 0;
-                if (hashrateUnit == "Zh/s") {
-                    multiplier = 21;
-                } else if (hashrateUnit == "Eh/s") {
-                    multiplier = 18;
-                } else if (hashrateUnit == "Ph/s") {
-                    multiplier = 15;
-                } else if (hashrateUnit == "Th/s") {
-                    multiplier = 12;
-                } else if (hashrateUnit == "Gh/s") {
-                    multiplier = 9;
-                } else if (hashrateUnit == "Mh/s") {
-                    multiplier = 6;
-                } else if (hashrateUnit == "Kh/s") {
-                    multiplier = 3;
-                }
-
-                // Add zeroes to pad to a full h/s output
-                miningPoolStatsHashrate = std::to_string(static_cast<int>(std::round(doc["btc"]["hash_rate_5m"].as<float>()))) + std::string(multiplier, '0');
-
-                miningPoolStatsDailyEarnings = int(doc["btc"]["today_reward"].as<float>() * 100000000);
+            else
+            {
+                miningPoolStatsDailyEarnings = 0; // or any other default value
             }
 
             if (workQueue != nullptr && (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS))
@@ -99,7 +69,6 @@ void taskMiningPoolStatsFetch(void *pvParameters)
             Serial.print(
                 F("Error retrieving mining pool data. HTTP status code: "));
             Serial.println(httpCode);
-            Serial.println(miningPoolStatsApiUrl);
         }
     }
 }
@@ -110,4 +79,21 @@ void setupMiningPoolStatsFetchTask()
                 &miningPoolStatsFetchTaskHandle);
 
     xTaskNotifyGive(miningPoolStatsFetchTaskHandle);
+}
+
+std::unique_ptr<MiningPoolInterface>& getMiningPool()
+{
+   static std::unique_ptr<MiningPoolInterface> currentMiningPool;
+    
+    if (!currentMiningPool) {
+        std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
+        currentMiningPool = PoolFactory::createPool(poolName);
+    }
+
+    return currentMiningPool;
+}
+
+LogoData getMiningPoolLogo()
+{
+    return getMiningPool()->getLogo();
 }

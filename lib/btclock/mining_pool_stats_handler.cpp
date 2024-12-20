@@ -1,7 +1,7 @@
 #include "mining_pool_stats_handler.hpp"
 #include <iostream>
 
-std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string miningPoolName, std::string text)
+std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string text)
 {
     std::array<std::string, NUM_SCREENS> ret;
     ret.fill(""); // Initialize all elements to empty strings
@@ -55,31 +55,19 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string mi
 
     ret[NUM_SCREENS - 1] = label;
 
-    // Set the mining pool logo
-    if (miningPoolName == "ocean") {
-        ret[0] = "mdi:ocean_logo";
-    } else if (miningPoolName == "braiins") {
-        ret[0] = "mdi:braiins_logo";
-    }
+  
+    ret[0] = "mdi:miningpool";
+   
 
     return ret;
 }
 
 
-std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(std::string miningPoolName, int sats)
+std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int sats, std::string label)
 {
     std::array<std::string, NUM_SCREENS> ret;
     ret.fill(""); // Initialize all elements to empty strings
     std::string satsDisplay = std::to_string(sats);
-    std::string label;
-
-    if (miningPoolName == "braiins") {
-        // fpps guarantees payout; report current daily earnings
-        label = "sats/earned";
-    } else {
-        // TIDES can only estimate earnings on the next block Ocean finds
-        label = "sats/block";
-    }
 
     if (sats >= 100000000) {
         // A whale mining 1+ BTC per day! No decimal points; whales scoff at such things.
@@ -121,12 +109,7 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(std::stri
 
     ret[NUM_SCREENS - 1] = label;
 
-    // Set the mining pool logo
-    if (miningPoolName == "ocean") {
-        ret[0] = "mdi:ocean_logo";
-    } else if (miningPoolName == "braiins") {
-        ret[0] = "mdi:braiins_logo";
-    }
+    ret[0] = "mdi:miningpool";
 
     return ret;
 }

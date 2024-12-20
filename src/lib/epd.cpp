@@ -604,32 +604,43 @@ void renderIcon(const uint dispNum, const String &text, bool partial)
   displays[dispNum].setTextColor(getFgColor());
 
   uint iconIndex = 0;
+  uint width = 122;
+  uint height = 122;
   if (text.endsWith("rocket"))  {
     iconIndex = 1;
   }
   else if (text.endsWith("lnbolt"))  {
-    iconIndex = 3;
+    iconIndex = 2;
   }
   else if (text.endsWith("bitaxe"))  {
-    iconIndex = 4;
+    width = 122;
+    height = 250;
+    iconIndex = 3;
   }
-  else if (text.endsWith("ocean_logo"))  {
-    iconIndex = 5;
-  }
-  else if (text.endsWith("braiins_logo"))  {
-    iconIndex = 6;
+  else if (text.endsWith("miningpool"))  {
+    LogoData logo = getMiningPoolLogo();
+
+    int x_offset = (displays[dispNum].width() - logo.width) / 2;
+    int y_offset = (displays[dispNum].height() - logo.height) / 2;
+    // Close the file
+
+    displays[dispNum].drawInvertedBitmap(x_offset,y_offset, logo.data, logo.width, logo.height, getFgColor());
+    return;
   }
 
-  
+
+  int x_offset = (displays[dispNum].width() - width) / 2;
+  int y_offset = (displays[dispNum].height() - height) / 2;
  
 
-  displays[dispNum].drawInvertedBitmap(0,0, epd_icons_allArray[iconIndex], 122, 250, getFgColor());
+  displays[dispNum].drawInvertedBitmap(x_offset,y_offset, epd_icons_allArray[iconIndex], width, height, getFgColor());
 
 
 //  displays[dispNum].drawInvertedBitmap(0,0, getOceanIcon(), 122, 250, getFgColor());
 
 
 }
+
 
 
 

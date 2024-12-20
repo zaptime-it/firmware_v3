@@ -717,11 +717,10 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["miningPoolStats"] = preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED);
   root["miningPoolName"] = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME);
   root["miningPoolUser"] = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
-
+  root["availablePools"] = PoolFactory::getAvailablePools();
   root["httpAuthEnabled"] = preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED);
   root["httpAuthUser"] = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);
   root["httpAuthPass"] = preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD);
-
 #ifdef HAS_FRONTLIGHT
   root["hasFrontlight"] = true;
   root["flDisable"] = preferences.getBool("flDisable");
@@ -755,17 +754,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 #endif
   JsonArray screens = root["screens"].to<JsonArray>();
 
-  JsonArray actCurrencies = root["actCurrencies"].to<JsonArray>();
-  for (const auto &str : getActiveCurrencies())
-  {
-    actCurrencies.add(str);
-  }
-
-  JsonArray availableCurrencies = root["availableCurrencies"].to<JsonArray>();
-  for (const auto &str : getAvailableCurrencies())
-  {
-    availableCurrencies.add(str);
-  }
+  root["actCurrencies"] = getActiveCurrencies();
+  root["availableCurrencies"] = getAvailableCurrencies();
 
   std::vector<ScreenMapping> screenNameMap = getScreenNameMap();
 

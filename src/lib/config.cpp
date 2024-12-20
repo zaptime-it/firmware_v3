@@ -340,7 +340,9 @@ void setupPreferences()
   if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
   {
     addScreenMapping(SCREEN_MINING_POOL_STATS_HASHRATE, "Mining Pool Hashrate");
-    addScreenMapping(SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings");
+    if (getMiningPool()->supportsDailyEarnings()) {
+      addScreenMapping(SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings");
+    }
   }
 }
 
