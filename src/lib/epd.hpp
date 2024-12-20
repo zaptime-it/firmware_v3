@@ -14,6 +14,7 @@
 #include "lib/config.hpp"
 #include "lib/shared.hpp"
 #include "icons/icons.h"
+#include "mining_pool_stats_fetch.hpp"
 
 #ifdef USE_QR
 #include "qrcodegen.h"

@@ -72,6 +72,10 @@ void IRAM_ATTR minuteTimerISR(void *arg) {
     vTaskNotifyGiveFromISR(bitaxeFetchTaskHandle, &xHigherPriorityTaskWoken);
   }
 
+  if (miningPoolStatsFetchTaskHandle != NULL) {
+    vTaskNotifyGiveFromISR(miningPoolStatsFetchTaskHandle, &xHigherPriorityTaskWoken);
+  }
+
   if (xHigherPriorityTaskWoken == pdTRUE) {
     portYIELD_FROM_ISR();
   }

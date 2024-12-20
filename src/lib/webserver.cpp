@@ -510,7 +510,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                         settings["timePerScreen"].as<uint>() * 60);
   }
 
-  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl"};
+  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl"};
 
   for (String setting : strSettings)
   {
@@ -549,7 +549,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                            "mowMode", "suffixShareDot", "flOffWhenDark",
                            "flAlwaysOn", "flDisable", "flFlashOnUpd",
                            "mempoolSecure", "useNostr", "bitaxeEnabled",
-                           "verticalDesc",
+                           "miningPoolStats", "verticalDesc",
                            "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
 
   for (String setting : boolSettings)
@@ -714,10 +714,13 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["bitaxeEnabled"] = preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED);
   root["bitaxeHostname"] = preferences.getString("bitaxeHostname", DEFAULT_BITAXE_HOSTNAME);
 
+  root["miningPoolStats"] = preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED);
+  root["miningPoolName"] = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME);
+  root["miningPoolUser"] = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
+  root["availablePools"] = PoolFactory::getAvailablePools();
   root["httpAuthEnabled"] = preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED);
   root["httpAuthUser"] = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);
   root["httpAuthPass"] = preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD);
-
 #ifdef HAS_FRONTLIGHT
   root["hasFrontlight"] = true;
   root["flDisable"] = preferences.getBool("flDisable");
@@ -751,17 +754,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 #endif
   JsonArray screens = root["screens"].to<JsonArray>();
 
-  JsonArray actCurrencies = root["actCurrencies"].to<JsonArray>();
-  for (const auto &str : getActiveCurrencies())
-  {
-    actCurrencies.add(str);
-  }
-
-  JsonArray availableCurrencies = root["availableCurrencies"].to<JsonArray>();
-  for (const auto &str : getAvailableCurrencies())
-  {
-    availableCurrencies.add(str);
-  }
+  root["actCurrencies"] = getActiveCurrencies();
+  root["availableCurrencies"] = getAvailableCurrencies();
 
   std::vector<ScreenMapping> screenNameMap = getScreenNameMap();
 
