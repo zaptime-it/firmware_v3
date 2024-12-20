@@ -275,7 +275,6 @@ JsonDocument getLedStatusObject()
   for (uint i = 0; i < pixels.numPixels(); i++)
   {
     uint32_t pixColor = pixels.getPixelColor(pixels.numPixels() - i - 1);
-    uint alpha = (pixColor >> 24) & 0xFF;
     uint red = (pixColor >> 16) & 0xFF;
     uint green = (pixColor >> 8) & 0xFF;
     uint blue = pixColor & 0xFF;
@@ -459,7 +458,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
   bool settingsChanged = true;
 
-  if (settings.containsKey("fgColor"))
+  if (settings["fgColor"].is<String>())
   {
     String fgColor = settings["fgColor"].as<String>();
     uint32_t color = strtol(fgColor.c_str(), NULL, 16);
@@ -469,7 +468,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     Serial.println(color);
     settingsChanged = true;
   }
-  if (settings.containsKey("bgColor"))
+  if (settings["bgColor"].is<String>())
   {
     String bgColor = settings["bgColor"].as<String>();
 
@@ -481,7 +480,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     settingsChanged = true;
   }
 
-  if (settings.containsKey("timePerScreen"))
+  if (settings["timePerScreen"].is<uint>())
   {
     preferences.putUInt("timerSeconds",
                         settings["timePerScreen"].as<uint>() * 60);
@@ -489,11 +488,11 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
   for (String setting : strSettings)
   {
-    if (settings.containsKey(setting))
+    if (settings[setting].is<String>())
     {
       preferences.putString(setting.c_str(), settings[setting].as<String>());
       Serial.printf("Setting %s to %s\r\n", setting.c_str(),
-                    settings[setting].as<String>());
+                    settings[setting].as<String>().c_str());
     }
   }
 
@@ -501,7 +500,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
   for (String setting : uintSettings)
   {
-    if (settings.containsKey(setting))
+    if (settings[setting].is<uint>())
     {
       preferences.putUInt(setting.c_str(), settings[setting].as<uint>());
       Serial.printf("Setting %s to %d\r\n", setting.c_str(),
@@ -509,7 +508,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
   }
 
-  if (settings.containsKey("tzOffset"))
+  if (settings["tzOffset"].is<int>())
   {
     int gmtOffset = settings["tzOffset"].as<int>() * 60;
     size_t written = preferences.putInt("gmtOffset", gmtOffset);
@@ -519,15 +518,15 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
   for (String setting : boolSettings)
   {
-    if (settings.containsKey(setting))
+    if (settings[setting].is<bool>())
     {
-      preferences.putBool(setting.c_str(), settings[setting].as<boolean>());
+      preferences.putBool(setting.c_str(), settings[setting].as<bool>());
       Serial.printf("Setting %s to %d\r\n", setting.c_str(),
-                    settings[setting].as<boolean>());
+                    settings[setting].as<bool>());
     }
   }
 
-  if (settings.containsKey("screens"))
+  if (settings["screens"].is<JsonArray>())
   {
     for (JsonVariant screen : settings["screens"].as<JsonArray>())
     {
@@ -535,12 +534,12 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
       uint id = s["id"].as<uint>();
       String key = "screen[" + String(id) + "]";
       String prefKey = "screen" + String(id) + "Visible";
-      bool visible = s["enabled"].as<boolean>();
+      bool visible = s["enabled"].as<bool>();
       preferences.putBool(prefKey.c_str(), visible);
     }
   }
 
-  if (settings.containsKey("actCurrencies"))
+  if (settings["actCurrencies"].is<JsonArray>())
   {
     String actCurrencies;
 
@@ -554,10 +553,10 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
 
     preferences.putString("actCurrencies", actCurrencies.c_str());
-    Serial.printf("Set actCurrencies: %s\n", actCurrencies);
+    Serial.printf("Set actCurrencies: %s\n", actCurrencies.c_str());
   }
 
-  if (settings.containsKey("txPower"))
+  if (settings["txPower"].is<int>())
   {
     int txPower = settings["txPower"].as<int>();
 
@@ -918,14 +917,14 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
   {
     unsigned int red, green, blue;
 
-    if (lights[i].containsKey("red") && lights[i].containsKey("green") &&
-        lights[i].containsKey("blue"))
+    if (lights[i]["red"].is<uint>() && lights[i]["green"].is<uint>() &&
+        lights[i]["blue"].is<uint>())
     {
       red = lights[i]["red"].as<uint>();
       green = lights[i]["green"].as<uint>();
       blue = lights[i]["blue"].as<uint>();
     }
-    else if (lights[i].containsKey("hex"))
+    else if (lights[i]["hex"].is<const char*>())
     {
       if (!sscanf(lights[i]["hex"].as<String>().c_str(), "#%02X%02X%02X", &red,
                   &green, &blue) == 3)
