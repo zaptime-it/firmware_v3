@@ -1,8 +1,28 @@
 #include "webserver.hpp"
 
+static const char* JSON_CONTENT = "application/json";
+
+static const char *const PROGMEM strSettings[] = {
+    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl"};
+
+static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout", "srcV2Currency"};
+
+static const char *const PROGMEM boolSettings[] = {"fetchEurPrice", "ledTestOnPower", "ledFlashOnUpd",
+                                                   "mdnsEnabled", "otaEnabled", "stealFocus",
+                                                   "mcapBigChar", "useSatsSymbol", "useBlkCountdown",
+                                                   "suffixPrice", "disableLeds", "ownDataSource",
+                                                   "mowMode", "suffixShareDot", "flOffWhenDark",
+                                                   "flAlwaysOn", "flDisable", "flFlashOnUpd",
+                                                   "mempoolSecure", "useNostr", "bitaxeEnabled",
+                                                   "miningPoolStats", "verticalDesc",
+                                                   "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
+
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
 TaskHandle_t eventSourceTaskHandle;
+
+#define HTTP_OK 200
+#define HTTP_BAD_REQUEST 400
 
 void setupWebserver()
 {
@@ -10,16 +30,7 @@ void setupWebserver()
                    { client->send("welcome", NULL, millis(), 1000); });
   server.addHandler(&events);
 
-  //  server.ad.
-  // server.serveStatic("/css", LittleFS, "/css/");
-  // server.serveStatic("/fonts", LittleFS, "/fonts/");
-  // server.serveStatic("/build", LittleFS, "/build");
-  // server.serveStatic("/swagger.json", LittleFS, "/swagger.json");
-  // server.serveStatic("/api.html", LittleFS, "/api.html");
-  // server.serveStatic("/fs_hash.txt", LittleFS, "/fs_hash.txt");
-
   AsyncStaticWebHandler &staticHandler = server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
-
 
   server.rewrite("/convert", "/");
   server.rewrite("/api", "/");
@@ -31,7 +42,6 @@ void setupWebserver()
         preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD));
   }
   //  server.on("/", HTTP_GET, onIndex);
-
   server.on("/api/status", HTTP_GET, onApiStatus);
   server.on("/api/system_status", HTTP_GET, onApiSystemStatus);
   server.on("/api/wifi_set_tx_power", HTTP_GET, onApiSetWifiTxPower);
@@ -51,8 +61,8 @@ void setupWebserver()
 
   server.on("/api/show/text", HTTP_GET, onApiShowText);
 
-  server.on("/api/screen/next", HTTP_GET, onApiScreenNext);
-  server.on("/api/screen/previous", HTTP_GET, onApiScreenPrevious);
+  server.on("/api/screen/next", HTTP_GET, onApiScreenControl);
+  server.on("/api/screen/previous", HTTP_GET, onApiScreenControl);
 
   AsyncCallbackJsonWebHandler *settingsPatchHandler =
       new AsyncCallbackJsonWebHandler("/api/json/settings", onApiSettingsPatch);
@@ -212,36 +222,6 @@ void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, siz
 void asyncFirmwareUpdateHandler(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
 {
   asyncFileUpdateHandler(request, filename, index, data, len, final, U_FLASH);
-
-  // if (!index)
-  // {
-  //   Serial.printf("Update Start: %s\n", filename.c_str());
-
-  //   // Update.runAsync(true);
-  //   if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000))
-  //   {
-  //     Update.printError(Serial);
-  //   }
-  // }
-  // if (!Update.hasError())
-  // {
-  //   if (Update.write(data, len) != len)
-  //   {
-  //     Update.printError(Serial);
-  //   }
-  // }
-  // if (final)
-  // {
-  //   if (Update.end(true))
-  //   {
-  //     Serial.printf("Update Success: %uB\n", index + len);
-  //     onApiRestart(request);
-  //   }
-  //   else
-  //   {
-  //     Update.printError(Serial);
-  //   }
-  // }
 }
 
 JsonDocument getStatusObject()
@@ -260,7 +240,7 @@ JsonDocument getStatusObject()
   // root["espPsramSize"] = ESP.getPsramSize();
 
   JsonObject conStatus = root["connectionStatus"].to<JsonObject>();
-  
+
   conStatus["price"] = isPriceNotifyConnected();
   conStatus["blocks"] = isBlockNotifyConnected();
   conStatus["V2"] = V2Notify::isV2NotifyConnected();
@@ -313,25 +293,26 @@ JsonDocument getLedStatusObject()
   return root;
 }
 
-void eventSourceUpdate()
-{
-  if (!events.count())
-    return;
-  JsonDocument root = getStatusObject();
-  JsonArray data = root["data"].to<JsonArray>();
+void eventSourceUpdate() {
+    if (!events.count()) return;
+    
+    JsonDocument doc = getStatusObject();
+    doc["leds"] = getLedStatusObject()["data"];
 
-  root["leds"] = getLedStatusObject()["data"];
+    // Get current EPD content directly as array
+    std::array<String, NUM_SCREENS> epdContent = getCurrentEpdContent();
+    
+    // Add EPD content arrays
+    JsonArray data = doc["data"].to<JsonArray>();
+    
+    // Copy array elements directly
+    for(const auto& content : epdContent) {
+      data.add(content);
+    }
 
-  String epdContent[NUM_SCREENS];
-  std::array<String, NUM_SCREENS> retEpdContent = getCurrentEpdContent();
-  std::copy(std::begin(retEpdContent), std::end(retEpdContent), epdContent);
-
-  copyArray(epdContent, data);
-
-  String bufString;
-  serializeJson(root, bufString);
-
-  events.send(bufString.c_str(), "status");
+    String buffer;
+    serializeJson(doc, buffer);
+    events.send(buffer.c_str(), "status");
 }
 
 /**
@@ -341,21 +322,22 @@ void eventSourceUpdate()
 void onApiStatus(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+      request->beginResponseStream(JSON_CONTENT);
 
   JsonDocument root = getStatusObject();
+  
+  // Get current EPD content directly as array
+  std::array<String, NUM_SCREENS> epdContent = getCurrentEpdContent();
+  
+  // Add EPD content arrays
   JsonArray data = root["data"].to<JsonArray>();
-  JsonArray rendered = root["rendered"].to<JsonArray>();
-  String epdContent[NUM_SCREENS];
+  
+  // Copy array elements directly
+  for(const auto& content : epdContent) {
+    data.add(content);
+  }
 
   root["leds"] = getLedStatusObject()["data"];
-
-  std::array<String, NUM_SCREENS> retEpdContent = getCurrentEpdContent();
-
-  std::copy(std::begin(retEpdContent), std::end(retEpdContent), epdContent);
-
-  copyArray(epdContent, data);
-  copyArray(epdContent, rendered);
   serializeJson(root, *response);
 
   request->send(response);
@@ -368,7 +350,7 @@ void onApiStatus(AsyncWebServerRequest *request)
 void onApiActionPause(AsyncWebServerRequest *request)
 {
   setTimerActive(false);
-  request->send(200);
+  request->send(HTTP_OK);
 };
 
 /**
@@ -378,7 +360,7 @@ void onApiActionPause(AsyncWebServerRequest *request)
 void onApiActionTimerRestart(AsyncWebServerRequest *request)
 {
   setTimerActive(true);
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 /**
@@ -392,7 +374,7 @@ void onApiFullRefresh(AsyncWebServerRequest *request)
 
   setEpdContent(newEpdContent, true);
 
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 /**
@@ -407,28 +389,21 @@ void onApiShowScreen(AsyncWebServerRequest *request)
     uint currentScreen = p->value().toInt();
     setCurrentScreen(currentScreen);
   }
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 /**
  * @Api
  * @Path("/api/screen/next")
  */
-void onApiScreenNext(AsyncWebServerRequest *request)
-{
-  nextScreen();
-  request->send(200);
-}
-
-/**
- * @Api
- * @Path("/api/screen/previous")
- */
-void onApiScreenPrevious(AsyncWebServerRequest *request)
-{
-  previousScreen();
-
-  request->send(200);
+void onApiScreenControl(AsyncWebServerRequest *request) {
+    const String& action = request->url();
+    if (action.endsWith("/next")) {
+        nextScreen();
+    } else if (action.endsWith("/previous")) {
+        previousScreen();
+    }
+    request->send(HTTP_OK);
 }
 
 void onApiShowText(AsyncWebServerRequest *request)
@@ -448,7 +423,7 @@ void onApiShowText(AsyncWebServerRequest *request)
     setEpdContent(textEpdContent);
   }
   setCurrentScreen(SCREEN_CUSTOM);
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
@@ -466,7 +441,7 @@ void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
   setEpdContent(epdContent);
 
   setCurrentScreen(SCREEN_CUSTOM);
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
@@ -487,18 +462,20 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
   if (settings.containsKey("fgColor"))
   {
     String fgColor = settings["fgColor"].as<String>();
-    preferences.putUInt("fgColor", strtol(fgColor.c_str(), NULL, 16));
-    setFgColor(int(strtol(fgColor.c_str(), NULL, 16)));
+    uint32_t color = strtol(fgColor.c_str(), NULL, 16);
+    preferences.putUInt("fgColor", color);
+    setFgColor(color);
     Serial.print(F("Setting foreground color to "));
-    Serial.println(strtol(fgColor.c_str(), NULL, 16));
+    Serial.println(color);
     settingsChanged = true;
   }
   if (settings.containsKey("bgColor"))
   {
     String bgColor = settings["bgColor"].as<String>();
 
-    preferences.putUInt("bgColor", strtol(bgColor.c_str(), NULL, 16));
-    setBgColor(int(strtol(bgColor.c_str(), NULL, 16)));
+    uint32_t color = strtol(bgColor.c_str(), NULL, 16);
+    preferences.putUInt("bgColor", color);
+    setBgColor(color);
     Serial.print(F("Setting background color to "));
     Serial.println(bgColor.c_str());
     settingsChanged = true;
@@ -510,8 +487,6 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
                         settings["timePerScreen"].as<uint>() * 60);
   }
 
-  String strSettings[] = {"hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl"};
-
   for (String setting : strSettings)
   {
     if (settings.containsKey(setting))
@@ -522,7 +497,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
   }
 
-  String uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout", "srcV2Currency"};
+
 
   for (String setting : uintSettings)
   {
@@ -541,16 +516,6 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     Serial.printf("Setting %s to %d (%d minutes, written %d)\r\n", "gmtOffset",
                   gmtOffset, settings["tzOffset"].as<int>(), written);
   }
-
-  String boolSettings[] = {"fetchEurPrice", "ledTestOnPower", "ledFlashOnUpd",
-                           "mdnsEnabled", "otaEnabled", "stealFocus",
-                           "mcapBigChar", "useSatsSymbol", "useBlkCountdown",
-                           "suffixPrice", "disableLeds", "ownDataSource",
-                           "mowMode", "suffixShareDot", "flOffWhenDark",
-                           "flAlwaysOn", "flDisable", "flFlashOnUpd",
-                           "mempoolSecure", "useNostr", "bitaxeEnabled",
-                           "miningPoolStats", "verticalDesc",
-                           "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
 
   for (String setting : boolSettings)
   {
@@ -619,7 +584,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
   }
 
-  request->send(200);
+  request->send(HTTP_OK);
   if (settingsChanged)
   {
     queueLedEffect(LED_FLASH_SUCCESS);
@@ -628,7 +593,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
 void onApiRestart(AsyncWebServerRequest *request)
 {
-  request->send(200);
+  request->send(HTTP_OK);
 
   if (events.count())
     events.send("closing");
@@ -642,7 +607,7 @@ void onApiIdentify(AsyncWebServerRequest *request)
 {
   queueLedEffect(LED_FLASH_IDENTIFY);
 
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 /**
@@ -771,7 +736,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
 
   AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+      request->beginResponseStream(JSON_CONTENT);
   serializeJson(root, *response);
 
   request->send(response);
@@ -783,8 +748,9 @@ bool processEpdColorSettings(AsyncWebServerRequest *request)
   if (request->hasParam("fgColor", true))
   {
     const AsyncWebParameter *fgColor = request->getParam("fgColor", true);
-    preferences.putUInt("fgColor", strtol(fgColor->value().c_str(), NULL, 16));
-    setFgColor(int(strtol(fgColor->value().c_str(), NULL, 16)));
+    uint32_t color = strtol(fgColor->value().c_str(), NULL, 16);
+    preferences.putUInt("fgColor", color);
+    setFgColor(color);
     // Serial.print(F("Setting foreground color to "));
     // Serial.println(fgColor->value().c_str());
     settingsChanged = true;
@@ -793,8 +759,9 @@ bool processEpdColorSettings(AsyncWebServerRequest *request)
   {
     const AsyncWebParameter *bgColor = request->getParam("bgColor", true);
 
-    preferences.putUInt("bgColor", strtol(bgColor->value().c_str(), NULL, 16));
-    setBgColor(int(strtol(bgColor->value().c_str(), NULL, 16)));
+    uint32_t color = strtol(bgColor->value().c_str(), NULL, 16);
+    preferences.putUInt("bgColor", color);
+    setBgColor(color);
     // Serial.print(F("Setting background color to "));
     // Serial.println(bgColor->value().c_str());
     settingsChanged = true;
@@ -806,7 +773,7 @@ bool processEpdColorSettings(AsyncWebServerRequest *request)
 void onApiSystemStatus(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+      request->beginResponseStream(JSON_CONTENT);
 
   JsonDocument root;
 
@@ -848,19 +815,19 @@ void onApiSetWifiTxPower(AsyncWebServerRequest *request)
       if (WiFi.setTxPower(static_cast<wifi_power_t>(txPower)))
       {
         preferences.putInt("txPower", txPower);
-        request->send(200, "application/json", "{\"setTxPower\": \"ok\"}");
+        request->send(HTTP_OK, "application/json", "{\"setTxPower\": \"ok\"}");
         return;
       }
     }
   }
 
-  return request->send(400);
+  return request->send(HTTP_BAD_REQUEST);
 }
 
 void onApiLightsStatus(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+      request->beginResponseStream(JSON_CONTENT);
 
   serializeJson(getLedStatusObject()["data"], *response);
 
@@ -870,7 +837,7 @@ void onApiLightsStatus(AsyncWebServerRequest *request)
 void onApiStopDataSources(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+      request->beginResponseStream(JSON_CONTENT);
 
   stopPriceNotify();
   stopBlockNotify();
@@ -881,7 +848,7 @@ void onApiStopDataSources(AsyncWebServerRequest *request)
 void onApiRestartDataSources(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+      request->beginResponseStream(JSON_CONTENT);
 
   restartPriceNotify();
   restartBlockNotify();
@@ -894,7 +861,7 @@ void onApiRestartDataSources(AsyncWebServerRequest *request)
 void onApiLightsOff(AsyncWebServerRequest *request)
 {
   setLights(0, 0, 0);
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 void onApiLightsSetColor(AsyncWebServerRequest *request)
@@ -902,7 +869,7 @@ void onApiLightsSetColor(AsyncWebServerRequest *request)
   if (request->hasParam("c"))
   {
     AsyncResponseStream *response =
-        request->beginResponseStream("application/json");
+        request->beginResponseStream(JSON_CONTENT);
 
     String rgbColor = request->getParam("c")->value();
 
@@ -926,7 +893,7 @@ void onApiLightsSetColor(AsyncWebServerRequest *request)
   }
   else
   {
-    request->send(400);
+    request->send(HTTP_BAD_REQUEST);
   }
 }
 
@@ -943,7 +910,7 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
     }
 
     Serial.printf("Invalid values for LED set %d\n", lights.size());
-    request->send(400);
+    request->send(HTTP_BAD_REQUEST);
     return;
   }
 
@@ -964,14 +931,14 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
                   &green, &blue) == 3)
       {
         Serial.printf("Invalid hex for LED %d\n", i);
-        request->send(400);
+        request->send(HTTP_BAD_REQUEST);
         return;
       }
     }
     else
     {
       Serial.printf("No valid color for LED %d\n", i);
-      request->send(400);
+      request->send(HTTP_BAD_REQUEST);
       return;
     }
 
@@ -982,7 +949,7 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
   pixels.show();
   saveLedState();
 
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 void onIndex(AsyncWebServerRequest *request)
@@ -992,48 +959,14 @@ void onIndex(AsyncWebServerRequest *request)
 
 void onNotFound(AsyncWebServerRequest *request)
 {
-  // Serial.printf("NotFound, URL[%s]\n", request->url());
-
-  // Serial.printf("NotFound, METHOD[%s]\n", request->methodToString());
-
-  // int headers = request->headers();
-  // int i;
-  // for (i = 0; i < headers; i++)
-  // {
-  //     AsyncWebHeader *h = request->getHeader(i);
-  //     Serial.printf("NotFound HEADER[%s]: %s\n", h->name().c_str(),
-  //     h->value().c_str());
-  // }
-
-  // int params = request->params();
-  // for (int i = 0; i < params; i++)
-  // {
-  //     const AsyncWebParameter *p = request->getParam(i);
-  //     if (p->isFile())
-  //     { // p->isPost() is also true
-  //         Serial.printf("NotFound FILE[%s]: %s, size: %u\n",
-  //         p->name().c_str(), p->value().c_str(), p->size());
-  //     }
-  //     else if (p->isPost())
-  //     {
-  //         Serial.printf("NotFound POST[%s]: %s\n", p->name().c_str(),
-  //         p->value().c_str());
-  //     }
-  //     else
-  //     {
-  //         Serial.printf("NotFound GET[%s]: %s\n", p->name().c_str(),
-  //         p->value().c_str());
-  //     }
-  // }
-
-  // Access-Control-Request-Method == POST might be better
+   // Access-Control-Request-Method == POST might be better
 
   if (request->method() == HTTP_OPTIONS ||
       request->hasHeader("Sec-Fetch-Mode"))
   {
     // Serial.printf("NotFound, Return[%d]\n", 200);
 
-    request->send(200);
+    request->send(HTTP_OK);
   }
   else
   {
@@ -1069,7 +1002,7 @@ void onApiShowCurrency(AsyncWebServerRequest *request)
     setCurrentCurrency(curChar);
     setCurrentScreen(getCurrentScreen());
 
-    request->send(200);
+    request->send(HTTP_OK);
     return;
   }
   request->send(404);
@@ -1080,13 +1013,13 @@ void onApiFrontlightOn(AsyncWebServerRequest *request)
 {
   frontlightFadeInAll();
 
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 void onApiFrontlightStatus(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response =
-      request->beginResponseStream("application/json");
+      request->beginResponseStream(JSON_CONTENT);
 
   JsonDocument root;
 
@@ -1105,7 +1038,7 @@ void onApiFrontlightFlash(AsyncWebServerRequest *request)
 {
   frontlightFlash(preferences.getUInt("flEffectDelay"));
 
-  request->send(200);
+  request->send(HTTP_OK);
 }
 
 void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
@@ -1113,11 +1046,11 @@ void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
   if (request->hasParam("b"))
   {
     frontlightSetBrightness(request->getParam("b")->value().toInt());
-    request->send(200);
+    request->send(HTTP_OK);
   }
   else
   {
-    request->send(400);
+    request->send(HTTP_BAD_REQUEST);
   }
 }
 
@@ -1125,6 +1058,6 @@ void onApiFrontlightOff(AsyncWebServerRequest *request)
 {
   frontlightFadeOutAll();
 
-  request->send(200);
+  request->send(HTTP_OK);
 }
 #endif
