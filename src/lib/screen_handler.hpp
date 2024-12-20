@@ -6,7 +6,7 @@
 
 #include <data_handler.hpp>
 #include <bitaxe_handler.hpp>
-#include <mining_pool_stats_handler.hpp>
+#include "lib/mining_pool/mining_pool_stats_handler.hpp"
 
 #include "lib/epd.hpp"
 #include "lib/shared.hpp"

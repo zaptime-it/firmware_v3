@@ -1,7 +1,7 @@
 #include "mining_pool_stats_handler.hpp"
 #include <iostream>
 
-std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string text)
+std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string text, const MiningPoolInterface& pool)
 {
     std::array<std::string, NUM_SCREENS> ret;
     ret.fill(""); // Initialize all elements to empty strings
@@ -55,15 +55,18 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(std::string te
 
     ret[NUM_SCREENS - 1] = label;
 
-  
-    ret[0] = "mdi:miningpool";
+    if (pool.hasLogo()) {
+        ret[0] = "mdi:miningpool";
+    } else {
+        ret[0] = pool.getDisplayLabel();
+    }
    
 
     return ret;
 }
 
 
-std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int sats, std::string label)
+std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int sats, std::string label, const MiningPoolInterface& pool)
 {
     std::array<std::string, NUM_SCREENS> ret;
     ret.fill(""); // Initialize all elements to empty strings
@@ -109,7 +112,11 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int sats,
 
     ret[NUM_SCREENS - 1] = label;
 
-    ret[0] = "mdi:miningpool";
+    if (pool.hasLogo()) {
+        ret[0] = "mdi:miningpool";
+    } else {
+        ret[0] = pool.getDisplayLabel();
+    }
 
     return ret;
 }

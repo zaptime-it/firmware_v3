@@ -5,6 +5,9 @@
 #include "noderunners/noderunners_pool.hpp"
 #include "braiins/brains_pool.hpp"
 #include "ocean/ocean_pool.hpp"
+#include "satoshi_radio/satoshi_radio_pool.hpp"
+#include "public_pool/public_pool.hpp"
+#include "gobrrr_pool/gobrrr_pool.hpp"
 
 class PoolFactory {
     public:
@@ -13,7 +16,10 @@ class PoolFactory {
         return {
             MINING_POOL_NAME_OCEAN,
             MINING_POOL_NAME_NODERUNNERS,
-            MINING_POOL_NAME_BRAIINS
+            MINING_POOL_NAME_SATOSHI_RADIO,
+            MINING_POOL_NAME_BRAIINS,
+            MINING_POOL_NAME_PUBLIC_POOL,
+            MINING_POOL_NAME_GOBRRR_POOL
         };
     }
     
@@ -32,4 +38,7 @@ class PoolFactory {
         static const char* MINING_POOL_NAME_OCEAN;
         static const char* MINING_POOL_NAME_NODERUNNERS;
         static const char* MINING_POOL_NAME_BRAIINS;
+        static const char* MINING_POOL_NAME_SATOSHI_RADIO;
+        static const char* MINING_POOL_NAME_PUBLIC_POOL;
+        static const char* MINING_POOL_NAME_GOBRRR_POOL;
 };

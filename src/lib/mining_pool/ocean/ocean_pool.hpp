@@ -10,6 +10,9 @@ public:
     std::string getApiUrl() const override;
     PoolStats parseResponse(const JsonDocument& doc) const override;
     LogoData getLogo() const override;
+    bool hasLogo() const override { return true; }
+    std::string getDisplayLabel() const override { return "OCEAN/POOL"; } // Fallback if needed
     bool supportsDailyEarnings() const override { return true; }
     std::string getDailyEarningsLabel() const override { return "sats/block"; }
+    
 };

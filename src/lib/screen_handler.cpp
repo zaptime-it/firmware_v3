@@ -38,10 +38,10 @@ void workerTask(void *pvParameters) {
         case TASK_MINING_POOL_STATS_UPDATE: {
           if (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE) {
           taskEpdContent =
-                parseMiningPoolStatsHashRate(getMiningPoolStatsHashRate());
+                parseMiningPoolStatsHashRate(getMiningPoolStatsHashRate(), *getMiningPool());
           } else if (getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS) {
           taskEpdContent =
-                parseMiningPoolStatsDailyEarnings(getMiningPoolStatsDailyEarnings(), getMiningPool()->getDailyEarningsLabel());
+                parseMiningPoolStatsDailyEarnings(getMiningPoolStatsDailyEarnings(), getMiningPool()->getDailyEarningsLabel(), *getMiningPool());
           }
           setEpdContent(taskEpdContent);
           break;

@@ -4,7 +4,7 @@
 #include "lib/mining_pool/mining_pool_interface.hpp"
 #include <icons/icons.h>
 
-class NodeRunnersPool : public MiningPoolInterface {
+class NoderunnersPool : public MiningPoolInterface {
 public:
     void setPoolUser(const std::string& user) override { poolUser = user; }
 
@@ -14,7 +14,9 @@ public:
     LogoData getLogo() const override;
     bool supportsDailyEarnings() const override { return false; }
     std::string getDailyEarningsLabel() const override { return ""; }
+    bool hasLogo() const override { return true; }
+    std::string getDisplayLabel() const override { return "NODE/RUNNERS"; } // Fallback if needed
 
-private:
+protected:
     static int getHashrateMultiplier(char unit);
 };

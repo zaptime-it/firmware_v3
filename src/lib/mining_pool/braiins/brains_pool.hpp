@@ -12,6 +12,8 @@ public:
     PoolStats parseResponse(const JsonDocument &doc) const override;
     LogoData getLogo() const override;
     bool supportsDailyEarnings() const override { return true; }
+    bool hasLogo() const override { return true; }
+    std::string getDisplayLabel() const override { return "BRAIINS/POOL"; } // Fallback if needed
     std::string getDailyEarningsLabel() const override { return "sats/earned"; }
 private:
     static int getHashrateMultiplier(const std::string &unit);
