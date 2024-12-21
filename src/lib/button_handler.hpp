@@ -8,6 +8,13 @@
 
 extern TaskHandle_t buttonTaskHandle;
 
+// Task and setup functions
 void buttonTask(void *pvParameters);
 void IRAM_ATTR handleButtonInterrupt();
 void setupButtonTask();
+
+// Individual button handlers
+void handleButton1();
+void handleButton2();
+void handleButton3();
+void handleButton4();

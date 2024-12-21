@@ -466,32 +466,34 @@ void setupHardware()
 
   Wire.begin(I2C_SDA_PIN, I2C_SCK_PIN, 400000);
 
-  if (!mcp1.begin())
-  {
+  if (!mcp1.begin()) {
     Serial.println(F("Error MCP23017 1"));
-
-    // while (1)
-    //         ;
-  }
-  else
-  {
+  } else {
     pinMode(MCP_INT_PIN, INPUT_PULLUP);
-//    mcp1.setupInterrupts(false, false, LOW);
-    mcp1.enableControlRegister(MCP23x17_IOCR_ODR);
-
-    mcp1.mirrorInterrupts(true);
-
-    for (int i = 0; i < 4; i++)
-    {
-      mcp1.pinMode1(i, INPUT_PULLUP);
-      mcp1.enableInterrupt(i, LOW);
+    
+    // Enable mirrored interrupts (both INTA and INTB pins signal any interrupt)
+    if (!mcp1.mirrorInterrupts(true)) {
+        Serial.println(F("Error setting up mirrored interrupts"));
     }
-#ifndef IS_BTCLOCK_V8
-    for (int i = 8; i <= 14; i++)
-    {
-      mcp1.pinMode1(i, OUTPUT);
+
+    // Configure all 4 button pins as inputs with pullups and interrupts
+    for (int i = 0; i < 4; i++) {
+        if (!mcp1.pinMode1(i, INPUT_PULLUP)) {
+            Serial.printf("Error setting pin %d to input pull up\n", i);
+        }
+        // Enable interrupt on CHANGE for each pin
+        if (!mcp1.enableInterrupt(i, CHANGE)) {
+            Serial.printf("Error enabling interrupt for pin %d\n", i);
+        }
     }
-#endif
+
+    // Set interrupt pins as open drain with active-low polarity
+    if (!mcp1.setInterruptPolarity(2)) { // 2 = Open drain
+        Serial.println(F("Error setting interrupt polarity"));
+    }
+
+    // Clear any pending interrupts
+    mcp1.getInterruptCaptureRegister();
   }
 
 #ifdef IS_HW_REV_B

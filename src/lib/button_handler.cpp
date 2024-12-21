@@ -19,39 +19,50 @@ TickType_t lastDebounceTime = 0;
 void buttonTask(void *parameter) {
   while (1) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    std::lock_guard<std::mutex> lock(mcpMutex);
-
+    
     TickType_t currentTime = xTaskGetTickCount();
-
+    
     if ((currentTime - lastDebounceTime) >= debounceDelay) {
       lastDebounceTime = currentTime;
-
+      
+      std::lock_guard<std::mutex> lock(mcpMutex);
+      
       if (!digitalRead(MCP_INT_PIN)) {
-        uint pin = mcp1.getInterruptFlagRegister();
-
-        switch (pin) {
-          case BTN_1:
-            toggleTimerActive();
-            break;
-          case BTN_2:
-            nextScreen();
-            break;
-          case BTN_3:
-            previousScreen();
-            break;
-          case BTN_4:
-            showSystemStatusScreen();
-            break;
-        }
+        uint16_t intFlags = mcp1.getInterruptFlagRegister();
+        uint16_t intCap = mcp1.getInterruptCaptureRegister();
+                
+        // Check each button individually
+        if (intFlags & BTN_1) handleButton1();
+        if (intFlags & BTN_2) handleButton2();
+        if (intFlags & BTN_3) handleButton3();
+        if (intFlags & BTN_4) handleButton4();
       }
-      mcp1.getInterruptCaptureRegister();
-    } else {
     }
-    // Very ugly, but for some reason this is necessary
+    
+    // Clear interrupt state
     while (!digitalRead(MCP_INT_PIN)) {
+      std::lock_guard<std::mutex> lock(mcpMutex);
       mcp1.getInterruptCaptureRegister();
+      delay(1);  // Small delay to prevent tight loop
     }
   }
+}
+
+// Helper functions to handle each button
+void handleButton1() {
+  toggleTimerActive();
+}
+
+void handleButton2() {
+  nextScreen();
+}
+
+void handleButton3() {
+  previousScreen();
+}
+
+void handleButton4() {
+  showSystemStatusScreen();
 }
 
 void IRAM_ATTR handleButtonInterrupt() {
@@ -67,4 +78,5 @@ void setupButtonTask() {
               &buttonTaskHandle);  // Create the FreeRTOS task
   // Use interrupt instead of task
   attachInterrupt(MCP_INT_PIN, handleButtonInterrupt, CHANGE);
+  Serial.printf("Button task created\n");
 }
