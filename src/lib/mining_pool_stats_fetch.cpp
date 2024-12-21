@@ -93,7 +93,7 @@ void setupMiningPoolStatsFetchTask()
                 "logoDownload", 
                 (6 * 1024),  
                 NULL, 
-                12,
+                tskIDLE_PRIORITY,
                 NULL);
 
     xTaskCreate(taskMiningPoolStatsFetch, 

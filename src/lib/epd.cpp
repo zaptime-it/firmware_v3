@@ -149,25 +149,6 @@ void forceFullRefresh()
   }
 }
 
-void refreshFromMemory()
-{
-  for (uint i = 0; i < NUM_SCREENS; i++)
-  {
-    int *taskParam = new int;
-    *taskParam = i;
-
-    xTaskCreate(
-        [](void *pvParameters)
-        {
-          const int epdIndex = *(int *)pvParameters;
-          delete (int *)pvParameters;
-          displays[epdIndex].refresh(false);
-          vTaskDelete(NULL);
-        },
-        "PrepareUpd", 4096, taskParam, tskIDLE_PRIORITY, NULL);
-  }
-}
-
 void setupDisplays()
 {
   std::lock_guard<std::mutex> lockMcp(mcpMutex);

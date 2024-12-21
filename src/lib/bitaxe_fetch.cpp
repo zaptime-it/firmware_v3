@@ -54,7 +54,7 @@ void taskBitaxeFetch(void *pvParameters)
 
 void setupBitaxeFetchTask()
 {
-    xTaskCreate(taskBitaxeFetch, "bitaxeFetch", (6 * 1024), NULL, tskIDLE_PRIORITY,
+    xTaskCreate(taskBitaxeFetch, "bitaxeFetch", (3 * 1024), NULL, tskIDLE_PRIORITY,
                 &bitaxeFetchTaskHandle);
 
     xTaskNotifyGive(bitaxeFetchTaskHandle);

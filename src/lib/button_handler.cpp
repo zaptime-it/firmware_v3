@@ -78,5 +78,4 @@ void setupButtonTask() {
               &buttonTaskHandle);  // Create the FreeRTOS task
   // Use interrupt instead of task
   attachInterrupt(MCP_INT_PIN, handleButtonInterrupt, CHANGE);
-  Serial.printf("Button task created\n");
 }

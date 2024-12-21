@@ -26,7 +26,6 @@ typedef struct {
 } UpdateDisplayTaskItem;
 
 void forceFullRefresh();
-void refreshFromMemory();
 void setupDisplays();
 
 void splitText(const uint dispNum, const String &top, const String &bottom,
