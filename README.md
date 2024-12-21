@@ -16,21 +16,21 @@ Biggest differences with v2 are:
 
 New features:
 - BitAxe integration
-- Zap notifier
-- Braiins Pool and Ocean mining stats integration
+- Nostr Zap notifier
+- Multiple mining pool stats integrations
 
 "Steal focus on new block" means that when a new block is mined, the display will switch to the block height screen if it's not on it already.
 
-Most [information](https://github.com/btclock/btclock_v2/wiki) about BTClock v2 is still valid for this version.
+See the [docs](https://git.btclock.dev/btclock/docs) repo for more information and building instructions.
 
 **NOTE**: The software assumes that the hardware is run in a controlled private network. ~~The Web UI and the OTA update mechanism are not password protected and accessible to anyone in the network. Also, since the device only fetches numbers through WebSockets it will skip server certificate verification to save resources.~~ Since 3.2.0 the WebUI is password protectable and all certificates are verified. OTA update mechanism is not password-protected. 
 
 ## Building
 
-Use PlatformIO to build it yourself. Make sure you fetch the [WebUI](https://github.com/btclock/webui) submodule.
+Use PlatformIO to build it yourself. Make sure you fetch the [WebUI](https://git.btclock.dev/btclock/webui) submodule.
 
 
-## Braiins Pool and Ocean integration
+## Mining pool stats
 Enable mining pool stats by accessing your btclock's web UI (point a web browser at the device's IP address).
 
 Under Settings -> Extra Features: toggle Enable Mining Pool Stats.
@@ -40,6 +40,8 @@ New options will appear. Select your mining pool and enter your pool username (O
 The Mining Pool Earnings screen displays:
 * Braiins: Today's mining reward thus far
 * Ocean: Your estimated earnings if the pool were to find a block right now
+
+For solo mining pools, there are no earning estimations. Your username is the onchain withdrawal address, without the worker name.
 
 
 ### Braiins Pool integration
