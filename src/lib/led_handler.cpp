@@ -176,7 +176,7 @@ std::vector<uint16_t> frontlightGetStatus()
   return statuses;
 }
 
-inline bool frontlightIsOn()
+bool frontlightIsOn()
 {
   return frontlightOn;
 }
