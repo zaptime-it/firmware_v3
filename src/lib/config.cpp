@@ -100,7 +100,7 @@ void setup()
     setupMiningPoolStatsFetchTask();
   }
 
-  setupButtonTask();
+  ButtonHandler::setup();
   setupOTA();
 
   waitUntilNoneBusy();
@@ -482,7 +482,7 @@ void setupHardware()
             Serial.printf("Error setting pin %d to input pull up\n", i);
         }
         // Enable interrupt on CHANGE for each pin
-        if (!mcp1.enableInterrupt(i, FALLING)) {
+        if (!mcp1.enableInterrupt(i, CHANGE)) {
             Serial.printf("Error enabling interrupt for pin %d\n", i);
         }
     }

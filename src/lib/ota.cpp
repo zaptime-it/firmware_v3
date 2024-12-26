@@ -64,11 +64,10 @@ void onOTAStart()
   // Stop or suspend all tasks
   //  vTaskSuspend(priceUpdateTaskHandle);
   //    vTaskSuspend(blockUpdateTaskHandle);
-  vTaskSuspend(workerTaskHandle);
   vTaskSuspend(taskScreenRotateTaskHandle);
-
-//  vTaskSuspend(ledTaskHandle);
-  vTaskSuspend(buttonTaskHandle);
+  vTaskSuspend(workerTaskHandle);
+  vTaskSuspend(eventSourceTaskHandle);
+  ButtonHandler::suspendTask();
 
   // stopWebServer();
   stopBlockNotify();

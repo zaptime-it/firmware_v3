@@ -6,24 +6,6 @@
 #include "lib/shared.hpp"
 #include "lib/timers.hpp"
 
-extern TaskHandle_t buttonTaskHandle;
-
-// Task and setup functions
-void buttonTask(void *pvParameters);
-void IRAM_ATTR handleButtonInterrupt();
-void setupButtonTask();
-
-// Individual button handlers
-void handleButton1();
-void handleButton2();
-void handleButton3();
-void handleButton4();
-
-// New features
-const TickType_t debounceDelay = pdMS_TO_TICKS(50);
-const TickType_t doubleClickDelay = pdMS_TO_TICKS(300);  // Maximum time between clicks for double click
-const TickType_t longPressDelay = pdMS_TO_TICKS(1000);   // Time to hold for long press
-
 // Track timing for each button
 struct ButtonState {
     TickType_t lastPressTime = 0;
@@ -33,22 +15,40 @@ struct ButtonState {
     bool longPressHandled = false;
 };
 
-extern ButtonState buttonStates[4];
+class ButtonHandler {
+private:
+    static const TickType_t debounceDelay = pdMS_TO_TICKS(50);
+    static const TickType_t doubleClickDelay = pdMS_TO_TICKS(1000);  // Maximum time between clicks for double click
+    static const TickType_t longPressDelay = pdMS_TO_TICKS(1500);   // Time to hold for long press
 
-#ifdef IS_BTCLOCK_V8
-#define BTN_1 256
-#define BTN_2 512
-#define BTN_3 1024
-#define BTN_4 2048
-#else
-#define BTN_1 2048
-#define BTN_2 1024
-#define BTN_3 512
-#define BTN_4 256
-#endif
+    static ButtonState buttonStates[4];
+    static TaskHandle_t buttonTaskHandle;
 
-void handleButtonPress(int buttonIndex);
-void handleButtonRelease(int buttonIndex);
-void handleSingleClick(int buttonIndex);
-void handleDoubleClick(int buttonIndex);
-void handleLongPress(int buttonIndex);
+    // Button handlers
+    static void handleButtonPress(int buttonIndex);
+    static void handleButtonRelease(int buttonIndex);
+    static void handleSingleClick(int buttonIndex);
+    static void handleDoubleClick(int buttonIndex);
+    static void handleLongPress(int buttonIndex);
+
+    // Task function
+    static void buttonTask(void *pvParameters);
+
+public:
+    static void setup();
+    static void IRAM_ATTR handleButtonInterrupt();
+    static void suspendTask() { if (buttonTaskHandle != NULL) vTaskSuspend(buttonTaskHandle); }
+    static void resumeTask() { if (buttonTaskHandle != NULL) vTaskResume(buttonTaskHandle); }
+
+    #ifdef IS_BTCLOCK_V8
+    static const uint16_t BTN_1 = 256;
+    static const uint16_t BTN_2 = 512;
+    static const uint16_t BTN_3 = 1024;
+    static const uint16_t BTN_4 = 2048;
+    #else
+    static const uint16_t BTN_1 = 2048;
+    static const uint16_t BTN_2 = 1024;
+    static const uint16_t BTN_3 = 512;
+    static const uint16_t BTN_4 = 256;
+    #endif
+};
