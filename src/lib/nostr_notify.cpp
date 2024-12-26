@@ -63,9 +63,7 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
                 nostrIsConnected = (status == nostr::ConnectionStatus::CONNECTED);
                 if (!nostrIsConnected) {
                     nostrIsSubscribed = false;
-                }
-                
-                Serial.println("[ Nostr ] Connection status changed: " + String(STATUS_STRINGS[statusIndex])); 
+                }                
             });
         }
 

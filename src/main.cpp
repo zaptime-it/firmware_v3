@@ -102,6 +102,7 @@ void checkMissedBlocks() {
 
 
 void monitorDataConnections() {
+ 
   // Price notification monitoring
   if (getPriceNotifyInit() && !preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE) && !isPriceNotifyConnected()) {
     handlePriceNotifyDisconnection();
@@ -134,6 +135,9 @@ extern "C" void app_main() {
   Serial.begin(115200);
   setup();
 
+  bool ownDataSource = preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE);
+
+
   while (true) {
     if (eventSourceTaskHandle != NULL) {
       xTaskNotifyGive(eventSourceTaskHandle);
@@ -142,7 +146,10 @@ extern "C" void app_main() {
     if (!getIsOTAUpdating()) {
       handleFrontlight();
       checkWiFiConnection();
-      monitorDataConnections();
+
+      if (!ownDataSource) {
+        monitorDataConnections();
+      }
 
       if (getUptime() - getLastTimeSync() > 24 * 60 * 60) {
         Serial.println(F("Last time update is longer than 24 hours ago, sync again"));

@@ -34,11 +34,12 @@ namespace V2Notify
         switch (type)
         {
         case WStype_DISCONNECTED:
-            Serial.printf("[WSc] Disconnected!\n");
+            Serial.print(F("[WSc] Disconnected!\n"));
             break;
         case WStype_CONNECTED:
         {
-            Serial.printf("[WSc] Connected to url: %s\n", payload);
+            Serial.print(F("[WSc] Connected to url:"));
+            Serial.println((char *)payload);
 
             JsonDocument response;
 
@@ -81,7 +82,8 @@ namespace V2Notify
             break;
         }
         case WStype_TEXT:
-            Serial.printf("[WSc] get text: %s\n", payload);
+            Serial.print(F("[WSc] get text: "));
+            Serial.println((char *)payload);
 
             // send message to server
             // webSocket.sendTXT("message here");

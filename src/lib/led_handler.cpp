@@ -6,7 +6,7 @@ Adafruit_NeoPixel pixels(NEOPIXEL_COUNT, NEOPIXEL_PIN, NEO_GRB + NEO_KHZ800);
 uint ledTaskParams;
 
 #ifdef HAS_FRONTLIGHT
-#define FL_FADE_STEP 25
+constexpr uint16_t FL_FADE_STEP = 25;
 
 bool frontlightOn = false;
 bool flInTransition = false;
@@ -68,18 +68,15 @@ void frontlightFadeInAll(int flDelayTime)
 
 void frontlightFadeInAll(int flDelayTime, bool staggered)
 {
-  if (preferences.getBool("flDisable"))
-    return;
-  if (frontlightIsOn())
-    return;
-  if (flInTransition)
+  if (preferences.getBool("flDisable") || frontlightIsOn() || flInTransition)
     return;
 
   flInTransition = true;
 
+  const int maxBrightness = preferences.getUInt("flMaxBrightness");
+
   if (staggered)
   {
-    int maxBrightness = preferences.getUInt("flMaxBrightness");
     int step = FL_FADE_STEP;
     int staggerDelay = flDelayTime / NUM_SCREENS;
 
@@ -100,7 +97,7 @@ void frontlightFadeInAll(int flDelayTime, bool staggered)
   }
   else
   {
-    for (int dutyCycle = 0; dutyCycle <= preferences.getUInt("flMaxBrightness"); dutyCycle += FL_FADE_STEP)
+    for (int dutyCycle = 0; dutyCycle <= maxBrightness; dutyCycle += FL_FADE_STEP)
     {
       for (int ledPin = 0; ledPin <= NUM_SCREENS; ledPin++)
       {
@@ -179,7 +176,7 @@ std::vector<uint16_t> frontlightGetStatus()
   return statuses;
 }
 
-bool frontlightIsOn()
+inline bool frontlightIsOn()
 {
   return frontlightOn;
 }
@@ -225,7 +222,7 @@ void ledTask(void *parameter)
           continue;
         }
 
-        uint32_t oldLights[NEOPIXEL_COUNT];
+        std::array<uint32_t, NEOPIXEL_COUNT> oldLights;
 
         // get current state
         for (int i = 0; i < NEOPIXEL_COUNT; i++)
@@ -498,7 +495,7 @@ void blinkDelay(int d, int times)
   pixels.show();
 }
 
-void blinkDelayColor(int d, int times, uint r, uint g, uint b)
+void blinkDelayColor(int d, int times, uint r, uint g, uint b) 
 {
   for (int j = 0; j < times; j++)
   {
@@ -518,7 +515,7 @@ void blinkDelayColor(int d, int times, uint r, uint g, uint b)
   pixels.show();
 }
 
-void blinkDelayTwoColor(int d, int times, uint32_t c1, uint32_t c2)
+void blinkDelayTwoColor(int d, int times, const uint32_t& c1, const uint32_t& c2)
 {
   for (int j = 0; j < times; j++)
   {
