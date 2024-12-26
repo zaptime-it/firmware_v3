@@ -200,7 +200,7 @@ void processNewBlock(uint newBlockHeight) {
       xQueueSend(workQueue, &blockUpdate, portMAX_DELAY);
       // xTaskNotifyGive(blockUpdateTaskHandle);
 
-      if (getCurrentScreen() != SCREEN_BLOCK_HEIGHT &&
+      if (ScreenHandler::getCurrentScreen() != SCREEN_BLOCK_HEIGHT &&
           preferences.getBool("stealFocus", DEFAULT_STEAL_FOCUS))
       {
         uint64_t timerPeriod = 0;
@@ -210,7 +210,7 @@ void processNewBlock(uint newBlockHeight) {
           timerPeriod = getTimerSeconds();
           esp_timer_stop(screenRotateTimer);
         }
-        setCurrentScreen(SCREEN_BLOCK_HEIGHT);
+        ScreenHandler::setCurrentScreen(SCREEN_BLOCK_HEIGHT);
         if (timerPeriod > 0)
         {
           esp_timer_start_periodic(screenRotateTimer,

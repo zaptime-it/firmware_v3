@@ -36,7 +36,7 @@ void taskBitaxeFetch(void *pvParameters)
             bitaxeHashrate = std::to_string(static_cast<int>(std::round(doc["hashRate"].as<float>())));
             bitaxeBestDiff = doc["bestDiff"].as<std::string>();
 
-            if (workQueue != nullptr && (getCurrentScreen() == SCREEN_BITAXE_HASHRATE || getCurrentScreen() == SCREEN_BITAXE_BESTDIFF))
+            if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_BESTDIFF))
             {
                 WorkItem priceUpdate = {TASK_BITAXE_UPDATE, 0};
                 xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);

@@ -276,7 +276,7 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
         timerPeriod = getTimerSeconds();
         esp_timer_stop(screenRotateTimer);
     }
-    setCurrentScreen(SCREEN_CUSTOM);
+    ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
 
     setEpdContent(textEpdContent);
     vTaskDelay(pdMS_TO_TICKS(315 * NUM_SCREENS) + pdMS_TO_TICKS(250));

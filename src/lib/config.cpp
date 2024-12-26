@@ -285,9 +285,9 @@ void setupPreferences()
   setPrice(preferences.getUInt("lastPrice", INITIAL_LAST_PRICE), CURRENCY_USD);
 
   if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
-    setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
+    ScreenHandler::setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
   else
-    setCurrentCurrency(CURRENCY_USD);
+    ScreenHandler::setCurrentCurrency(CURRENCY_USD);
 
   if (!preferences.isKey("flDisable")) {
     preferences.putBool("flDisable", isWhiteVersion() ? false : true);
@@ -482,7 +482,7 @@ void setupHardware()
             Serial.printf("Error setting pin %d to input pull up\n", i);
         }
         // Enable interrupt on CHANGE for each pin
-        if (!mcp1.enableInterrupt(i, CHANGE)) {
+        if (!mcp1.enableInterrupt(i, FALLING)) {
             Serial.printf("Error enabling interrupt for pin %d\n", i);
         }
     }

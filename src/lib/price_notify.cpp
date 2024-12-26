@@ -133,9 +133,9 @@ void processNewPrice(uint newPrice, char currency)
     }
     lastUpdateMap[currency] = currentTime;
     // if (abs((int)(oldPrice-currentPrice)) > round(0.0015*oldPrice)) {
-    if (workQueue != nullptr && (getCurrentScreen() == SCREEN_BTC_TICKER ||
-                                 getCurrentScreen() == SCREEN_SATS_PER_CURRENCY ||
-                                 getCurrentScreen() == SCREEN_MARKET_CAP))
+    if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BTC_TICKER ||
+        ScreenHandler::getCurrentScreen() == SCREEN_SATS_PER_CURRENCY ||
+        ScreenHandler::getCurrentScreen() == SCREEN_MARKET_CAP))
     {
       WorkItem priceUpdate = {TASK_PRICE_UPDATE, currency};
       xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);

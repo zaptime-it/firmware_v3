@@ -228,7 +228,7 @@ JsonDocument getStatusObject()
 {
   JsonDocument root;
 
-  root["currentScreen"] = getCurrentScreen();
+  root["currentScreen"] = ScreenHandler::getCurrentScreen();
   root["numScreens"] = NUM_SCREENS;
   root["timerRunning"] = isTimerActive();
   root["espUptime"] = esp_timer_get_time() / 1000000;
@@ -248,7 +248,7 @@ JsonDocument getStatusObject()
   conStatus["nostr"] = nostrConnected();
 
   root["rssi"] = WiFi.RSSI();
-  root["currency"] = getCurrencyCode(getCurrentCurrency());
+  root["currency"] = getCurrencyCode(ScreenHandler::getCurrentCurrency());
 #ifdef HAS_FRONTLIGHT
   std::vector<uint16_t> statuses = frontlightGetStatus();
   uint16_t arr[NUM_SCREENS];
@@ -386,7 +386,7 @@ void onApiShowScreen(AsyncWebServerRequest *request)
   {
     const AsyncWebParameter *p = request->getParam("s");
     uint currentScreen = p->value().toInt();
-    setCurrentScreen(currentScreen);
+    ScreenHandler::setCurrentScreen(currentScreen);
   }
   request->send(HTTP_OK);
 }
@@ -398,9 +398,9 @@ void onApiShowScreen(AsyncWebServerRequest *request)
 void onApiScreenControl(AsyncWebServerRequest *request) {
     const String& action = request->url();
     if (action.endsWith("/next")) {
-        nextScreen();
+        ScreenHandler::nextScreen();
     } else if (action.endsWith("/previous")) {
-        previousScreen();
+        ScreenHandler::previousScreen();
     }
     request->send(HTTP_OK);
 }
@@ -421,7 +421,7 @@ void onApiShowText(AsyncWebServerRequest *request)
 
     setEpdContent(textEpdContent);
   }
-  setCurrentScreen(SCREEN_CUSTOM);
+  ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
   request->send(HTTP_OK);
 }
 
@@ -439,7 +439,7 @@ void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
 
   setEpdContent(epdContent);
 
-  setCurrentScreen(SCREEN_CUSTOM);
+  ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
   request->send(HTTP_OK);
 }
 
@@ -998,8 +998,8 @@ void onApiShowCurrency(AsyncWebServerRequest *request)
 
     char curChar = getCurrencyChar(currency);
 
-    setCurrentCurrency(curChar);
-    setCurrentScreen(getCurrentScreen());
+    ScreenHandler::setCurrentCurrency(curChar);
+    ScreenHandler::setCurrentScreen(ScreenHandler::getCurrentScreen());
 
     request->send(HTTP_OK);
     return;

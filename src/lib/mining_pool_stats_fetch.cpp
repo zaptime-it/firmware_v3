@@ -57,7 +57,7 @@ void taskMiningPoolStatsFetch(void *pvParameters)
                 miningPoolStatsDailyEarnings = 0; // or any other default value
             }
 
-            if (workQueue != nullptr && (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS))
+            if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS))
             {
                 WorkItem priceUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
                 xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
@@ -78,7 +78,7 @@ void downloadMiningPoolLogoTask(void *pvParameters) {
     PoolFactory::downloadPoolLogo(poolName, poolInterface.get());
 
     // If we're on the mining pool stats screen, trigger a display update
-    if (getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE) {
+    if (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE) {
         WorkItem priceUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
         xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
     }
