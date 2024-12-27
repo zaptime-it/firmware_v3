@@ -14,6 +14,7 @@
 #include "lib/price_notify.hpp"
 #include "lib/screen_handler.hpp"
 #include "webserver/OneParamRewrite.hpp"
+#include "lib/mining_pool/pool_factory.hpp"
 
 extern TaskHandle_t eventSourceTaskHandle;
 
@@ -27,8 +28,7 @@ void onApiStatus(AsyncWebServerRequest *request);
 void onApiSystemStatus(AsyncWebServerRequest *request);
 void onApiSetWifiTxPower(AsyncWebServerRequest *request);
 
-void onApiScreenNext(AsyncWebServerRequest *request);
-void onApiScreenPrevious(AsyncWebServerRequest *request);
+void onApiScreenControl(AsyncWebServerRequest *request);
 
 void onApiShowScreen(AsyncWebServerRequest *request);
 void onApiShowCurrency(AsyncWebServerRequest *request);

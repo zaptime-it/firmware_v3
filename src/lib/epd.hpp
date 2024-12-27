@@ -14,6 +14,7 @@
 #include "lib/config.hpp"
 #include "lib/shared.hpp"
 #include "icons/icons.h"
+#include "mining_pool_stats_fetch.hpp"
 
 #ifdef USE_QR
 #include "qrcodegen.h"
@@ -25,7 +26,6 @@ typedef struct {
 } UpdateDisplayTaskItem;
 
 void forceFullRefresh();
-void refreshFromMemory();
 void setupDisplays();
 
 void splitText(const uint dispNum, const String &top, const String &bottom,
@@ -44,7 +44,7 @@ int getFgColor();
 void setBgColor(int color);
 void setFgColor(int color);
 
-void renderIcon(const uint dispNum, const String &text, bool partial);
+bool renderIcon(const uint dispNum, const String &text, bool partial);
 void renderText(const uint dispNum, const String &text, bool partial);
 void renderQr(const uint dispNum, const String &text, bool partial);
 

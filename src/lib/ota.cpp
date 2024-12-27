@@ -64,11 +64,10 @@ void onOTAStart()
   // Stop or suspend all tasks
   //  vTaskSuspend(priceUpdateTaskHandle);
   //    vTaskSuspend(blockUpdateTaskHandle);
-  vTaskSuspend(workerTaskHandle);
   vTaskSuspend(taskScreenRotateTaskHandle);
-
-//  vTaskSuspend(ledTaskHandle);
-  vTaskSuspend(buttonTaskHandle);
+  vTaskSuspend(workerTaskHandle);
+  vTaskSuspend(eventSourceTaskHandle);
+  ButtonHandler::suspendTask();
 
   // stopWebServer();
   stopBlockNotify();
@@ -171,13 +170,12 @@ int downloadUpdateHandler(char updateType)
   break;
   case UPDATE_WEBUI:
   {
-    latestRelease = getLatestRelease("littlefs.bin");
+    latestRelease = getLatestRelease(getWebUiFilename());
     // updateWebUi(latestRelease.fileUrl, U_SPIFFS);
     // return 0;
   }
   break;
   }
-
 
   // First, download the expected SHA256
   String expectedSHA256 = downloadSHA256(latestRelease.checksumUrl);

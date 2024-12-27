@@ -164,3 +164,82 @@ int64_t getAmountInSatoshis(std::string bolt11) {
 
     return satoshis;
 }
+
+void parseHashrateString(const std::string& hashrate, std::string& label, std::string& output, unsigned int maxCharacters) {
+    // Handle empty string or "0" cases
+    if (hashrate.empty() || hashrate == "0") {
+        label = "H/S";
+        output = "0";
+        return;
+    }
+
+    size_t suffixLength = 0;
+    if (hashrate.length() > 21) {
+        label = "ZH/S";
+        suffixLength = 21;
+    } else if (hashrate.length() > 18) {
+        label = "EH/S";
+        suffixLength = 18;
+    } else if (hashrate.length() > 15) {
+        label = "PH/S";
+        suffixLength = 15;
+    } else if (hashrate.length() > 12) {
+        label = "TH/S";
+        suffixLength = 12;
+    } else if (hashrate.length() > 9) {
+        label = "GH/S";
+        suffixLength = 9;
+    } else if (hashrate.length() > 6) {
+        label = "MH/S";
+        suffixLength = 6;
+    } else if (hashrate.length() > 3) {
+        label = "KH/S";
+        suffixLength = 3;
+    } else {
+        label = "H/S";
+        suffixLength = 0;
+    }
+
+        double value = std::stod(hashrate) / std::pow(10, suffixLength);
+
+        // Calculate integer part length
+        int integerPartLength = std::to_string(static_cast<int>(value)).length();
+
+        // Calculate remaining space for decimals
+        int remainingSpace = maxCharacters - integerPartLength;
+
+        char buffer[32];
+        if (remainingSpace <= 0)
+        {
+            // No space for decimals, just round to integer
+            snprintf(buffer, sizeof(buffer), "%.0f", value);
+        }
+        else
+        {
+            // Space for decimal point and some decimals
+            snprintf(buffer, sizeof(buffer), "%.*f", remainingSpace - 1, value);
+        }
+
+        // Remove trailing zeros and decimal point if necessary
+        output = buffer;
+        if (output.find('.') != std::string::npos)
+        {
+            output = output.substr(0, output.find_last_not_of('0') + 1);
+            if (output.back() == '.')
+            {
+                output.pop_back();
+            }
+        }
+  
+}
+
+int getHashrateMultiplier(char unit) {
+    if (unit == '0')
+        return 0;
+
+    static const std::unordered_map<char, int> multipliers = {
+        {'Z', 21}, {'E', 18}, {'P', 15}, {'T', 12},
+        {'G', 9},  {'M', 6},  {'K', 3}
+    };
+    return multipliers.at(unit);
+}

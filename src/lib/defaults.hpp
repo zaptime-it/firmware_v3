@@ -58,6 +58,10 @@
 #define DEFAULT_BITAXE_ENABLED false
 #define DEFAULT_BITAXE_HOSTNAME "bitaxe1"
 
+#define DEFAULT_MINING_POOL_STATS_ENABLED false
+#define DEFAULT_MINING_POOL_NAME "ocean"
+#define DEFAULT_MINING_POOL_USER "38Qkkei3SuF1Eo45BaYmRHUneRD54yyTFy"  // Random actual Ocean hasher
+
 #define DEFAULT_ZAP_NOTIFY_ENABLED false
 #define DEFAULT_ZAP_NOTIFY_PUBKEY "b5127a08cf33616274800a4387881a9f98e04b9c37116e92de5250498635c422"
 #define DEFAULT_LED_FLASH_ON_ZAP true
@@ -71,3 +75,5 @@
 
 #define DEFAULT_GIT_RELEASE_URL "https://git.btclock.dev/api/v1/repos/btclock/btclock_v3/releases/latest"
 #define DEFAULT_VERTICAL_DESC true
+
+#define DEFAULT_MINING_POOL_LOGOS_URL "https://git.btclock.dev/btclock/mining-pool-logos/raw/branch/main"

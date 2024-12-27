@@ -12,11 +12,14 @@
 #include <mbedtls/md.h>
 #include "esp_crt_bundle.h"
 #include <Update.h>
+#include <HTTPClient.h>
 
 #include <mutex>
 #include <utils.hpp>
 
 #include "defaults.hpp"
+
+#define USER_AGENT "BTClock/3.0"
 
 extern MCP23017 mcp1;
 #ifdef IS_BTCLOCK_V8
@@ -42,23 +45,15 @@ const PROGMEM int SCREEN_BLOCK_FEE_RATE = 6;
 const PROGMEM int SCREEN_SATS_PER_CURRENCY = 10;
 
 const PROGMEM int SCREEN_BTC_TICKER = 20;
-// const PROGMEM int SCREEN_BTC_TICKER_USD = 20;
-// const PROGMEM int SCREEN_BTC_TICKER_EUR = 21;
-// const PROGMEM int SCREEN_BTC_TICKER_GBP = 22;
-// const PROGMEM int SCREEN_BTC_TICKER_JPY = 23;
-// const PROGMEM int SCREEN_BTC_TICKER_AUD = 24;
-// const PROGMEM int SCREEN_BTC_TICKER_CAD = 25;
 
 const PROGMEM int SCREEN_MARKET_CAP = 30;
-// const PROGMEM int SCREEN_MARKET_CAP_USD = 30;
-// const PROGMEM int SCREEN_MARKET_CAP_EUR = 31;
-// const PROGMEM int SCREEN_MARKET_CAP_GBP = 32;
-// const PROGMEM int SCREEN_MARKET_CAP_JPY = 33;
-// const PROGMEM int SCREEN_MARKET_CAP_AUD = 34;
-// const PROGMEM int SCREEN_MARKET_CAP_CAD = 35;
+
+const PROGMEM int SCREEN_MINING_POOL_STATS_HASHRATE = 70;
+const PROGMEM int SCREEN_MINING_POOL_STATS_EARNINGS = 71;
 
 const PROGMEM int SCREEN_BITAXE_HASHRATE = 80;
 const PROGMEM int SCREEN_BITAXE_BESTDIFF = 81;
+
 
 const PROGMEM int SCREEN_COUNTDOWN = 98;
 const PROGMEM int SCREEN_CUSTOM = 99;
@@ -92,3 +87,25 @@ struct ScreenMapping {
 
 String calculateSHA256(uint8_t* data, size_t len);
 String calculateSHA256(WiFiClient *stream, size_t contentLength);
+
+namespace ArduinoJson {
+  template <typename T>
+  struct Converter<std::vector<T>> {
+    static void toJson(const std::vector<T>& src, JsonVariant dst) {
+      JsonArray array = dst.to<JsonArray>();
+      for (T item : src)
+        array.add(item);
+    }
+  };
+}
+
+class HttpHelper {
+public:
+    static HTTPClient* begin(const String& url);
+    static void end(HTTPClient* http);
+
+private:
+    static WiFiClientSecure secureClient;
+    static bool certBundleSet;
+    static WiFiClient insecureClient;
+};

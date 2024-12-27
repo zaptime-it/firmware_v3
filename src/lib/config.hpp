@@ -18,6 +18,7 @@
 #include "lib/ota.hpp"
 #include "lib/nostr_notify.hpp"
 #include "lib/bitaxe_fetch.hpp"
+#include "lib/mining_pool_stats_fetch.hpp"
 
 #include "lib/v2_notify.hpp"
 
@@ -32,7 +33,6 @@
 
 #define NTP_SERVER "pool.ntp.org"
 #define DEFAULT_TIME_OFFSET_SECONDS 3600
-#define USER_AGENT "BTClock/3.0"
 #ifndef MCP_DEV_ADDR
 #define MCP_DEV_ADDR 0x20
 #endif
@@ -84,5 +84,5 @@ void addScreenMapping(int value, const char* name);
 int findScreenIndexByValue(int value);
 String replaceAmbiguousChars(String input);
 const char* getFirmwareFilename();
-
+const char* getWebUiFilename();
 // void loadIcons();

@@ -138,30 +138,14 @@ uint8_t qrcode[800];
 #define EPD_TASK_STACK_SIZE 2048
 #endif
 
+#define BUSY_TIMEOUT_COUNT 200
+#define BUSY_RETRY_DELAY pdMS_TO_TICKS(10)
+
 void forceFullRefresh()
 {
   for (uint i = 0; i < NUM_SCREENS; i++)
   {
     lastFullRefresh[i] = NULL;
-  }
-}
-
-void refreshFromMemory()
-{
-  for (uint i = 0; i < NUM_SCREENS; i++)
-  {
-    int *taskParam = new int;
-    *taskParam = i;
-
-    xTaskCreate(
-        [](void *pvParameters)
-        {
-          const int epdIndex = *(int *)pvParameters;
-          delete (int *)pvParameters;
-          displays[epdIndex].refresh(false);
-          vTaskDelete(NULL);
-        },
-        "PrepareUpd", 4096, taskParam, tskIDLE_PRIORITY, NULL);
   }
 }
 
@@ -176,7 +160,7 @@ void setupDisplays()
 
   updateQueue = xQueueCreate(UPDATE_QUEUE_SIZE, sizeof(UpdateDisplayTaskItem));
 
-  xTaskCreate(prepareDisplayUpdateTask, "PrepareUpd", EPD_TASK_STACK_SIZE, NULL, 11, NULL);
+  xTaskCreate(prepareDisplayUpdateTask, "PrepareUpd", EPD_TASK_STACK_SIZE*2, NULL, 11, NULL);
 
   for (uint i = 0; i < NUM_SCREENS; i++)
   {
@@ -275,7 +259,10 @@ void prepareDisplayUpdateTask(void *pvParameters)
       }
       else if (epdContent[epdIndex].startsWith(F("mdi")))
       {
-        renderIcon(epdIndex, epdContent[epdIndex], updatePartial);
+        bool updated = renderIcon(epdIndex, epdContent[epdIndex], updatePartial);
+        if (!updated) {
+          continue;
+        }
       }
       else if (epdContent[epdIndex].length() > 5)
       {
@@ -414,89 +401,36 @@ void splitText(const uint dispNum, const String &top, const String &bottom,
   displays[dispNum].print(bottom);
 }
 
-// void showChars(const uint dispNum, const String &chars, bool partial,
-//                const GFXfont *font)
-// {
-//   displays[dispNum].setRotation(2);
-//   displays[dispNum].setFont(font);
-//   displays[dispNum].setTextColor(getFgColor());
-//   int16_t tbx, tby;
-//   uint16_t tbw, tbh;
+// Consolidate common display setup code into a helper function
+void setupDisplay(const uint dispNum, const GFXfont *font) {
+    displays[dispNum].setRotation(2);
+    displays[dispNum].setFont(font);
+    displays[dispNum].setTextColor(getFgColor());
+    displays[dispNum].fillScreen(getBgColor());
+}
 
-//   displays[dispNum].getTextBounds(chars, 0, 0, &tbx, &tby, &tbw, &tbh);
+void showDigit(const uint dispNum, char chr, bool partial, const GFXfont *font) {
+    String str(chr);
+    if (chr == '.') {
+        str = "!";
+    }
+    
+    setupDisplay(dispNum, font);
+    
+    int16_t tbx, tby;
+    uint16_t tbw, tbh;
+    displays[dispNum].getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-//   // center the bounding box by transposition of the origin:
-//   uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
-//   uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
+    uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
+    uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
 
-//   displays[dispNum].fillScreen(getBgColor());
+    displays[dispNum].setCursor(x, y);
+    displays[dispNum].print(str);
 
-//   displays[dispNum].setCursor(x, y);
-//   displays[dispNum].print(chars);
-
-//   // displays[dispNum].setCursor(10, 3);
-//   // displays[dispNum].setFont(&FONT_SMALL);
-//   // displays[dispNum].setTextColor(getFgColor());
-//   // displays[dispNum].println("Y = " + y);
-// }
-
-void showDigit(const uint dispNum, char chr, bool partial,
-               const GFXfont *font)
-{
-  String str(chr);
-
-  if (chr == '.')
-  {
-    str = "!";
-  }
-  displays[dispNum].setRotation(2);
-  displays[dispNum].setFont(font);
-  displays[dispNum].setTextColor(getFgColor());
-  int16_t tbx, tby;
-  uint16_t tbw, tbh;
-
-  displays[dispNum].getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
-
-  // center the bounding box by transposition of the origin:
-  uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
-  uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
-
-  // if (str.equals("."))
-  // {
-  //   //  int16_t yAdvance = font->yAdvance;
-  //   // uint8_t charIndex = 46 - font->first;
-  //   //    GFXglyph *glyph = (&font->glyph)[charIndex];
-  //   int16_t tbx2, tby2;
-  //   uint16_t tbw2, tbh2;
-  //   displays[dispNum].getTextBounds(".!", 0, 0, &tbx2, &tby2, &tbw2, &tbh2);
-
-  //   y = ((displays[dispNum].height() - tbh2) / 2) - tby2;
-  //   // Serial.print("yAdvance");
-  //   // Serial.println(yAdvance);
-  //   // if (glyph != nullptr) {
-  //   //   Serial.print("height");
-  //   //   Serial.println(glyph->height);
-  //   //   Serial.print("yOffset");
-  //   //   Serial.println(glyph->yOffset);
-  //   // }
-
-  //   //  y = 250-99+18+19;
-  // }
-
-  displays[dispNum].fillScreen(getBgColor());
-
-  displays[dispNum].setCursor(x, y);
-  displays[dispNum].print(str);
-
-  if (chr == '.')
-  {
-    displays[dispNum].fillRect(x, y, displays[dispNum].width(), round(displays[dispNum].height() * 0.9), getBgColor());
-  }
-
-  // displays[dispNum].setCursor(10, 3);
-  // displays[dispNum].setFont(&FONT_SMALL);
-  // displays[dispNum].setTextColor(getFgColor());
-  // displays[dispNum].println("Y = " + y);
+    if (chr == '.') {
+        displays[dispNum].fillRect(x, y, displays[dispNum].width(), 
+            round(displays[dispNum].height() * 0.9), getBgColor());
+    }
 }
 
 int16_t calculateDescent(const GFXfont *font) {
@@ -514,21 +448,16 @@ int16_t calculateDescent(const GFXfont *font) {
 void showChars(const uint dispNum, const String &chars, bool partial,
                const GFXfont *font)
 {
-  displays[dispNum].setRotation(2);
-  displays[dispNum].setFont(font);
-  displays[dispNum].setTextColor(getFgColor());
+  setupDisplay(dispNum, font);
+
+
   int16_t tbx, tby;
   uint16_t tbw, tbh;
   displays[dispNum].getTextBounds(chars, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-  int16_t descent = calculateDescent(font);
-
   // center the bounding box by transposition of the origin:
   uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
   uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
-  displays[dispNum].fillScreen(getBgColor());
-  // displays[dispNum].setCursor(x, y);
-  // displays[dispNum].print(chars);
 
   for (int i = 0; i < chars.length(); i++) {
     char c = chars[i];
@@ -594,38 +523,57 @@ void renderText(const uint dispNum, const String &text, bool partial)
   }
 }
 
-void renderIcon(const uint dispNum, const String &text, bool partial)
+bool renderIcon(const uint dispNum, const String &text, bool partial)
 {
   displays[dispNum].setRotation(2);
 
   displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
                                      displays[dispNum].height());
-  displays[dispNum].fillScreen(getBgColor());
-  displays[dispNum].setTextColor(getFgColor());
+    displays[dispNum].fillScreen(getBgColor());
+    displays[dispNum].setTextColor(getFgColor());
 
   uint iconIndex = 0;
+  uint width = 122;
+  uint height = 122;
   if (text.endsWith("rocket"))  {
     iconIndex = 1;
   }
   else if (text.endsWith("lnbolt"))  {
-    iconIndex = 3;
+    iconIndex = 2;
   }
   else if (text.endsWith("bitaxe"))  {
-    iconIndex = 4;
+    width = 88;
+    height = 220;
+    iconIndex = 3;
+  }
+  else if (text.endsWith("miningpool"))  {
+    LogoData logo = getMiningPoolLogo();
+
+    if (logo.size == 0) {
+      Serial.println("No logo found");
+      return false;
+    } 
+
+    int x_offset = (displays[dispNum].width() - logo.width) / 2;
+    int y_offset = (displays[dispNum].height() - logo.height) / 2;
+    // Close the file
+
+    displays[dispNum].drawInvertedBitmap(x_offset,y_offset, logo.data, logo.width, logo.height, getFgColor());
+    return true;
   }
 
-  
+
+  int x_offset = (displays[dispNum].width() - width) / 2;
+  int y_offset = (displays[dispNum].height() - height) / 2;
  
 
-  displays[dispNum].drawInvertedBitmap(0,0, epd_icons_allArray[iconIndex], 122, 250, getFgColor());
+  displays[dispNum].drawInvertedBitmap(x_offset,y_offset, epd_icons_allArray[iconIndex], width, height, getFgColor());
 
-
+  return true;
 //  displays[dispNum].drawInvertedBitmap(0,0, getOceanIcon(), 122, 250, getFgColor());
 
 
 }
-
-
 
 void renderQr(const uint dispNum, const String &text, bool partial)
 {
@@ -670,15 +618,12 @@ void waitUntilNoneBusy()
     while (EPD_BUSY[i].digitalRead())
     {
       count++;
-      vTaskDelay(10);
-      if (count == 200)
-      {
-        // displays[i].init(0, false);
-        vTaskDelay(100);
-      }
-      else if (count > 205)
-      {
-        Serial.printf("Busy timeout %d", i);
+      vTaskDelay(BUSY_RETRY_DELAY);
+      
+      if (count == BUSY_TIMEOUT_COUNT) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+      } else if (count > BUSY_TIMEOUT_COUNT + 5) {
+        log_e("Display %d busy timeout", i);
         break;
       }
     }

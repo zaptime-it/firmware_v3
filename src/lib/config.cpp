@@ -95,7 +95,12 @@ void setup()
     setupBitaxeFetchTask();
   }
 
-  setupButtonTask();
+  if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
+  {
+    setupMiningPoolStatsFetchTask();
+  }
+
+  ButtonHandler::setup();
   setupOTA();
 
   waitUntilNoneBusy();
@@ -280,9 +285,9 @@ void setupPreferences()
   setPrice(preferences.getUInt("lastPrice", INITIAL_LAST_PRICE), CURRENCY_USD);
 
   if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
-    setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
+    ScreenHandler::setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
   else
-    setCurrentCurrency(CURRENCY_USD);
+    ScreenHandler::setCurrentCurrency(CURRENCY_USD);
 
   if (!preferences.isKey("flDisable")) {
     preferences.putBool("flDisable", isWhiteVersion() ? false : true);
@@ -331,6 +336,14 @@ void setupPreferences()
     addScreenMapping(SCREEN_BITAXE_HASHRATE, "BitAxe Hashrate");
     addScreenMapping(SCREEN_BITAXE_BESTDIFF, "BitAxe Best Difficulty");
   }
+
+  if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
+  {
+    addScreenMapping(SCREEN_MINING_POOL_STATS_HASHRATE, "Mining Pool Hashrate");
+    if (getMiningPool()->supportsDailyEarnings()) {
+      addScreenMapping(SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings");
+    }
+  }
 }
 
 String replaceAmbiguousChars(String input)
@@ -345,68 +358,6 @@ String replaceAmbiguousChars(String input)
 
   return input;
 }
-
-// void addCurrencyMappings(const std::vector<std::string>& currencies)
-// {
-//     for (const auto& currency : currencies)
-//     {
-//         int satsPerCurrencyScreen;
-//         int btcTickerScreen;
-//         int marketCapScreen;
-
-//         // Determine the corresponding screen IDs based on the currency code
-//         if (currency == "USD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_USD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_USD;
-//             marketCapScreen = SCREEN_MARKET_CAP_USD;
-//         }
-//         else if (currency == "EUR")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_EUR;
-//             btcTickerScreen = SCREEN_BTC_TICKER_EUR;
-//             marketCapScreen = SCREEN_MARKET_CAP_EUR;
-//         }
-//         else if (currency == "GBP")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_GBP;
-//             btcTickerScreen = SCREEN_BTC_TICKER_GBP;
-//             marketCapScreen = SCREEN_MARKET_CAP_GBP;
-//         }
-//         else if (currency == "JPY")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_JPY;
-//             btcTickerScreen = SCREEN_BTC_TICKER_JPY;
-//             marketCapScreen = SCREEN_MARKET_CAP_JPY;
-//         }
-//         else if (currency == "AUD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_AUD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_AUD;
-//             marketCapScreen = SCREEN_MARKET_CAP_AUD;
-//         }
-//         else if (currency == "CAD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_CAD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_CAD;
-//             marketCapScreen = SCREEN_MARKET_CAP_CAD;
-//         }
-//         else
-//         {
-//             continue;  // Unknown currency, skip it
-//         }
-
-//         // Create the string locally to ensure it persists
-//         std::string satsPerCurrencyString = "Sats per " + currency;
-//         std::string btcTickerString = "Ticker " + currency;
-//         std::string marketCapString = "Market Cap " + currency;
-
-//         // Pass the c_str() to the function
-//         addScreenMapping(satsPerCurrencyScreen, satsPerCurrencyString.c_str());
-//         addScreenMapping(btcTickerScreen, btcTickerString.c_str());
-//         addScreenMapping(marketCapScreen, marketCapString.c_str());
-//     }
-// }
 
 void setupWebsocketClients(void *pvParameters)
 {
@@ -488,15 +439,19 @@ void setupHardware()
     Serial.println(F("Error loading WebUI"));
   }
 
-  // if (!LittleFS.exists("/qr.txt"))
   // {
   //   File f = LittleFS.open("/qr.txt", "w");
 
   //   if(f) {
-
+  //     if (f.print("Hello")) {
+  //     Serial.println(F("Written QR to FS"));
+  //     Serial.printf("\nLittleFS free: %zu\n", LittleFS.totalBytes() - LittleFS.usedBytes()); 
+  //     }
   //   } else {
   //     Serial.println(F("Can't write QR to FS"));
   //   }
+
+  //   f.close();
   // }
 
   setupLeds();
@@ -511,32 +466,34 @@ void setupHardware()
 
   Wire.begin(I2C_SDA_PIN, I2C_SCK_PIN, 400000);
 
-  if (!mcp1.begin())
-  {
+  if (!mcp1.begin()) {
     Serial.println(F("Error MCP23017 1"));
-
-    // while (1)
-    //         ;
-  }
-  else
-  {
+  } else {
     pinMode(MCP_INT_PIN, INPUT_PULLUP);
-//    mcp1.setupInterrupts(false, false, LOW);
-    mcp1.enableControlRegister(MCP23x17_IOCR_ODR);
-
-    mcp1.mirrorInterrupts(true);
-
-    for (int i = 0; i < 4; i++)
-    {
-      mcp1.pinMode1(i, INPUT_PULLUP);
-      mcp1.enableInterrupt(i, LOW);
+    
+    // Enable mirrored interrupts (both INTA and INTB pins signal any interrupt)
+    if (!mcp1.mirrorInterrupts(true)) {
+        Serial.println(F("Error setting up mirrored interrupts"));
     }
-#ifndef IS_BTCLOCK_V8
-    for (int i = 8; i <= 14; i++)
-    {
-      mcp1.pinMode1(i, OUTPUT);
+
+    // Configure all 4 button pins as inputs with pullups and interrupts
+    for (int i = 0; i < 4; i++) {
+        if (!mcp1.pinMode1(i, INPUT_PULLUP)) {
+            Serial.printf("Error setting pin %d to input pull up\n", i);
+        }
+        // Enable interrupt on CHANGE for each pin
+        if (!mcp1.enableInterrupt(i, CHANGE)) {
+            Serial.printf("Error enabling interrupt for pin %d\n", i);
+        }
     }
-#endif
+
+    // Set interrupt pins as open drain with active-low polarity
+    if (!mcp1.setInterruptPolarity(2)) { // 2 = Open drain
+        Serial.println(F("Error setting interrupt polarity"));
+    }
+
+    // Clear any pending interrupts
+    mcp1.getInterruptCaptureRegister();
   }
 
 #ifdef IS_HW_REV_B
@@ -799,17 +756,14 @@ const char* getFirmwareFilename() {
     }
 }
 
-// void loadIcons() {
-//   size_t ocean_logo_size = 886;
-
-//   int iUncompSize = zt.gzip_info((uint8_t *)epd_compress_bitaxe, ocean_logo_size);
-//       Serial.printf("uncompressed size = %d\n", iUncompSize);
-
-//   uint8_t *pUncompressed;
-//   pUncompressed = (uint8_t *)malloc(iUncompSize+4);
-//   int rc = zt.gunzip((uint8_t *)epd_compress_bitaxe, ocean_logo_size, pUncompressed);
-
-//    if (rc == ZT_SUCCESS) {
-//     Serial.println("Decode success");
-//    }
-// }
+const char* getWebUiFilename() {
+    if (HW_REV == "REV_B_EPD_2_13") {
+        return "littlefs_8MB.bin";
+    } else if (HW_REV == "REV_A_EPD_2_13") {
+        return "littlefs_4MB.bin";
+    } else if (HW_REV == "REV_A_EPD_2_9") {
+        return "littlefs_4MB.bin";
+    } else {
+        return "littlefs_4MB.bin";
+    }
+}
