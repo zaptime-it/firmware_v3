@@ -17,7 +17,9 @@
 #define DEFAULT_DISABLE_LEDS false
 #define DEFAULT_DISABLE_FL false
 #define DEFAULT_OWN_DATA_SOURCE true
-#define DEFAULT_STAGING_SOURCE false
+#define DEFAULT_CUSTOM_SOURCE false
+#define DEFAULT_CUSTOM_EP "ws-staging.btclock.dev"
+#define DEFAULT_CUSTOM_SSL true
 #define DEFAULT_MOW_MODE false
 #define DEFAULT_SUFFIX_SHARE_DOT false
 
@@ -77,3 +79,12 @@
 #define DEFAULT_VERTICAL_DESC true
 
 #define DEFAULT_MINING_POOL_LOGOS_URL "https://git.btclock.dev/btclock/mining-pool-logos/raw/branch/main"
+
+#define DEFAULT_ENABLE_DEBUG_LOG false
+
+#define DEFAULT_DISABLE_FL false
+#define DEFAULT_OWN_DATA_SOURCE true
+#define DEFAULT_CUSTOM_ENDPOINT_ENABLED false
+#define DEFAULT_CUSTOM_ENDPOINT "ws-staging.btclock.dev"
+#define DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL false
+#define DEFAULT_MOW_MODE false

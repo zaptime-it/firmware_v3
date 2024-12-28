@@ -267,7 +267,10 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
     
     std::array<std::string, NUM_SCREENS> textEpdContent = parseZapNotify(zapAmount, preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL));
 
-    Serial.printf("Got a zap of %llu sats for %s\n", zapAmount, zapPubkey.c_str());
+    if (debugLogEnabled())  
+    {
+        Serial.printf("Got a zap of %llu sats for %s\n", zapAmount, zapPubkey.c_str());
+    }
 
     uint64_t timerPeriod = 0;
     if (isTimerActive())

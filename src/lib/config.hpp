@@ -77,6 +77,8 @@ String getHwRev();
 bool isWhiteVersion();
 String getFsRev();
 
+bool debugLogEnabled();
+
 void addScreenMapping(int value, const char* name);
 // void addScreenMapping(int value, const String& name);
 // void addScreenMapping(int value, const std::string& name);

@@ -8,25 +8,36 @@ namespace V2Notify
 
     TaskHandle_t v2NotifyTaskHandle;
 
+    String currentHostname;
+
     void setupV2Notify()
     {
         String hostname = "ws.btclock.dev";
-        if (preferences.getBool("stagingSource", DEFAULT_STAGING_SOURCE))
+        if (preferences.getBool("ceEnabled", DEFAULT_CUSTOM_ENDPOINT_ENABLED))
         {
-            Serial.println(F("Connecting to V2 staging source"));
-            hostname = "ws-staging.btclock.dev";
+            Serial.println(F("Connecting to custom source"));
+            hostname = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+            bool useSSL = !preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+            
+            if (useSSL) {
+                webSocket.beginSSL(hostname, 443, "/api/v2/ws");
+            } else {
+                webSocket.begin(hostname, 80, "/api/v2/ws");
+            }
         }
         else
         {
             Serial.println(F("Connecting to V2 source"));
+            webSocket.beginSSL(hostname, 443, "/api/v2/ws");
         }
 
-        webSocket.beginSSL(hostname, 443, "/api/v2/ws");
         webSocket.onEvent(V2Notify::onWebsocketV2Event);
         webSocket.setReconnectInterval(5000);
         webSocket.enableHeartbeat(15000, 3000, 2);
 
         V2Notify::setupV2NotifyTask();
+
+        currentHostname = hostname;
     }
 
     void onWebsocketV2Event(WStype_t type, uint8_t *payload, size_t length)
@@ -38,7 +49,9 @@ namespace V2Notify
             break;
         case WStype_CONNECTED:
         {
-            Serial.print(F("[WSc] Connected to url:"));
+            Serial.print(F("[WSc] Connected to "));
+            Serial.print(currentHostname);
+            Serial.print(F(": "));
             Serial.println((char *)payload);
 
             JsonDocument response;

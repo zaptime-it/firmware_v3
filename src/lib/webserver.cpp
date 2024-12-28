@@ -3,7 +3,7 @@
 static const char* JSON_CONTENT = "application/json";
 
 static const char *const PROGMEM strSettings[] = {
-    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl"};
+    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint"};
 
 static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout", "srcV2Currency"};
 
@@ -15,7 +15,8 @@ static const char *const PROGMEM boolSettings[] = {"fetchEurPrice", "ledTestOnPo
                                                    "flAlwaysOn", "flDisable", "flFlashOnUpd",
                                                    "mempoolSecure", "useNostr", "bitaxeEnabled",
                                                    "miningPoolStats", "verticalDesc",
-                                                   "nostrZapNotify", "stagingSource", "httpAuthEnabled"};
+                                                   "nostrZapNotify", "ceEnabled", "httpAuthEnabled",
+                                                   "enableDebugLog", "ceDisableSSL"};
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -458,25 +459,22 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
   bool settingsChanged = true;
 
-  if (settings["fgColor"].is<String>())
+  if (settings["invertedColor"].is<bool>())
   {
-    String fgColor = settings["fgColor"].as<String>();
-    uint32_t color = strtol(fgColor.c_str(), NULL, 16);
-    preferences.putUInt("fgColor", color);
-    setFgColor(color);
-    Serial.print(F("Setting foreground color to "));
-    Serial.println(color);
-    settingsChanged = true;
-  }
-  if (settings["bgColor"].is<String>())
-  {
-    String bgColor = settings["bgColor"].as<String>();
-
-    uint32_t color = strtol(bgColor.c_str(), NULL, 16);
-    preferences.putUInt("bgColor", color);
-    setBgColor(color);
-    Serial.print(F("Setting background color to "));
-    Serial.println(bgColor.c_str());
+    bool inverted = settings["invertedColor"].as<bool>();
+    preferences.putBool("invertedColor", inverted);
+    if (inverted) {
+      preferences.putUInt("fgColor", GxEPD_WHITE);
+      preferences.putUInt("bgColor", GxEPD_BLACK);
+      setFgColor(GxEPD_WHITE);
+      setBgColor(GxEPD_BLACK);
+    } else {
+      preferences.putUInt("fgColor", GxEPD_BLACK);
+      preferences.putUInt("bgColor", GxEPD_WHITE);
+      setFgColor(GxEPD_BLACK);
+      setBgColor(GxEPD_WHITE);
+    }
+    Serial.printf("Setting invertedColor to %d\r\n", inverted);
     settingsChanged = true;
   }
 
@@ -627,8 +625,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 
   JsonDocument root;
   root["numScreens"] = NUM_SCREENS;
-  root["fgColor"] = getFgColor();
-  root["bgColor"] = getBgColor();
+  root["invertedColor"] = preferences.getBool("invertedColor", getFgColor() == GxEPD_WHITE);
   root["timerSeconds"] = getTimerSeconds();
   root["timerRunning"] = isTimerActive();
   root["minSecPriceUpd"] = preferences.getUInt(
@@ -657,13 +654,13 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["verticalDesc"] = preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC);
 
   root["suffixShareDot"] = preferences.getBool("suffixShareDot", DEFAULT_SUFFIX_SHARE_DOT);
+  root["enableDebugLog"] = preferences.getBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
 
   root["hostnamePrefix"] = preferences.getString("hostnamePrefix", DEFAULT_HOSTNAME_PREFIX);
   root["hostname"] = getMyHostname();
   root["ip"] = WiFi.localIP();
   root["txPower"] = WiFi.getTxPower();
   root["ownDataSource"] = preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE);
-  root["stagingSource"] = preferences.getBool("stagingSource", DEFAULT_STAGING_SOURCE);
   root["srcV2Currency"] = preferences.getChar("srcV2Currency", DEFAULT_V2_SOURCE_CURRENCY);
 
   root["nostrPubKey"] = preferences.getString("nostrPubKey", DEFAULT_NOSTR_NPUB);
@@ -733,6 +730,10 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   }
 
   root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
+
+  root["ceEnabled"] = preferences.getBool("ceEnabled", DEFAULT_CUSTOM_ENDPOINT_ENABLED);
+  root["ceEndpoint"] = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  root["ceDisableSSL"] = preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
 
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);

@@ -36,6 +36,10 @@ void taskMiningPoolStatsFetch(void *pvParameters)
         poolInterface->setPoolUser(poolUser);
         std::string apiUrl = poolInterface->getApiUrl();
         http.begin(apiUrl.c_str());
+        if (debugLogEnabled())
+        {
+            Serial.printf("Fetching mining pool stats from %s\r\n", apiUrl.c_str());
+        }
         poolInterface->prepareRequest(http);
         int httpCode = http.GET();
         if (httpCode == 200)
@@ -44,9 +48,19 @@ void taskMiningPoolStatsFetch(void *pvParameters)
             JsonDocument doc;
             deserializeJson(doc, payload);
 
+            if (debugLogEnabled())
+            {
+                Serial.printf("Mining pool stats response: %s\r\n", payload.c_str());
+            }
+
             PoolStats stats = poolInterface->parseResponse(doc);
 
             miningPoolStatsHashrate = stats.hashrate;
+
+            if (debugLogEnabled())
+            {
+                Serial.printf("Mining pool stats parsed hashrate: %s\r\n", stats.hashrate.c_str());
+            }
 
             if (stats.dailyEarnings)
             {

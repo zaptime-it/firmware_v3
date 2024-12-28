@@ -284,6 +284,22 @@ void setupPreferences()
   setBlockHeight(preferences.getUInt("blockHeight", INITIAL_BLOCK_HEIGHT));
   setPrice(preferences.getUInt("lastPrice", INITIAL_LAST_PRICE), CURRENCY_USD);
 
+  if (!preferences.isKey("enableDebugLog")) {
+    preferences.putBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
+  }
+
+  if (!preferences.isKey("ceEnabled")) {
+    preferences.putBool("ceEnabled", DEFAULT_CUSTOM_ENDPOINT_ENABLED);
+  }
+
+  if (!preferences.isKey("ceEndpoint")) {
+    preferences.putString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  }
+
+  if (!preferences.isKey("ceDisableSSL")) {
+    preferences.putBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+  }
+
   if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
     ScreenHandler::setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
   else
@@ -766,4 +782,9 @@ const char* getWebUiFilename() {
     } else {
         return "littlefs_4MB.bin";
     }
+}
+
+bool debugLogEnabled()
+{
+  return preferences.getBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
 }
