@@ -6,6 +6,8 @@ const char* PoolFactory::MINING_POOL_NAME_BRAIINS = "braiins";
 const char* PoolFactory::MINING_POOL_NAME_SATOSHI_RADIO = "satoshi_radio";
 const char* PoolFactory::MINING_POOL_NAME_PUBLIC_POOL = "public_pool";
 const char* PoolFactory::MINING_POOL_NAME_GOBRRR_POOL = "gobrrr_pool";
+const char* PoolFactory::MINING_POOL_NAME_CKPOOL = "ckpool";
+const char* PoolFactory::MINING_POOL_NAME_EU_CKPOOL = "eu_ckpool";
 const char* PoolFactory::LOGOS_DIR = "/logos";
 
 std::unique_ptr<MiningPoolInterface> PoolFactory::createPool(const std::string& poolName) {
@@ -15,7 +17,9 @@ std::unique_ptr<MiningPoolInterface> PoolFactory::createPool(const std::string& 
         {MINING_POOL_NAME_BRAIINS, []() { return std::make_unique<BraiinsPool>(); }},
         {MINING_POOL_NAME_SATOSHI_RADIO, []() { return std::make_unique<SatoshiRadioPool>(); }},
         {MINING_POOL_NAME_PUBLIC_POOL, []() { return std::make_unique<PublicPool>(); }},
-        {MINING_POOL_NAME_GOBRRR_POOL, []() { return std::make_unique<GoBrrrPool>(); }}
+        {MINING_POOL_NAME_GOBRRR_POOL, []() { return std::make_unique<GoBrrrPool>(); }},
+        {MINING_POOL_NAME_CKPOOL, []() { return std::make_unique<CKPool>(); }},
+        {MINING_POOL_NAME_EU_CKPOOL, []() { return std::make_unique<EUCKPool>(); }}
     };
     
     auto it = poolFactories.find(poolName);

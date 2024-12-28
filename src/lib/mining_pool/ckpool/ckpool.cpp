@@ -1,17 +1,16 @@
-// src/noderunners/noderunners_pool.cpp
-#include "noderunners_pool.hpp"
+#include "ckpool.hpp"
 
-void NoderunnersPool::prepareRequest(HTTPClient &http) const
+void CKPool::prepareRequest(HTTPClient &http) const
 {
-    // Empty as Noderunners doesn't need special headers
+    // Empty as CKPool doesn't need special headers
 }
 
-std::string NoderunnersPool::getApiUrl() const
+std::string CKPool::getApiUrl() const
 {
-    return "https://pool.noderunners.network/api/v1/users/" + poolUser;
+    return getBaseUrl() + "/users/" + poolUser;
 }
 
-PoolStats NoderunnersPool::parseResponse(const JsonDocument &doc) const
+PoolStats CKPool::parseResponse(const JsonDocument &doc) const
 {
     try
     {
@@ -45,4 +44,4 @@ PoolStats NoderunnersPool::parseResponse(const JsonDocument &doc) const
             .hashrate = "0",
             .dailyEarnings = std::nullopt};
     }
-}
+} 
