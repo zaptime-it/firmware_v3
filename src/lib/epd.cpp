@@ -550,7 +550,7 @@ bool renderIcon(const uint dispNum, const String &text, bool partial)
     LogoData logo = getMiningPoolLogo();
 
     if (logo.size == 0) {
-      Serial.println("No logo found");
+      Serial.println(F("No logo found"));
       return false;
     } 
 

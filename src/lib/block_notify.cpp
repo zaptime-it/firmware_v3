@@ -82,11 +82,6 @@ void setupBlockNotify()
     xQueueSend(workQueue, &blockUpdate, portMAX_DELAY);
   }
 
-  if (!preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE) && preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
-  {
-    return;
-  }
-
   // std::strcpy(wsServer, String("wss://" + mempoolInstance +
   // "/api/v1/ws").c_str());
 

@@ -1,8 +1,5 @@
 #include "price_notify.hpp"
 
-const char *wsOwnServerPrice = "wss://ws.btclock.dev/ws?assets=bitcoin";
-const char *wsOwnServerV2 = "wss://ws-staging.btclock.dev/api/v2/ws";
-
 const char *wsServerPrice = "wss://ws.coincap.io/prices?assets=bitcoin";
 
 // WebsocketsClient client;
@@ -17,19 +14,12 @@ WebSocketsClient priceNotifyWs;
 
 void setupPriceNotify()
 {
-  if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
-  {
-    config = {.uri = wsOwnServerPrice,
-              .user_agent = USER_AGENT};
-  }
-  else
-  {
-    config = {.uri = wsServerPrice,
-              .user_agent = USER_AGENT};
-    config.cert_pem = isrg_root_x1cert;
+  config = {.uri = wsServerPrice,
+            .user_agent = USER_AGENT};
+  config.cert_pem = isrg_root_x1cert;
 
-    config.task_stack = (6*1024);
-  }
+  config.task_stack = (6*1024);
+
 
   clientPrice = esp_websocket_client_init(&config);
   esp_websocket_register_events(clientPrice, WEBSOCKET_EVENT_ANY,
@@ -86,10 +76,6 @@ void onWebsocketPriceEvent(void *handler_args, esp_event_base_t base,
     break;
   case WEBSOCKET_EVENT_DATA:
     onWebsocketPriceMessage(data);
-    if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
-    {
-      onWebsocketBlockMessage(data);
-    }
     break;
   case WEBSOCKET_EVENT_ERROR:
     Serial.println(F("Price WS Connnection error"));

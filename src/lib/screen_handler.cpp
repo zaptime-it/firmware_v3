@@ -85,7 +85,7 @@ bool ScreenHandler::isCurrencySpecific(uint screen) {
 }
 
 bool ScreenHandler::handleCurrencyRotation(bool forward) {
-    if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE) && isCurrencySpecific(getCurrentScreen())) {
+    if ((getDataSource() == BTCLOCK_SOURCE || getDataSource() == CUSTOM_SOURCE) && isCurrencySpecific(getCurrentScreen())) {
         std::vector<std::string> ac = getActiveCurrencies();
         if (ac.empty()) return false;
 

@@ -13,7 +13,7 @@ namespace V2Notify
     void setupV2Notify()
     {
         String hostname = "ws.btclock.dev";
-        if (preferences.getBool("ceEnabled", DEFAULT_CUSTOM_ENDPOINT_ENABLED))
+        if (getDataSource() == CUSTOM_SOURCE)
         {
             Serial.println(F("Connecting to custom source"));
             hostname = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);

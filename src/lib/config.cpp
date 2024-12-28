@@ -25,6 +25,23 @@ void addScreenMapping(int value, const char *name)
   screenMappings.push_back({value, name});
 }
 
+void setupDataSource()
+{
+  DataSourceType dataSource = getDataSource();
+  bool zapNotifyEnabled = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
+  
+  // Setup Nostr if it's either the data source or zap notifications are enabled
+  if (dataSource == NOSTR_SOURCE || zapNotifyEnabled) {
+    setupNostrNotify(dataSource == NOSTR_SOURCE, zapNotifyEnabled);
+    setupNostrTask();
+  }
+  // Setup other data sources if Nostr is not the data source
+  if (dataSource != NOSTR_SOURCE) {
+    xTaskCreate(setupWebsocketClients, "setupWebsocketClients", 8192, NULL,
+              tskIDLE_PRIORITY, NULL);
+  }
+}
+
 void setup()
 {
   setupPreferences();
@@ -78,17 +95,8 @@ void setup()
   setupTasks();
   setupTimers();
 
-  if (preferences.getBool("useNostr", DEFAULT_USE_NOSTR) || preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED))
-  {
-    setupNostrNotify(preferences.getBool("useNostr", DEFAULT_USE_NOSTR), preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED));
-    setupNostrTask();
-  }
-
-  if (!preferences.getBool("useNostr", DEFAULT_USE_NOSTR))
-  {
-    xTaskCreate(setupWebsocketClients, "setupWebsocketClients", 8192, NULL,
-                tskIDLE_PRIORITY, NULL);
-  }
+  // Setup data sources (includes Nostr zap notifications if enabled)
+  setupDataSource();
 
   if (preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED))
   {
@@ -288,22 +296,26 @@ void setupPreferences()
     preferences.putBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
   }
 
-  if (!preferences.isKey("ceEnabled")) {
-    preferences.putBool("ceEnabled", DEFAULT_CUSTOM_ENDPOINT_ENABLED);
+  if (!preferences.isKey("dataSource")) {
+    preferences.putUChar("dataSource", DEFAULT_DATA_SOURCE);
   }
 
-  if (!preferences.isKey("ceEndpoint")) {
-    preferences.putString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  // Initialize custom endpoint settings if not set
+  if (!preferences.isKey("customEndpoint")) {
+    preferences.putString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
   }
 
-  if (!preferences.isKey("ceDisableSSL")) {
-    preferences.putBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+  if (!preferences.isKey("customEndpointDisableSSL")) {
+    preferences.putBool("customEndpointDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
   }
 
-  if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
+  // Set currency based on data source
+  DataSourceType dataSource = static_cast<DataSourceType>(preferences.getUChar("dataSource", DEFAULT_DATA_SOURCE));
+  if (dataSource == BTCLOCK_SOURCE || dataSource == CUSTOM_SOURCE) {
     ScreenHandler::setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
-  else
+  } else {
     ScreenHandler::setCurrentCurrency(CURRENCY_USD);
+  }
 
   if (!preferences.isKey("flDisable")) {
     preferences.putBool("flDisable", isWhiteVersion() ? false : true);
@@ -377,11 +389,13 @@ String replaceAmbiguousChars(String input)
 
 void setupWebsocketClients(void *pvParameters)
 {
-  if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
+  DataSourceType dataSource = getDataSource();
+  
+  if (dataSource == BTCLOCK_SOURCE || dataSource == CUSTOM_SOURCE)
   {
     V2Notify::setupV2Notify();
   }
-  else
+  else if (dataSource == THIRD_PARTY_SOURCE)
   {
     setupBlockNotify();
     setupPriceNotify();
@@ -787,4 +801,12 @@ const char* getWebUiFilename() {
 bool debugLogEnabled()
 {
   return preferences.getBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
+}
+
+DataSourceType getDataSource() {
+  return static_cast<DataSourceType>(preferences.getUChar("dataSource", DEFAULT_DATA_SOURCE));
+}
+
+void setDataSource(DataSourceType source) {
+  preferences.putUChar("dataSource", static_cast<uint8_t>(source));
 }

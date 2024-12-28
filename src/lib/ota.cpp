@@ -181,7 +181,7 @@ int downloadUpdateHandler(char updateType)
   String expectedSHA256 = downloadSHA256(latestRelease.checksumUrl);
   if (expectedSHA256.isEmpty())
   {
-    Serial.println("Failed to get SHA256 checksum. Aborting update.");
+    Serial.println(F("Failed to get SHA256 checksum. Aborting update."));
     return false;
   }
 
@@ -217,7 +217,7 @@ int downloadUpdateHandler(char updateType)
 
       if (bytesRead != contentLength)
       {
-        Serial.println("Failed to read entire firmware");
+        Serial.println(F("Failed to read entire firmware"));
         free(firmware);
         return false;
       }
@@ -225,14 +225,14 @@ int downloadUpdateHandler(char updateType)
       // Calculate SHA256
       String calculated_sha256 = calculateSHA256(firmware, contentLength);
 
-      Serial.print("Calculated checksum: ");
+      Serial.print(F("Calculated checksum: "));
       Serial.println(calculated_sha256);
-      Serial.print("Expected checksum:   ");
+      Serial.print(F("Expected checksum:   "));
       Serial.println(expectedSHA256);
 
       if (calculated_sha256 != expectedSHA256)
       {
-        Serial.println("Checksum mismatch. Aborting update.");
+        Serial.println(F("Checksum mismatch. Aborting update."));
         free(firmware);
         return false;
       }
@@ -258,15 +258,15 @@ int downloadUpdateHandler(char updateType)
 
         if (Update.end())
         {
-          Serial.println("OTA done!");
+          Serial.println(F("OTA done!"));
           if (Update.isFinished())
           {
-            Serial.println("Update successfully completed. Rebooting.");
+            Serial.println(F("Update successfully completed. Rebooting."));
 //            ESP.restart();
           }
           else
           {
-            Serial.println("Update not finished? Something went wrong!");
+            Serial.println(F("Update not finished? Something went wrong!"));
             free(firmware);
             return 503;
           }
@@ -280,14 +280,14 @@ int downloadUpdateHandler(char updateType)
       }
       else
       {
-        Serial.println("Not enough space to begin OTA");
+        Serial.println(F("Not enough space to begin OTA"));
         free(firmware);
         return 503;
       }
     }
     else
     {
-      Serial.println("Invalid content length");
+      Serial.println(F("Invalid content length"));
       return 503;
     }
   }
@@ -337,7 +337,7 @@ void updateWebUi(String latestRelease, int command)
           Serial.println(calculated_sha256);
           if ((command == U_FLASH && expectedSHA256.equals(calculated_sha256)) || command == U_SPIFFS)
           {
-            Serial.println("Checksum verified. Proceeding with update.");
+            Serial.println(F("Checksum verified. Proceeding with update."));
 
             Update.onProgress(onOTAProgress);
 
@@ -348,38 +348,38 @@ void updateWebUi(String latestRelease, int command)
               Update.write(buffer, contentLength);
               if (Update.end())
               {
-                Serial.println("Update complete. Rebooting.");
+                Serial.println(F("Update complete. Rebooting."));
                 ESP.restart();
               }
               else
               {
-                Serial.println("Error in update process.");
+                Serial.println(F("Error in update process."));
               }
             }
             else
             {
-              Serial.println("Not enough space to begin OTA");
+              Serial.println(F("Not enough space to begin OTA"));
             }
           }
           else
           {
-            Serial.println("Checksum mismatch. Aborting update.");
+            Serial.println(F("Checksum mismatch. Aborting update."));
           }
         }
         else
         {
-          Serial.println("Error downloading firmware");
+          Serial.println(F("Error downloading firmware"));
         }
         free(buffer);
       }
       else
       {
-        Serial.println("Not enough memory to allocate buffer");
+        Serial.println(F("Not enough memory to allocate buffer"));
       }
     }
     else
     {
-      Serial.println("Invalid content length");
+      Serial.println(F("Invalid content length"));
     }
   }
   else
@@ -417,7 +417,7 @@ String downloadSHA256(const String &sha256Url)
 {
   if (sha256Url.isEmpty())
   {
-    Serial.println("Failed to get SHA256 file URL");
+    Serial.println(F("Failed to get SHA256 file URL"));
     return "";
   }
 

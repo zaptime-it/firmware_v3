@@ -1,4 +1,6 @@
-#define INITIAL_BLOCK_HEIGHT 851500
+#pragma once
+
+#define INITIAL_BLOCK_HEIGHT 876600
 #define INITIAL_LAST_PRICE 50000
 #define DEFAULT_TX_POWER 0
 
@@ -16,15 +18,10 @@
 #define DEFAULT_SUFFIX_PRICE false
 #define DEFAULT_DISABLE_LEDS false
 #define DEFAULT_DISABLE_FL false
-#define DEFAULT_OWN_DATA_SOURCE true
-#define DEFAULT_CUSTOM_SOURCE false
-#define DEFAULT_CUSTOM_EP "ws-staging.btclock.dev"
-#define DEFAULT_CUSTOM_SSL true
 #define DEFAULT_MOW_MODE false
 #define DEFAULT_SUFFIX_SHARE_DOT false
 
 #define DEFAULT_V2_SOURCE_CURRENCY CURRENCY_USD
-
 
 #define DEFAULT_TIME_OFFSET_SECONDS 3600
 
@@ -83,8 +80,16 @@
 #define DEFAULT_ENABLE_DEBUG_LOG false
 
 #define DEFAULT_DISABLE_FL false
-#define DEFAULT_OWN_DATA_SOURCE true
-#define DEFAULT_CUSTOM_ENDPOINT_ENABLED false
 #define DEFAULT_CUSTOM_ENDPOINT "ws-staging.btclock.dev"
 #define DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL false
 #define DEFAULT_MOW_MODE false
+
+// Define data source types
+enum DataSourceType {
+    BTCLOCK_SOURCE = 0,  // BTClock's own data source
+    THIRD_PARTY_SOURCE = 1,  // Third party data sources like mempool.space
+    NOSTR_SOURCE = 2,  // Nostr data source
+    CUSTOM_SOURCE = 3  // Custom data source endpoint
+};
+
+#define DEFAULT_DATA_SOURCE BTCLOCK_SOURCE

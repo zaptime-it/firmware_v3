@@ -76,7 +76,8 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
 
 void nostrTask(void *pvParameters)
 {
-    if(preferences.getBool("useNostr", DEFAULT_USE_NOSTR)) {
+    DataSourceType dataSource = getDataSource();
+    if(dataSource == NOSTR_SOURCE) {
         int blockFetch = getBlockFetch();
         processNewBlock(blockFetch);
     }

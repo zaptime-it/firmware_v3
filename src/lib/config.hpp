@@ -31,6 +31,9 @@
 #include "BH1750.h"
 #endif
 
+#include "shared.hpp"
+#include "defaults.hpp"
+
 #define NTP_SERVER "pool.ntp.org"
 #define DEFAULT_TIME_OFFSET_SECONDS 3600
 #ifndef MCP_DEV_ADDR
@@ -88,3 +91,13 @@ String replaceAmbiguousChars(String input);
 const char* getFirmwareFilename();
 const char* getWebUiFilename();
 // void loadIcons();
+
+extern Preferences preferences;
+extern MCP23017 mcp1;
+#ifdef IS_BTCLOCK_V8
+extern MCP23017 mcp2;
+#endif
+
+// Expose DataSourceType enum
+extern DataSourceType getDataSource();
+extern void setDataSource(DataSourceType source);

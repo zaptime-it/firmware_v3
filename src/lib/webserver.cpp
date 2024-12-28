@@ -5,17 +5,17 @@ static const char* JSON_CONTENT = "application/json";
 static const char *const PROGMEM strSettings[] = {
     "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint"};
 
-static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout", "srcV2Currency"};
+static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout"};
 
-static const char *const PROGMEM boolSettings[] = {"fetchEurPrice", "ledTestOnPower", "ledFlashOnUpd",
+static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOnUpd",
                                                    "mdnsEnabled", "otaEnabled", "stealFocus",
                                                    "mcapBigChar", "useSatsSymbol", "useBlkCountdown",
-                                                   "suffixPrice", "disableLeds", "ownDataSource",
+                                                   "suffixPrice", "disableLeds", 
                                                    "mowMode", "suffixShareDot", "flOffWhenDark",
                                                    "flAlwaysOn", "flDisable", "flFlashOnUpd",
-                                                   "mempoolSecure", "useNostr", "bitaxeEnabled",
+                                                   "mempoolSecure", "bitaxeEnabled",
                                                    "miningPoolStats", "verticalDesc",
-                                                   "nostrZapNotify", "ceEnabled", "httpAuthEnabled",
+                                                   "nostrZapNotify", "httpAuthEnabled",
                                                    "enableDebugLog", "ceDisableSSL"};
 
 AsyncWebServer server(80);
@@ -581,6 +581,29 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
   }
 
+  // Handle data source setting
+  if (settings["dataSource"].is<uint8_t>()) {
+    uint8_t dataSource = settings["dataSource"].as<uint8_t>();
+    if (dataSource <= CUSTOM_SOURCE) { // Validate including custom source
+      preferences.putUChar("dataSource", dataSource);
+      Serial.printf("Setting dataSource to %d\r\n", dataSource);
+      settingsChanged = true;
+    }
+  }
+
+  // Handle custom endpoint settings
+  if (settings["customEndpoint"].is<String>()) {
+    preferences.putString("customEndpoint", settings["customEndpoint"].as<String>());
+    Serial.printf("Setting customEndpoint to %s\r\n", settings["customEndpoint"].as<String>().c_str());
+    settingsChanged = true;
+  }
+
+  if (settings["customEndpointDisableSSL"].is<bool>()) {
+    preferences.putBool("customEndpointDisableSSL", settings["customEndpointDisableSSL"].as<bool>());
+    Serial.printf("Setting customEndpointDisableSSL to %d\r\n", settings["customEndpointDisableSSL"].as<bool>());
+    settingsChanged = true;
+  }
+
   request->send(HTTP_OK);
   if (settingsChanged)
   {
@@ -590,14 +613,17 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
 void onApiRestart(AsyncWebServerRequest *request)
 {
+  request->onDisconnect([]() {
+    delay(500);
+
+    noInterrupts();
+    esp_restart();
+  });
+
   request->send(HTTP_OK);
 
   if (events.count())
     events.send("closing");
-
-  delay(500);
-
-  esp_restart();
 }
 
 void onApiIdentify(AsyncWebServerRequest *request)
@@ -634,10 +660,25 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
       preferences.getUInt("fullRefreshMin", DEFAULT_MINUTES_FULL_REFRESH);
   root["wpTimeout"] = preferences.getUInt("wpTimeout", DEFAULT_WP_TIMEOUT);
   root["tzOffset"] = preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS) / 60;
-  root["mempoolInstance"] =
-      preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
+  
+  // Add data source settings
+  root["dataSource"] = preferences.getUChar("dataSource", DEFAULT_DATA_SOURCE);
+  
+  // Mempool settings (only used for THIRD_PARTY_SOURCE)
+  root["mempoolInstance"] = preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
   root["mempoolSecure"] = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE);
-  root["useNostr"] = preferences.getBool("useNostr", DEFAULT_USE_NOSTR);
+  
+  // Nostr settings (used for NOSTR_SOURCE or when zapNotify is enabled)
+  root["nostrPubKey"] = preferences.getString("nostrPubKey", DEFAULT_NOSTR_NPUB);
+  root["nostrRelay"] = preferences.getString("nostrRelay", DEFAULT_NOSTR_RELAY);
+  root["nostrZapNotify"] = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
+  root["nostrZapPubkey"] = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
+  root["ledFlashOnZap"] = preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP);
+  
+  // Custom endpoint settings (only used for CUSTOM_SOURCE)
+  root["customEndpoint"] = preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  root["customEndpointDisableSSL"] = preferences.getBool("customEndpointDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+
   root["ledTestOnPower"] = preferences.getBool("ledTestOnPower", DEFAULT_LED_TEST_ON_POWER);
   root["ledFlashOnUpd"] = preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD);
   root["ledBrightness"] = preferences.getUInt("ledBrightness", DEFAULT_LED_BRIGHTNESS);
@@ -645,7 +686,6 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["mcapBigChar"] = preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR);
   root["mdnsEnabled"] = preferences.getBool("mdnsEnabled", DEFAULT_MDNS_ENABLED);
   root["otaEnabled"] = preferences.getBool("otaEnabled", DEFAULT_OTA_ENABLED);
-  //  root["fetchEurPrice"] = preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE);
   root["useSatsSymbol"] = preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL);
   root["useBlkCountdown"] = preferences.getBool("useBlkCountdown", DEFAULT_USE_BLOCK_COUNTDOWN);
   root["suffixPrice"] = preferences.getBool("suffixPrice", DEFAULT_SUFFIX_PRICE);
@@ -660,15 +700,6 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["hostname"] = getMyHostname();
   root["ip"] = WiFi.localIP();
   root["txPower"] = WiFi.getTxPower();
-  root["ownDataSource"] = preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE);
-  root["srcV2Currency"] = preferences.getChar("srcV2Currency", DEFAULT_V2_SOURCE_CURRENCY);
-
-  root["nostrPubKey"] = preferences.getString("nostrPubKey", DEFAULT_NOSTR_NPUB);
-  root["nostrRelay"] = preferences.getString("nostrRelay", DEFAULT_NOSTR_RELAY);
-
-  root["nostrZapNotify"] = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
-  root["nostrZapPubkey"] = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
-  root["ledFlashOnZap"] = preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP);
 
   root["gitReleaseUrl"] = preferences.getString("gitReleaseUrl", DEFAULT_GIT_RELEASE_URL);
 
@@ -730,8 +761,6 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   }
 
   root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
-
-  root["ceEnabled"] = preferences.getBool("ceEnabled", DEFAULT_CUSTOM_ENDPOINT_ENABLED);
   root["ceEndpoint"] = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
   root["ceDisableSSL"] = preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
 

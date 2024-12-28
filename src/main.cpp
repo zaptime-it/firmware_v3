@@ -135,7 +135,7 @@ extern "C" void app_main() {
   Serial.begin(115200);
   setup();
 
-  bool ownDataSource = preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE);
+  bool thirdPartySource = getDataSource() == THIRD_PARTY_SOURCE;
 
 
   while (true) {
@@ -147,7 +147,7 @@ extern "C" void app_main() {
       handleFrontlight();
       checkWiFiConnection();
 
-      if (!ownDataSource) {
+      if (thirdPartySource) {
         monitorDataConnections();
       }
 
