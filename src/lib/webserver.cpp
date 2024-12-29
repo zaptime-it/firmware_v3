@@ -232,6 +232,7 @@ JsonDocument getStatusObject()
   root["currentScreen"] = ScreenHandler::getCurrentScreen();
   root["numScreens"] = NUM_SCREENS;
   root["timerRunning"] = isTimerActive();
+  root["isOTAUpdating"] = getIsOTAUpdating();
   root["espUptime"] = esp_timer_get_time() / 1000000;
   // root["currentPrice"] = getPrice();
   // root["currentBlockHeight"] = getBlockHeight();

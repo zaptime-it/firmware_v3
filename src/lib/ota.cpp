@@ -83,6 +83,7 @@ void handleOTATask(void *parameter)
     if (xQueueReceive(otaQueue, &msg, 0) == pdTRUE)
     {
       if (msg.updateType == UPDATE_ALL) {
+        isOtaUpdating = true;
         queueLedEffect(LED_FLASH_UPDATE);
         int resultWebUi = downloadUpdateHandler(UPDATE_WEBUI);
         queueLedEffect(LED_FLASH_UPDATE);
