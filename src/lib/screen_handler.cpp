@@ -108,6 +108,7 @@ bool ScreenHandler::handleCurrencyRotation(bool forward) {
             setCurrentScreen(getCurrentScreen());
             return true;
         }
+        // If we're at the last/first currency of current screen, let nextScreen/previousScreen handle it
         return false;
     }
     return false;
@@ -143,14 +144,38 @@ int ScreenHandler::findNextVisibleScreen(int currentScreen, bool forward) {
 
 void ScreenHandler::nextScreen() {
     if (handleCurrencyRotation(true)) return;
+    
     int currentIndex = findScreenIndexByValue(getCurrentScreen());
-    setCurrentScreen(findNextVisibleScreen(currentIndex, true));
+    int nextScreen = findNextVisibleScreen(currentIndex, true);
+    
+    // If moving from a currency-specific screen to another currency-specific screen
+    // reset to first currency
+    if (isCurrencySpecific(getCurrentScreen()) && isCurrencySpecific(nextScreen)) {
+        std::vector<std::string> ac = getActiveCurrencies();
+        if (!ac.empty()) {
+            setCurrentCurrency(getCurrencyChar(ac.front()));
+        }
+    }
+    
+    setCurrentScreen(nextScreen);
 }
 
 void ScreenHandler::previousScreen() {
     if (handleCurrencyRotation(false)) return;
+    
     int currentIndex = findScreenIndexByValue(getCurrentScreen());
-    setCurrentScreen(findNextVisibleScreen(currentIndex, false));
+    int prevScreen = findNextVisibleScreen(currentIndex, false);
+    
+    // If moving from a currency-specific screen to another currency-specific screen
+    // reset to last currency
+    if (isCurrencySpecific(getCurrentScreen()) && isCurrencySpecific(prevScreen)) {
+        std::vector<std::string> ac = getActiveCurrencies();
+        if (!ac.empty()) {
+            setCurrentCurrency(getCurrencyChar(ac.back()));
+        }
+    }
+    
+    setCurrentScreen(prevScreen);
 }
 
 void ScreenHandler::showSystemStatusScreen() {
