@@ -31,7 +31,6 @@
 #ifdef USE_QR
 #include "qrcodegen.h"
 #endif
-// extern TaskHandle_t epdTaskHandle;
 
 typedef struct {
   char dispNum;
@@ -39,6 +38,7 @@ typedef struct {
 
 void forceFullRefresh();
 void setupDisplays();
+void loadFonts(const String& fontName);
 
 void splitText(const uint dispNum, const String &top, const String &bottom,
                bool partial);

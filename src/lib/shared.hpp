@@ -97,6 +97,16 @@ namespace ArduinoJson {
         array.add(item);
     }
   };
+
+  template <size_t N>
+  struct Converter<std::array<String, N>> {
+    static void toJson(const std::array<String, N>& src, JsonVariant dst) {
+      JsonArray array = dst.to<JsonArray>();
+      for (const String& item : src) {
+        array.add(item);
+      }
+    }
+  };
 }
 
 class HttpHelper {

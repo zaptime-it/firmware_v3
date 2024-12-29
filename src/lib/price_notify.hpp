@@ -28,3 +28,4 @@ void restartPriceNotify();
 
 bool getPriceNotifyInit();
 uint getLastPriceUpdate(char currency);
+void loadStoredPrices();

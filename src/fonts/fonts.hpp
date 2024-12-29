@@ -15,9 +15,35 @@ struct FontData {
     const uint8_t yAdvance;
 };
 
+// Font name constants
+namespace FontNames {
+    static const String ANTONIO = "antonio";
+    static const String OSWALD = "oswald";
+
+    static const std::array<String, 2> AVAILABLE_FONTS = {
+        ANTONIO,
+        OSWALD
+    };
+
+    static const std::array<String, 2>& getAvailableFonts() {
+        return AVAILABLE_FONTS;
+    }
+}
 
 class FontLoader {
 public:
+    static GFXfont* loadCompressedFont(const FontData& fontData) {
+        return loadCompressedFont(
+            fontData.compressedData,
+            fontData.glyphs,
+            fontData.compressedSize,
+            fontData.originalSize,
+            fontData.first,
+            fontData.last,
+            fontData.yAdvance
+        );
+    }
+
     static GFXfont* loadCompressedFont(
         const uint8_t* compressedData,
         const GFXglyph* glyphs,

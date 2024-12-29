@@ -110,15 +110,17 @@ void processNewPrice(uint newPrice, char currency)
   if (lastUpdateMap.find(currency) == lastUpdateMap.end() ||
       (currentTime - lastUpdateMap[currency]) > minSecPriceUpd)
   {
-    //   const unsigned long oldPrice = currentPrice;
     currencyMap[currency] = newPrice;
-    if (currency == CURRENCY_USD && ( lastUpdateMap[currency] == 0 ||
-        (currentTime - lastUpdateMap[currency]) > 120))
+    
+    // Store price in preferences if enough time has passed
+    if (lastUpdateMap[currency] == 0 || (currentTime - lastUpdateMap[currency]) > 120)
     {
-      preferences.putUInt("lastPrice", currentPrice);
+      String prefKey = String("lastPrice_") + getCurrencyCode(currency).c_str();
+      preferences.putUInt(prefKey.c_str(), newPrice);
     }
+    
     lastUpdateMap[currency] = currentTime;
-    // if (abs((int)(oldPrice-currentPrice)) > round(0.0015*oldPrice)) {
+
     if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BTC_TICKER ||
         ScreenHandler::getCurrentScreen() == SCREEN_SATS_PER_CURRENCY ||
         ScreenHandler::getCurrentScreen() == SCREEN_MARKET_CAP))
@@ -126,7 +128,24 @@ void processNewPrice(uint newPrice, char currency)
       WorkItem priceUpdate = {TASK_PRICE_UPDATE, currency};
       xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
     }
-    //}
+  }
+}
+
+void loadStoredPrices()
+{
+  // Load prices for all supported currencies
+  std::vector<std::string> currencies = getAvailableCurrencies();
+  
+  for (const std::string &currency : currencies) {
+    // Get first character as the currency identifier
+    String prefKey = String("lastPrice_") + currency.c_str();
+    uint storedPrice = preferences.getUInt(prefKey.c_str(), 0);
+    
+    if (storedPrice > 0) {
+      currencyMap[getCurrencyChar(currency)] = storedPrice;
+      // Initialize lastUpdateMap to 0 so next update will store immediately
+      lastUpdateMap[getCurrencyChar(currency)] = 0;
+    }
   }
 }
 

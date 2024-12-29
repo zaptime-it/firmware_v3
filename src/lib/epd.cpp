@@ -161,73 +161,21 @@ void forceFullRefresh()
 
 GFXfont font90;
 
-void setupDisplays()
-{
-  String fontName = preferences.getString("fontName", DEFAULT_FONT_NAME); // Default to antonio
-
-  if (fontName == "antonio")
-  {
+void loadFonts(const String& fontName) {
+  if (fontName == FontNames::ANTONIO) {
     // Load Antonio fonts
-    antonioFonts.big = FontLoader::loadCompressedFont(
-        Antonio_SemiBold90pt7b_Properties.compressedData,
-        Antonio_SemiBold90pt7b_Properties.glyphs,
-        Antonio_SemiBold90pt7b_Properties.compressedSize,
-        Antonio_SemiBold90pt7b_Properties.originalSize,
-        Antonio_SemiBold90pt7b_Properties.first,
-        Antonio_SemiBold90pt7b_Properties.last,
-        Antonio_SemiBold90pt7b_Properties.yAdvance);
-
-    antonioFonts.medium = FontLoader::loadCompressedFont(
-        Antonio_SemiBold40pt7b_Properties.compressedData,
-        Antonio_SemiBold40pt7b_Properties.glyphs,
-        Antonio_SemiBold40pt7b_Properties.compressedSize,
-        Antonio_SemiBold40pt7b_Properties.originalSize,
-        Antonio_SemiBold40pt7b_Properties.first,
-        Antonio_SemiBold40pt7b_Properties.last,
-        Antonio_SemiBold40pt7b_Properties.yAdvance);
-
-    antonioFonts.small = FontLoader::loadCompressedFont(
-        Antonio_SemiBold20pt7b_Properties.compressedData,
-        Antonio_SemiBold20pt7b_Properties.glyphs,
-        Antonio_SemiBold20pt7b_Properties.compressedSize,
-        Antonio_SemiBold20pt7b_Properties.originalSize,
-        Antonio_SemiBold20pt7b_Properties.first,
-        Antonio_SemiBold20pt7b_Properties.last,
-        Antonio_SemiBold20pt7b_Properties.yAdvance);
+    antonioFonts.big = FontLoader::loadCompressedFont(Antonio_SemiBold90pt7b_Properties);
+    antonioFonts.medium = FontLoader::loadCompressedFont(Antonio_SemiBold40pt7b_Properties);
+    antonioFonts.small = FontLoader::loadCompressedFont(Antonio_SemiBold20pt7b_Properties);
 
     FONT_BIG = antonioFonts.big;
     FONT_MEDIUM = antonioFonts.medium;
     FONT_SMALL = antonioFonts.small;
-  }
-  else if (fontName == "oswald")
-  {
+  } else if (fontName == FontNames::OSWALD) {
     // Load Oswald fonts
-    oswaldFonts.big = FontLoader::loadCompressedFont(
-        Oswald_Medium80pt7b_Properties.compressedData,
-        Oswald_Medium80pt7b_Properties.glyphs,
-        Oswald_Medium80pt7b_Properties.compressedSize,
-        Oswald_Medium80pt7b_Properties.originalSize,
-        Oswald_Medium80pt7b_Properties.first,
-        Oswald_Medium80pt7b_Properties.last,
-        Oswald_Medium80pt7b_Properties.yAdvance);
-
-    oswaldFonts.medium = FontLoader::loadCompressedFont(
-        Oswald_Medium30pt7b_Properties.compressedData,
-        Oswald_Medium30pt7b_Properties.glyphs,
-        Oswald_Medium30pt7b_Properties.compressedSize,
-        Oswald_Medium30pt7b_Properties.originalSize,
-        Oswald_Medium30pt7b_Properties.first,
-        Oswald_Medium30pt7b_Properties.last,
-        Oswald_Medium30pt7b_Properties.yAdvance);
-
-    oswaldFonts.small = FontLoader::loadCompressedFont(
-        Oswald_Medium20pt7b_Properties.compressedData,
-        Oswald_Medium20pt7b_Properties.glyphs,
-        Oswald_Medium20pt7b_Properties.compressedSize,
-        Oswald_Medium20pt7b_Properties.originalSize,
-        Oswald_Medium20pt7b_Properties.first,
-        Oswald_Medium20pt7b_Properties.last,
-        Oswald_Medium20pt7b_Properties.yAdvance);
+    oswaldFonts.big = FontLoader::loadCompressedFont(Oswald_Medium80pt7b_Properties);
+    oswaldFonts.medium = FontLoader::loadCompressedFont(Oswald_Medium30pt7b_Properties);
+    oswaldFonts.small = FontLoader::loadCompressedFont(Oswald_Medium20pt7b_Properties);
 
     FONT_BIG = oswaldFonts.big;
     FONT_MEDIUM = oswaldFonts.medium;
@@ -235,53 +183,49 @@ void setupDisplays()
   }
 
   FONT_SATSYMBOL = &Satoshi_Symbol90pt7b;
+}
 
+void setupDisplays() {
+  // Load fonts based on preference
+  String fontName = preferences.getString("fontName", DEFAULT_FONT_NAME);
+  loadFonts(fontName);
+
+  // Initialize displays
   std::lock_guard<std::mutex> lockMcp(mcpMutex);
-
-  for (uint i = 0; i < NUM_SCREENS; i++)
-  {
+  for (uint i = 0; i < NUM_SCREENS; i++) {
     displays[i].init(0, true, 30);
   }
 
+  // Create update queue and task
   updateQueue = xQueueCreate(UPDATE_QUEUE_SIZE, sizeof(UpdateDisplayTaskItem));
-
   xTaskCreate(prepareDisplayUpdateTask, "PrepareUpd", EPD_TASK_STACK_SIZE * 2, NULL, 11, NULL);
 
-  for (uint i = 0; i < NUM_SCREENS; i++)
-  {
+  // Create display update tasks
+  for (uint i = 0; i < NUM_SCREENS; i++) {
     int *taskParam = new int;
     *taskParam = i;
-
-    xTaskCreate(updateDisplay, ("EpdUpd" + String(i)).c_str(), EPD_TASK_STACK_SIZE, taskParam,
-                11, &tasks[i]); // create task
+    xTaskCreate(updateDisplay, ("EpdUpd" + String(i)).c_str(), EPD_TASK_STACK_SIZE, taskParam, 11, &tasks[i]);
   }
 
-  // Hold lower button to enable "storage mode" (prevents burn-in of ePaper displays)
-  if (mcp1.read1(0) == LOW)
-  {
+  // Check for storage mode (prevents burn-in)
+  if (mcp1.read1(0) == LOW) {
     setFgColor(GxEPD_BLACK);
     setBgColor(GxEPD_WHITE);
-
     epdContent.fill("");
-  }
-  else
-  {
-    // Get custom text from preferences or use default "BTCLOCK"
+  } else {
+    // Initialize with custom text or default
     String customText = preferences.getString("displayText", DEFAULT_BOOT_TEXT);
-    
-    // Initialize array with spaces
     std::array<String, NUM_SCREENS> newContent;
     newContent.fill(" ");
     
-    // Fill in the custom text, truncating if longer than NUM_SCREENS
     for (size_t i = 0; i < std::min(customText.length(), (size_t)NUM_SCREENS); i++) {
-        newContent[i] = String(customText[i]);
+      newContent[i] = String(customText[i]);
     }
     
     epdContent = newContent;
   }
 
-    setEpdContent(epdContent);
+  setEpdContent(epdContent);
 }
 
 void setEpdContent(std::array<String, NUM_SCREENS> newEpdContent)
@@ -527,8 +471,8 @@ void showDigit(const uint dispNum, char chr, bool partial, const GFXfont *font)
 
     if (chr == '.')
     {
-        displays[dispNum].fillRect(x, y, displays[dispNum].width(),
-                                   round(displays[dispNum].height() * 0.9), getBgColor());
+        displays[dispNum].fillRect(0, 0, displays[dispNum].width(),
+                                   round(displays[dispNum].height() * 0.67), getBgColor());
     }
 }
 

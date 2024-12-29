@@ -321,6 +321,7 @@ void taskScreenRotate(void *pvParameters) {
 
 void setupTasks() {
     workQueue = xQueueCreate(WORK_QUEUE_SIZE, sizeof(WorkItem));
+    loadStoredPrices();
 
     xTaskCreate(workerTask, "workerTask", 4096, NULL, tskIDLE_PRIORITY,
                 &workerTaskHandle);
