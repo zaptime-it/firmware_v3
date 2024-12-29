@@ -59,7 +59,7 @@ MCP23X17_Pin EPD_RESET_MPD[NUM_SCREENS] = {
     MCP23X17_Pin(mcp2, 5),
     MCP23X17_Pin(mcp2, 7),
 };
-#else 
+#else
 Native_Pin EPD_CS[NUM_SCREENS] = {
     Native_Pin(2),
     Native_Pin(4),
@@ -123,10 +123,20 @@ QueueHandle_t updateQueue;
 int fgColor = GxEPD_WHITE;
 int bgColor = GxEPD_BLACK;
 
-#define FONT_SMALL Antonio_SemiBold20pt7b
-#define FONT_BIG Antonio_SemiBold90pt7b
-#define FONT_MEDIUM Antonio_SemiBold40pt7b
-#define FONT_SATSYMBOL Satoshi_Symbol90pt7b
+struct FontFamily {
+    GFXfont* big;
+    GFXfont* medium;
+    GFXfont* small;
+};
+
+FontFamily antonioFonts = {nullptr, nullptr, nullptr};
+FontFamily oswaldFonts = {nullptr, nullptr, nullptr};
+
+const GFXfont *FONT_SMALL;
+const GFXfont *FONT_BIG;
+const GFXfont *FONT_MEDIUM;
+const GFXfont *FONT_SATSYMBOL;
+
 std::mutex epdUpdateMutex;
 std::mutex epdMutex[NUM_SCREENS];
 
@@ -149,8 +159,83 @@ void forceFullRefresh()
   }
 }
 
+GFXfont font90;
+
 void setupDisplays()
 {
+  String fontName = preferences.getString("fontName", DEFAULT_FONT_NAME); // Default to antonio
+
+  if (fontName == "antonio")
+  {
+    // Load Antonio fonts
+    antonioFonts.big = FontLoader::loadCompressedFont(
+        Antonio_SemiBold90pt7b_Properties.compressedData,
+        Antonio_SemiBold90pt7b_Properties.glyphs,
+        Antonio_SemiBold90pt7b_Properties.compressedSize,
+        Antonio_SemiBold90pt7b_Properties.originalSize,
+        Antonio_SemiBold90pt7b_Properties.first,
+        Antonio_SemiBold90pt7b_Properties.last,
+        Antonio_SemiBold90pt7b_Properties.yAdvance);
+
+    antonioFonts.medium = FontLoader::loadCompressedFont(
+        Antonio_SemiBold40pt7b_Properties.compressedData,
+        Antonio_SemiBold40pt7b_Properties.glyphs,
+        Antonio_SemiBold40pt7b_Properties.compressedSize,
+        Antonio_SemiBold40pt7b_Properties.originalSize,
+        Antonio_SemiBold40pt7b_Properties.first,
+        Antonio_SemiBold40pt7b_Properties.last,
+        Antonio_SemiBold40pt7b_Properties.yAdvance);
+
+    antonioFonts.small = FontLoader::loadCompressedFont(
+        Antonio_SemiBold20pt7b_Properties.compressedData,
+        Antonio_SemiBold20pt7b_Properties.glyphs,
+        Antonio_SemiBold20pt7b_Properties.compressedSize,
+        Antonio_SemiBold20pt7b_Properties.originalSize,
+        Antonio_SemiBold20pt7b_Properties.first,
+        Antonio_SemiBold20pt7b_Properties.last,
+        Antonio_SemiBold20pt7b_Properties.yAdvance);
+
+    FONT_BIG = antonioFonts.big;
+    FONT_MEDIUM = antonioFonts.medium;
+    FONT_SMALL = antonioFonts.small;
+  }
+  else if (fontName == "oswald")
+  {
+    // Load Oswald fonts
+    oswaldFonts.big = FontLoader::loadCompressedFont(
+        Oswald_Medium80pt7b_Properties.compressedData,
+        Oswald_Medium80pt7b_Properties.glyphs,
+        Oswald_Medium80pt7b_Properties.compressedSize,
+        Oswald_Medium80pt7b_Properties.originalSize,
+        Oswald_Medium80pt7b_Properties.first,
+        Oswald_Medium80pt7b_Properties.last,
+        Oswald_Medium80pt7b_Properties.yAdvance);
+
+    oswaldFonts.medium = FontLoader::loadCompressedFont(
+        Oswald_Medium30pt7b_Properties.compressedData,
+        Oswald_Medium30pt7b_Properties.glyphs,
+        Oswald_Medium30pt7b_Properties.compressedSize,
+        Oswald_Medium30pt7b_Properties.originalSize,
+        Oswald_Medium30pt7b_Properties.first,
+        Oswald_Medium30pt7b_Properties.last,
+        Oswald_Medium30pt7b_Properties.yAdvance);
+
+    oswaldFonts.small = FontLoader::loadCompressedFont(
+        Oswald_Medium20pt7b_Properties.compressedData,
+        Oswald_Medium20pt7b_Properties.glyphs,
+        Oswald_Medium20pt7b_Properties.compressedSize,
+        Oswald_Medium20pt7b_Properties.originalSize,
+        Oswald_Medium20pt7b_Properties.first,
+        Oswald_Medium20pt7b_Properties.last,
+        Oswald_Medium20pt7b_Properties.yAdvance);
+
+    FONT_BIG = oswaldFonts.big;
+    FONT_MEDIUM = oswaldFonts.medium;
+    FONT_SMALL = oswaldFonts.small;
+  }
+
+  FONT_SATSYMBOL = &Satoshi_Symbol90pt7b;
+
   std::lock_guard<std::mutex> lockMcp(mcpMutex);
 
   for (uint i = 0; i < NUM_SCREENS; i++)
@@ -160,13 +245,10 @@ void setupDisplays()
 
   updateQueue = xQueueCreate(UPDATE_QUEUE_SIZE, sizeof(UpdateDisplayTaskItem));
 
-  xTaskCreate(prepareDisplayUpdateTask, "PrepareUpd", EPD_TASK_STACK_SIZE*2, NULL, 11, NULL);
+  xTaskCreate(prepareDisplayUpdateTask, "PrepareUpd", EPD_TASK_STACK_SIZE * 2, NULL, 11, NULL);
 
   for (uint i = 0; i < NUM_SCREENS; i++)
   {
-    // epdUpdateSemaphore[i] = xSemaphoreCreateBinary();
-    // xSemaphoreGive(epdUpdateSemaphore[i]);
-
     int *taskParam = new int;
     *taskParam = i;
 
@@ -184,239 +266,255 @@ void setupDisplays()
   }
   else
   {
-    #ifdef IS_BTCLOCK_V8
-    epdContent = {"B", "T", "C", "L", "O", "C", "K", "v8"};
-    #else
-    epdContent = {"B", "T", "C", "L", "O", "C", "K"};
-    #endif
+    // Get custom text from preferences or use default "BTCLOCK"
+    String customText = preferences.getString("displayText", DEFAULT_BOOT_TEXT);
+    
+    // Initialize array with spaces
+    std::array<String, NUM_SCREENS> newContent;
+    newContent.fill(" ");
+    
+    // Fill in the custom text, truncating if longer than NUM_SCREENS
+    for (size_t i = 0; i < std::min(customText.length(), (size_t)NUM_SCREENS); i++) {
+        newContent[i] = String(customText[i]);
+    }
+    
+    epdContent = newContent;
   }
 
-  setEpdContent(epdContent);
+    setEpdContent(epdContent);
 }
 
 void setEpdContent(std::array<String, NUM_SCREENS> newEpdContent)
 {
-  setEpdContent(newEpdContent, false);
+    setEpdContent(newEpdContent, false);
 }
 
 void setEpdContent(std::array<std::string, NUM_SCREENS> newEpdContent)
 {
-  std::array<String, NUM_SCREENS> conv;
+    std::array<String, NUM_SCREENS> conv;
 
-  for (size_t i = 0; i < newEpdContent.size(); ++i)
-  {
-    conv[i] = String(newEpdContent[i].c_str());
-  }
+    for (size_t i = 0; i < newEpdContent.size(); ++i)
+    {
+        conv[i] = String(newEpdContent[i].c_str());
+    }
 
-  return setEpdContent(conv);
+    return setEpdContent(conv);
 }
 
 void setEpdContent(std::array<String, NUM_SCREENS> newEpdContent,
                    bool forceUpdate)
 {
-  std::lock_guard<std::mutex> lock(epdUpdateMutex);
+    std::lock_guard<std::mutex> lock(epdUpdateMutex);
 
-  waitUntilNoneBusy();
+    waitUntilNoneBusy();
 
-  for (uint i = 0; i < NUM_SCREENS; i++)
-  {
-    if (newEpdContent[i].compareTo(currentEpdContent[i]) != 0 || forceUpdate)
+    for (uint i = 0; i < NUM_SCREENS; i++)
     {
-      epdContent[i] = newEpdContent[i];
-      UpdateDisplayTaskItem dispUpdate = {i};
-      xQueueSend(updateQueue, &dispUpdate, portMAX_DELAY);
+        if (newEpdContent[i].compareTo(currentEpdContent[i]) != 0 || forceUpdate)
+        {
+            epdContent[i] = newEpdContent[i];
+            UpdateDisplayTaskItem dispUpdate = {i};
+            xQueueSend(updateQueue, &dispUpdate, portMAX_DELAY);
+        }
     }
-  }
 }
 
 void prepareDisplayUpdateTask(void *pvParameters)
 {
-  UpdateDisplayTaskItem receivedItem;
+    UpdateDisplayTaskItem receivedItem;
 
-  while (1)
-  {
-    // Wait for a work item to be available in the queue
-    if (xQueueReceive(updateQueue, &receivedItem, portMAX_DELAY))
+    while (1)
     {
-      uint epdIndex = receivedItem.dispNum;
-      std::lock_guard<std::mutex> lock(epdMutex[epdIndex]);
-      // displays[epdIndex].init(0, false); // Little longer reset duration
-      // because of MCP
-
-      bool updatePartial = true;
-
-      if (epdContent[epdIndex].length() > 1 && strstr(epdContent[epdIndex].c_str(), "/") != NULL)
-      {
-        String top = epdContent[epdIndex].substring(
-            0, epdContent[epdIndex].indexOf("/"));
-        String bottom = epdContent[epdIndex].substring(
-            epdContent[epdIndex].indexOf("/") + 1);
-        splitText(epdIndex, top, bottom, updatePartial);
-      }
-      else if (epdContent[epdIndex].startsWith(F("qr")))
-      {
-        renderQr(epdIndex, epdContent[epdIndex], updatePartial);
-      }
-      else if (epdContent[epdIndex].startsWith(F("mdi")))
-      {
-        bool updated = renderIcon(epdIndex, epdContent[epdIndex], updatePartial);
-        if (!updated) {
-          continue;
-        }
-      }
-      else if (epdContent[epdIndex].length() > 5)
-      {
-        renderText(epdIndex, epdContent[epdIndex], updatePartial);
-      }
-      else
-      {
-        if (epdContent[epdIndex].length() == 2) {
-          showChars(epdIndex, epdContent[epdIndex], updatePartial, &FONT_BIG);
-        }
-        else if (epdContent[epdIndex].length() > 1 && epdContent[epdIndex].indexOf(".") == -1)
+        // Wait for a work item to be available in the queue
+        if (xQueueReceive(updateQueue, &receivedItem, portMAX_DELAY))
         {
-          if (epdContent[epdIndex].equals("STS"))
-          {
-            showDigit(epdIndex, 'S', updatePartial,
-                      &FONT_SATSYMBOL);
-          }
-          else
-          {
-            showChars(epdIndex, epdContent[epdIndex], updatePartial,
-                      &FONT_MEDIUM);
-          }
-        }
-        else
-        {
+            uint epdIndex = receivedItem.dispNum;
+            std::lock_guard<std::mutex> lock(epdMutex[epdIndex]);
+            // displays[epdIndex].init(0, false); // Little longer reset duration
+            // because of MCP
 
-          showDigit(epdIndex, epdContent[epdIndex].c_str()[0], updatePartial,
-                    &FONT_BIG);
-        }
-      }
+            bool updatePartial = true;
 
-      xTaskNotifyGive(tasks[epdIndex]);
+            if (epdContent[epdIndex].length() > 1 && strstr(epdContent[epdIndex].c_str(), "/") != NULL)
+            {
+                String top = epdContent[epdIndex].substring(
+                    0, epdContent[epdIndex].indexOf("/"));
+                String bottom = epdContent[epdIndex].substring(
+                    epdContent[epdIndex].indexOf("/") + 1);
+                splitText(epdIndex, top, bottom, updatePartial);
+            }
+            else if (epdContent[epdIndex].startsWith(F("qr")))
+            {
+                renderQr(epdIndex, epdContent[epdIndex], updatePartial);
+            }
+            else if (epdContent[epdIndex].startsWith(F("mdi")))
+            {
+                bool updated = renderIcon(epdIndex, epdContent[epdIndex], updatePartial);
+                if (!updated)
+                {
+                    continue;
+                }
+            }
+            else if (epdContent[epdIndex].length() > 5)
+            {
+                renderText(epdIndex, epdContent[epdIndex], updatePartial);
+            }
+            else
+            {
+                if (epdContent[epdIndex].length() == 2)
+                {
+                    showChars(epdIndex, epdContent[epdIndex], updatePartial, FONT_BIG);
+                }
+                else if (epdContent[epdIndex].length() > 1 && epdContent[epdIndex].indexOf(".") == -1)
+                {
+                    if (epdContent[epdIndex].equals("STS"))
+                    {
+                        showDigit(epdIndex, 'S', updatePartial,
+                                  FONT_SATSYMBOL);
+                    }
+                    else
+                    {
+                        showChars(epdIndex, epdContent[epdIndex], updatePartial,
+                                  FONT_MEDIUM);
+                    }
+                }
+                else
+                {
+
+                    showDigit(epdIndex, epdContent[epdIndex].c_str()[0], updatePartial,
+                              FONT_BIG);
+                }
+            }
+
+            xTaskNotifyGive(tasks[epdIndex]);
+        }
     }
-  }
 }
 
 extern "C" void updateDisplay(void *pvParameters) noexcept
 {
-  const int epdIndex = *(int *)pvParameters;
-  delete (int *)pvParameters;
+    const int epdIndex = *(int *)pvParameters;
+    delete (int *)pvParameters;
 
-  for (;;)
-  {
-    // Wait for the task notification
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-
-    std::lock_guard<std::mutex> lock(epdMutex[epdIndex]);
-
+    for (;;)
     {
-      std::lock_guard<std::mutex> lockMcp(mcpMutex);
+        // Wait for the task notification
+        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-      displays[epdIndex].init(0, false, 40);
+        std::lock_guard<std::mutex> lock(epdMutex[epdIndex]);
+
+        {
+            std::lock_guard<std::mutex> lockMcp(mcpMutex);
+
+            displays[epdIndex].init(0, false, 40);
+        }
+        uint count = 0;
+        while (EPD_BUSY[epdIndex].digitalRead() == HIGH || count < 10)
+        {
+            vTaskDelay(pdMS_TO_TICKS(100));
+            count++;
+        }
+
+        bool updatePartial = true;
+
+        // Full Refresh every x minutes
+        if (!lastFullRefresh[epdIndex] ||
+            (millis() - lastFullRefresh[epdIndex]) >
+                (preferences.getUInt("fullRefreshMin",
+                                     DEFAULT_MINUTES_FULL_REFRESH) *
+                 60 * 1000))
+        {
+            updatePartial = false;
+        }
+
+        char tries = 0;
+        while (tries < 3)
+        {
+            if (displays[epdIndex].displayWithReturn(updatePartial))
+            {
+                displays[epdIndex].powerOff();
+                currentEpdContent[epdIndex] = epdContent[epdIndex];
+                if (!updatePartial)
+                    lastFullRefresh[epdIndex] = millis();
+
+                if (eventSourceTaskHandle != NULL)
+                    xTaskNotifyGive(eventSourceTaskHandle);
+
+                break;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(100));
+            tries++;
+        }
     }
-    uint count = 0;
-    while (EPD_BUSY[epdIndex].digitalRead() == HIGH || count < 10)
-    {
-      vTaskDelay(pdMS_TO_TICKS(100));
-      count++;
-    }
-
-    bool updatePartial = true;
-
-    // Full Refresh every x minutes
-    if (!lastFullRefresh[epdIndex] ||
-        (millis() - lastFullRefresh[epdIndex]) >
-            (preferences.getUInt("fullRefreshMin",
-                                 DEFAULT_MINUTES_FULL_REFRESH) *
-             60 * 1000))
-    {
-      updatePartial = false;
-    }
-
-    char tries = 0;
-    while (tries < 3)
-    {
-      if (displays[epdIndex].displayWithReturn(updatePartial))
-      {
-        displays[epdIndex].powerOff();
-        currentEpdContent[epdIndex] = epdContent[epdIndex];
-        if (!updatePartial)
-          lastFullRefresh[epdIndex] = millis();
-
-        if (eventSourceTaskHandle != NULL)
-          xTaskNotifyGive(eventSourceTaskHandle);
-
-        break;
-      }
-
-      vTaskDelay(pdMS_TO_TICKS(100));
-      tries++;
-    }
-  }
 }
 
 void splitText(const uint dispNum, const String &top, const String &bottom,
                bool partial)
 {
-  if(preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC) && dispNum == 0) {
-    displays[dispNum].setRotation(1);
-  } else {
-    displays[dispNum].setRotation(2);
-  }
-  displays[dispNum].setFont(&FONT_SMALL);
-  displays[dispNum].setTextColor(getFgColor());
+    if (preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC) && dispNum == 0)
+    {
+        displays[dispNum].setRotation(1);
+    }
+    else
+    {
+        displays[dispNum].setRotation(2);
+    }
+    displays[dispNum].setFont(FONT_SMALL);
+    displays[dispNum].setTextColor(getFgColor());
 
-  // Top text
-  int16_t ttbx, ttby;
-  uint16_t ttbw, ttbh;
-  displays[dispNum].getTextBounds(top, 0, 0, &ttbx, &ttby, &ttbw, &ttbh);
-  uint16_t tx = ((displays[dispNum].width() - ttbw) / 2) - ttbx;
-  uint16_t ty =
-      ((displays[dispNum].height() - ttbh) / 2) - ttby - ttbh / 2 - 12;
+    // Top text
+    int16_t ttbx, ttby;
+    uint16_t ttbw, ttbh;
+    displays[dispNum].getTextBounds(top, 0, 0, &ttbx, &ttby, &ttbw, &ttbh);
+    uint16_t tx = ((displays[dispNum].width() - ttbw) / 2) - ttbx;
+    uint16_t ty =
+        ((displays[dispNum].height() - ttbh) / 2) - ttby - ttbh / 2 - 12;
 
-  // Bottom text
-  int16_t tbbx, tbby;
-  uint16_t tbbw, tbbh;
-  displays[dispNum].getTextBounds(bottom, 0, 0, &tbbx, &tbby, &tbbw, &tbbh);
-  uint16_t bx = ((displays[dispNum].width() - tbbw) / 2) - tbbx;
-  uint16_t by =
-      ((displays[dispNum].height() - tbbh) / 2) - tbby + tbbh / 2 + 12;
+    // Bottom text
+    int16_t tbbx, tbby;
+    uint16_t tbbw, tbbh;
+    displays[dispNum].getTextBounds(bottom, 0, 0, &tbbx, &tbby, &tbbw, &tbbh);
+    uint16_t bx = ((displays[dispNum].width() - tbbw) / 2) - tbbx;
+    uint16_t by =
+        ((displays[dispNum].height() - tbbh) / 2) - tbby + tbbh / 2 + 12;
 
-  // Make separator as wide as the shortest text.
-  uint16_t lineWidth, lineX;
-  if (tbbw < ttbh)
-    lineWidth = tbbw;
-  else
-    lineWidth = ttbw;
-  lineX = round((displays[dispNum].width() - lineWidth) / 2);
+    // Make separator as wide as the shortest text.
+    uint16_t lineWidth, lineX;
+    if (tbbw < ttbh)
+        lineWidth = tbbw;
+    else
+        lineWidth = ttbw;
+    lineX = round((displays[dispNum].width() - lineWidth) / 2);
 
-  displays[dispNum].fillScreen(getBgColor());
-  displays[dispNum].setCursor(tx, ty);
-  displays[dispNum].print(top);
-  displays[dispNum].fillRoundRect(lineX, displays[dispNum].height() / 2 - 3,
-                                  lineWidth, 6, 3, getFgColor());
-  displays[dispNum].setCursor(bx, by);
-  displays[dispNum].print(bottom);
+    displays[dispNum].fillScreen(getBgColor());
+    displays[dispNum].setCursor(tx, ty);
+    displays[dispNum].print(top);
+    displays[dispNum].fillRoundRect(lineX, displays[dispNum].height() / 2 - 3,
+                                    lineWidth, 6, 3, getFgColor());
+    displays[dispNum].setCursor(bx, by);
+    displays[dispNum].print(bottom);
 }
 
 // Consolidate common display setup code into a helper function
-void setupDisplay(const uint dispNum, const GFXfont *font) {
+void setupDisplay(const uint dispNum, const GFXfont *font)
+{
     displays[dispNum].setRotation(2);
     displays[dispNum].setFont(font);
     displays[dispNum].setTextColor(getFgColor());
     displays[dispNum].fillScreen(getBgColor());
 }
 
-void showDigit(const uint dispNum, char chr, bool partial, const GFXfont *font) {
+void showDigit(const uint dispNum, char chr, bool partial, const GFXfont *font)
+{
     String str(chr);
-    if (chr == '.') {
+    if (chr == '.')
+    {
         str = "!";
     }
-    
+
     setupDisplay(dispNum, font);
-    
+
     int16_t tbx, tby;
     uint16_t tbw, tbh;
     displays[dispNum].getTextBounds(str, 0, 0, &tbx, &tby, &tbw, &tbh);
@@ -427,57 +525,64 @@ void showDigit(const uint dispNum, char chr, bool partial, const GFXfont *font) 
     displays[dispNum].setCursor(x, y);
     displays[dispNum].print(str);
 
-    if (chr == '.') {
-        displays[dispNum].fillRect(x, y, displays[dispNum].width(), 
-            round(displays[dispNum].height() * 0.9), getBgColor());
+    if (chr == '.')
+    {
+        displays[dispNum].fillRect(x, y, displays[dispNum].width(),
+                                   round(displays[dispNum].height() * 0.9), getBgColor());
     }
 }
 
-int16_t calculateDescent(const GFXfont *font) {
-  int16_t maxDescent = 0;
-  for (uint16_t i = font->first; i <= font->last; i++) {
-    GFXglyph *glyph = &font->glyph[i - font->first];
-    int16_t descent = glyph->yOffset;
-    if (descent > maxDescent) {
-      maxDescent = descent;
+int16_t calculateDescent(const GFXfont *font)
+{
+    int16_t maxDescent = 0;
+    for (uint16_t i = font->first; i <= font->last; i++)
+    {
+        GFXglyph *glyph = &font->glyph[i - font->first];
+        int16_t descent = glyph->yOffset;
+        if (descent > maxDescent)
+        {
+            maxDescent = descent;
+        }
     }
-  }
-  return maxDescent;
+    return maxDescent;
 }
 
 void showChars(const uint dispNum, const String &chars, bool partial,
                const GFXfont *font)
 {
-  setupDisplay(dispNum, font);
+    setupDisplay(dispNum, font);
 
+    int16_t tbx, tby;
+    uint16_t tbw, tbh;
+    displays[dispNum].getTextBounds(chars, 0, 0, &tbx, &tby, &tbw, &tbh);
 
-  int16_t tbx, tby;
-  uint16_t tbw, tbh;
-  displays[dispNum].getTextBounds(chars, 0, 0, &tbx, &tby, &tbw, &tbh);
+    // center the bounding box by transposition of the origin:
+    uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
+    uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
 
-  // center the bounding box by transposition of the origin:
-  uint16_t x = ((displays[dispNum].width() - tbw) / 2) - tbx;
-  uint16_t y = ((displays[dispNum].height() - tbh) / 2) - tby;
+    for (int i = 0; i < chars.length(); i++)
+    {
+        char c = chars[i];
+        if (c == '.' || c == ',')
+        {
+            // For the dot, calculate its specific descent
+            GFXglyph *dotGlyph = &font->glyph[c - font->first];
+            int16_t dotDescent = dotGlyph->yOffset;
 
-  for (int i = 0; i < chars.length(); i++) {
-    char c = chars[i];
-    if (c == '.' || c == ',') {
-      // For the dot, calculate its specific descent
-      GFXglyph *dotGlyph = &font->glyph[c -font->first];
-      int16_t dotDescent = dotGlyph->yOffset;
-      
-      // Draw the dot with adjusted y-position
-      displays[dispNum].setCursor(x, y + dotDescent + dotGlyph->height + 8);
-      displays[dispNum].print(c);
-    } else {
-      // For other characters, use the original y-position
-      displays[dispNum].setCursor(x, y);
-      displays[dispNum].print(c);
+            // Draw the dot with adjusted y-position
+            displays[dispNum].setCursor(x, y + dotDescent + dotGlyph->height + 8);
+            displays[dispNum].print(c);
+        }
+        else
+        {
+            // For other characters, use the original y-position
+            displays[dispNum].setCursor(x, y);
+            displays[dispNum].print(c);
+        }
+
+        // Move x-position for the next character
+        x += font->glyph[c - font->first].xAdvance;
     }
-    
-    // Move x-position for the next character
-    x += font->glyph[c - font->first].xAdvance;
-  }
 }
 
 int getBgColor() { return bgColor; }
@@ -490,142 +595,146 @@ void setFgColor(int color) { fgColor = color; }
 
 std::array<String, NUM_SCREENS> getCurrentEpdContent()
 {
-  return currentEpdContent;
+    return currentEpdContent;
 }
 void renderText(const uint dispNum, const String &text, bool partial)
 {
-  displays[dispNum].setRotation(2);
-  displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
-                                     displays[dispNum].height());
-  displays[dispNum].fillScreen(GxEPD_WHITE);
-  displays[dispNum].setTextColor(GxEPD_BLACK);
-  displays[dispNum].setCursor(0, 50);
+    displays[dispNum].setRotation(2);
+    displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
+                                       displays[dispNum].height());
+    displays[dispNum].fillScreen(GxEPD_WHITE);
+    displays[dispNum].setTextColor(GxEPD_BLACK);
+    displays[dispNum].setCursor(0, 50);
 
-  std::stringstream ss;
-  ss.str(text.c_str());
+    std::stringstream ss;
+    ss.str(text.c_str());
 
-  std::string line;
+    std::string line;
 
-  while (std::getline(ss, line, '\n'))
-  {
-    if (line.rfind("*", 0) == 0)
+    while (std::getline(ss, line, '\n'))
     {
-      line.erase(std::remove(line.begin(), line.end(), '*'), line.end());
+        if (line.rfind("*", 0) == 0)
+        {
+            line.erase(std::remove(line.begin(), line.end(), '*'), line.end());
 
-      displays[dispNum].setFont(&FreeSansBold9pt7b);
-      displays[dispNum].println(line.c_str());
+            displays[dispNum].setFont(&FreeSansBold9pt7b);
+            displays[dispNum].println(line.c_str());
+        }
+        else
+        {
+            displays[dispNum].setFont(&FreeSans9pt7b);
+            displays[dispNum].println(line.c_str());
+        }
     }
-    else
-    {
-      displays[dispNum].setFont(&FreeSans9pt7b);
-      displays[dispNum].println(line.c_str());
-    }
-  }
 }
 
 bool renderIcon(const uint dispNum, const String &text, bool partial)
 {
-  displays[dispNum].setRotation(2);
+    displays[dispNum].setRotation(2);
 
-  displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
-                                     displays[dispNum].height());
+    displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
+                                       displays[dispNum].height());
     displays[dispNum].fillScreen(getBgColor());
     displays[dispNum].setTextColor(getFgColor());
 
-  uint iconIndex = 0;
-  uint width = 122;
-  uint height = 122;
-  if (text.endsWith("rocket"))  {
-    iconIndex = 1;
-  }
-  else if (text.endsWith("lnbolt"))  {
-    iconIndex = 2;
-  }
-  else if (text.endsWith("bitaxe"))  {
-    width = 88;
-    height = 220;
-    iconIndex = 3;
-  }
-  else if (text.endsWith("miningpool"))  {
-    LogoData logo = getMiningPoolLogo();
+    uint iconIndex = 0;
+    uint width = 122;
+    uint height = 122;
+    if (text.endsWith("rocket"))
+    {
+        iconIndex = 1;
+    }
+    else if (text.endsWith("lnbolt"))
+    {
+        iconIndex = 2;
+    }
+    else if (text.endsWith("bitaxe"))
+    {
+        width = 88;
+        height = 220;
+        iconIndex = 3;
+    }
+    else if (text.endsWith("miningpool"))
+    {
+        LogoData logo = getMiningPoolLogo();
 
-    if (logo.size == 0) {
-      Serial.println(F("No logo found"));
-      return false;
-    } 
+        if (logo.size == 0)
+        {
+            Serial.println(F("No logo found"));
+            return false;
+        }
 
-    int x_offset = (displays[dispNum].width() - logo.width) / 2;
-    int y_offset = (displays[dispNum].height() - logo.height) / 2;
-    // Close the file
+        int x_offset = (displays[dispNum].width() - logo.width) / 2;
+        int y_offset = (displays[dispNum].height() - logo.height) / 2;
+        // Close the file
 
-    displays[dispNum].drawInvertedBitmap(x_offset,y_offset, logo.data, logo.width, logo.height, getFgColor());
+        displays[dispNum].drawInvertedBitmap(x_offset, y_offset, logo.data, logo.width, logo.height, getFgColor());
+        return true;
+    }
+
+    int x_offset = (displays[dispNum].width() - width) / 2;
+    int y_offset = (displays[dispNum].height() - height) / 2;
+
+    displays[dispNum].drawInvertedBitmap(x_offset, y_offset, epd_icons_allArray[iconIndex], width, height, getFgColor());
+
     return true;
-  }
-
-
-  int x_offset = (displays[dispNum].width() - width) / 2;
-  int y_offset = (displays[dispNum].height() - height) / 2;
- 
-
-  displays[dispNum].drawInvertedBitmap(x_offset,y_offset, epd_icons_allArray[iconIndex], width, height, getFgColor());
-
-  return true;
-//  displays[dispNum].drawInvertedBitmap(0,0, getOceanIcon(), 122, 250, getFgColor());
-
-
+    //  displays[dispNum].drawInvertedBitmap(0,0, getOceanIcon(), 122, 250, getFgColor());
 }
 
 void renderQr(const uint dispNum, const String &text, bool partial)
 {
 #ifdef USE_QR
 
-  uint8_t tempBuffer[800];
-  bool ok = qrcodegen_encodeText(
-      text.substring(2).c_str(), tempBuffer, qrcode, qrcodegen_Ecc_LOW,
-      qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
+    uint8_t tempBuffer[800];
+    bool ok = qrcodegen_encodeText(
+        text.substring(2).c_str(), tempBuffer, qrcode, qrcodegen_Ecc_LOW,
+        qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
 
-  const int size = qrcodegen_getSize(qrcode);
+    const int size = qrcodegen_getSize(qrcode);
 
-  const int padding = floor(float(displays[dispNum].width() - (size * 4)) / 2);
-  const int paddingY =
-      floor(float(displays[dispNum].height() - (size * 4)) / 2);
-  displays[dispNum].setRotation(2);
+    const int padding = floor(float(displays[dispNum].width() - (size * 4)) / 2);
+    const int paddingY =
+        floor(float(displays[dispNum].height() - (size * 4)) / 2);
+    displays[dispNum].setRotation(2);
 
-  displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
-                                     displays[dispNum].height());
-  displays[dispNum].fillScreen(GxEPD_WHITE);
-  const int border = 0;
+    displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
+                                       displays[dispNum].height());
+    displays[dispNum].fillScreen(GxEPD_WHITE);
+    const int border = 0;
 
-  for (int y = -border; y < size * 4 + border; y++)
-  {
-    for (int x = -border; x < size * 4 + border; x++)
+    for (int y = -border; y < size * 4 + border; y++)
     {
-      displays[dispNum].drawPixel(
-          padding + x, paddingY + y,
-          qrcodegen_getModule(qrcode, floor(float(x) / 4), floor(float(y) / 4))
-              ? GxEPD_BLACK
-              : GxEPD_WHITE);
+        for (int x = -border; x < size * 4 + border; x++)
+        {
+            displays[dispNum].drawPixel(
+                padding + x, paddingY + y,
+                qrcodegen_getModule(qrcode, floor(float(x) / 4), floor(float(y) / 4))
+                    ? GxEPD_BLACK
+                    : GxEPD_WHITE);
+        }
     }
-  }
 #endif
 }
 
 void waitUntilNoneBusy()
 {
-  for (int i = 0; i < NUM_SCREENS; i++)
-  {
-    uint count = 0;
-    while (EPD_BUSY[i].digitalRead())
+    for (int i = 0; i < NUM_SCREENS; i++)
     {
-      count++;
-      vTaskDelay(BUSY_RETRY_DELAY);
-      
-      if (count == BUSY_TIMEOUT_COUNT) {
-        vTaskDelay(pdMS_TO_TICKS(100));
-      } else if (count > BUSY_TIMEOUT_COUNT + 5) {
-        log_e("Display %d busy timeout", i);
-        break;
-      }
+        uint count = 0;
+        while (EPD_BUSY[i].digitalRead())
+        {
+            count++;
+            vTaskDelay(BUSY_RETRY_DELAY);
+
+            if (count == BUSY_TIMEOUT_COUNT)
+            {
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            else if (count > BUSY_TIMEOUT_COUNT + 5)
+            {
+                log_e("Display %d busy timeout", i);
+                break;
+            }
+        }
     }
-  }
 }

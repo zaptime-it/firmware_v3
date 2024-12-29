@@ -3,7 +3,7 @@
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
 #include <GxEPD2_BW.h>
-
+#include "gzip_decompressor.hpp"
 
 #include <mcp23x17_pin.hpp>
 #include <mutex>
@@ -15,6 +15,18 @@
 #include "lib/shared.hpp"
 #include "icons/icons.h"
 #include "mining_pool_stats_fetch.hpp"
+
+// Font includes
+#include "../fonts/antonio-semibold20.h"
+#include "../fonts/antonio-semibold40.h"
+#include "../fonts/antonio-semibold90.h"
+
+// Oswald fonts
+#include "../fonts/oswald-medium20.h"
+#include "../fonts/oswald-medium30.h"
+#include "../fonts/oswald-medium80.h"
+
+#include "../fonts/sats-symbol.h"
 
 #ifdef USE_QR
 #include "qrcodegen.h"

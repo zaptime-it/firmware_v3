@@ -3,7 +3,7 @@
 static const char* JSON_CONTENT = "application/json";
 
 static const char *const PROGMEM strSettings[] = {
-    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint"};
+    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName"};
 
 static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout"};
 
@@ -675,7 +675,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["nostrZapNotify"] = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
   root["nostrZapPubkey"] = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
   root["ledFlashOnZap"] = preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP);
-  
+  root["fontName"] = preferences.getString("fontName", DEFAULT_FONT_NAME);
   // Custom endpoint settings (only used for CUSTOM_SOURCE)
   root["customEndpoint"] = preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
   root["customEndpointDisableSSL"] = preferences.getBool("customEndpointDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
