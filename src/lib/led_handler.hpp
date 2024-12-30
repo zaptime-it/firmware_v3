@@ -28,7 +28,6 @@ const int LED_EFFECT_WIFI_CONNECT_ERROR = 102;
 const int LED_EFFECT_WIFI_CONNECT_SUCCESS = 103;
 const int LED_EFFECT_WIFI_ERASE_SETTINGS = 104;
 
-
 const int LED_PROGRESS_25 = 200;
 const int LED_PROGRESS_50 = 201;
 const int LED_PROGRESS_75 = 202;
@@ -83,3 +82,21 @@ void frontlightFadeOutAll(int flDelayTime, bool staggered);
 void frontlightFadeIn(uint num, int flDelayTime);
 void frontlightFadeOut(uint num, int flDelayTime);
 #endif
+
+// Do Not Disturb mode settings
+struct DNDTimeRange {
+    uint8_t startHour;
+    uint8_t startMinute;
+    uint8_t endHour;
+    uint8_t endMinute;
+};
+
+extern bool dndEnabled;
+extern bool dndTimeBasedEnabled;
+extern DNDTimeRange dndTimeRange;
+
+void setDNDEnabled(bool enabled);
+void setDNDTimeBasedEnabled(bool enabled);
+void setDNDTimeRange(uint8_t startHour, uint8_t startMinute, uint8_t endHour, uint8_t endMinute);
+bool isDNDActive();
+bool isTimeInDNDRange(uint8_t hour, uint8_t minute);

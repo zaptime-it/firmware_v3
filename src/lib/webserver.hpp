@@ -67,6 +67,10 @@ void eventSourceTask(void *pvParameters);
 void onApiStopDataSources(AsyncWebServerRequest *request);
 void onApiRestartDataSources(AsyncWebServerRequest *request);
 
+void onApiDNDStatus(AsyncWebServerRequest *request);
+void onApiDNDEnable(AsyncWebServerRequest *request);
+void onApiDNDDisable(AsyncWebServerRequest *request);
+
 #ifdef HAS_FRONTLIGHT
 void onApiFrontlightOn(AsyncWebServerRequest *request);
 void onApiFrontlightFlash(AsyncWebServerRequest *request);

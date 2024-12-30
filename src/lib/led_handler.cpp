@@ -50,6 +50,9 @@ void frontlightFadeOut(uint num)
 
 void frontlightSetBrightness(uint brightness)
 {
+  if (isDNDActive()) {
+    return; // Don't change brightness during DND mode
+  }
   if (brightness > 4096)
   {
     return;
@@ -183,6 +186,9 @@ bool frontlightIsOn()
 
 void frontlightFadeIn(uint num, int flDelayTime)
 {
+  if (isDNDActive()) {
+    return; // Don't change brightness during DND mode
+  }
   if (preferences.getBool("flDisable"))
     return;
   for (int dutyCycle = 0; dutyCycle <= preferences.getUInt("flMaxBrightness"); dutyCycle += 5)
@@ -194,6 +200,9 @@ void frontlightFadeIn(uint num, int flDelayTime)
 
 void frontlightFadeOut(uint num, int flDelayTime)
 {
+  if (isDNDActive()) {
+    return; // Don't change brightness during DND mode
+  }
   if (preferences.getBool("flDisable"))
     return;
   if (!frontlightIsOn())
@@ -206,6 +215,85 @@ void frontlightFadeOut(uint num, int flDelayTime)
   }
 }
 #endif
+
+// Do Not Disturb mode variables
+bool dndEnabled = false;
+bool dndTimeBasedEnabled = false;
+DNDTimeRange dndTimeRange = {23, 0, 7, 0}; // Default: 23:00 to 07:00
+
+void loadDNDSettings() {
+    dndEnabled = preferences.getBool("dndEnabled", false);
+    dndTimeBasedEnabled = preferences.getBool("dndTimeEnabled", false);
+    
+    dndTimeRange.startHour = preferences.getUChar("dndStartHour", 23);
+    dndTimeRange.startMinute = preferences.getUChar("dndStartMin", 0);
+    dndTimeRange.endHour = preferences.getUChar("dndEndHour", 7);
+    dndTimeRange.endMinute = preferences.getUChar("dndEndMin", 0);
+}
+
+void setDNDEnabled(bool enabled) {
+    dndEnabled = enabled;
+    preferences.putBool("dndEnabled", enabled);
+    if (enabled && isDNDActive()) {
+        clearLeds();
+        #ifdef HAS_FRONTLIGHT
+        frontlightFadeOutAll();
+        #endif
+    }
+}
+
+void setDNDTimeBasedEnabled(bool enabled) {
+    dndTimeBasedEnabled = enabled;
+    preferences.putBool("dndTimeEnabled", enabled);
+    if (enabled && isDNDActive()) {
+        clearLeds();
+        #ifdef HAS_FRONTLIGHT
+        frontlightFadeOutAll();
+        #endif
+    }
+}
+
+void setDNDTimeRange(uint8_t startHour, uint8_t startMinute, uint8_t endHour, uint8_t endMinute) {
+    dndTimeRange.startHour = startHour;
+    dndTimeRange.startMinute = startMinute;
+    dndTimeRange.endHour = endHour;
+    dndTimeRange.endMinute = endMinute;
+    
+    preferences.putUChar("dndStartHour", startHour);
+    preferences.putUChar("dndStartMin", startMinute);
+    preferences.putUChar("dndEndHour", endHour);
+    preferences.putUChar("dndEndMin", endMinute);
+}
+
+bool isTimeInDNDRange(uint8_t hour, uint8_t minute) {
+    uint16_t currentTime = hour * 60 + minute;
+    uint16_t startTime = dndTimeRange.startHour * 60 + dndTimeRange.startMinute;
+    uint16_t endTime = dndTimeRange.endHour * 60 + dndTimeRange.endMinute;
+    
+    if (startTime <= endTime) {
+        // Simple case: start time is before end time (e.g., 09:00 to 17:00)
+        return currentTime >= startTime && currentTime < endTime;
+    } else {
+        // Complex case: start time is after end time (e.g., 23:00 to 07:00)
+        return currentTime >= startTime || currentTime < endTime;
+    }
+}
+
+bool isDNDActive() {
+    if (dndEnabled) {
+        return true;
+    }
+    
+    if (dndTimeBasedEnabled) {
+        time_t now;
+        struct tm timeinfo;
+        time(&now);
+        localtime_r(&now, &timeinfo);
+        return isTimeInDNDRange(timeinfo.tm_hour, timeinfo.tm_min);
+    }
+    
+    return false;
+}
 
 void ledTask(void *parameter)
 {
@@ -450,6 +538,7 @@ void ledTask(void *parameter)
 
 void setupLeds()
 {
+  loadDNDSettings();
   pixels.begin();
   pixels.setBrightness(preferences.getUInt("ledBrightness", DEFAULT_LED_BRIGHTNESS));
   pixels.clear();
@@ -595,15 +684,18 @@ void restoreLedState()
 
 QueueHandle_t getLedTaskQueue() { return ledTaskQueue; }
 
-bool queueLedEffect(uint effect)
-{
-  if (ledTaskQueue == NULL)
-  {
-    return false;
-  }
+bool queueLedEffect(uint effect) {
+    if (isDNDActive()) {
+        return false; // Don't queue any effects during DND mode
+    }
+    if (ledTaskQueue == NULL)
+    {
+      return false;
+    }
 
-  uint flashType = effect;
-  xQueueSend(ledTaskQueue, &flashType, portMAX_DELAY);
+    uint flashType = effect;
+    xQueueSend(ledTaskQueue, &flashType, portMAX_DELAY);
+    return true;
 }
 
 void ledRainbow(int wait)

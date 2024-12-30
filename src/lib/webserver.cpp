@@ -16,7 +16,7 @@ static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOn
                                                    "mempoolSecure", "bitaxeEnabled",
                                                    "miningPoolStats", "verticalDesc",
                                                    "nostrZapNotify", "httpAuthEnabled",
-                                                   "enableDebugLog", "ceDisableSSL"};
+                                                   "enableDebugLog", "ceDisableSSL", "dndEnabled", "dndTimeBasedEnabled"};
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -115,6 +115,10 @@ void setupWebserver()
       new OneParamRewrite("/api/show/text/{text}", "/api/show/text?t={text}"));
   server.addRewrite(new OneParamRewrite("/api/show/number/{number}",
                                         "/api/show/text?t={text}"));
+
+  server.on("/api/dnd/status", HTTP_GET, onApiDNDStatus);
+  server.on("/api/dnd/enable", HTTP_POST, onApiDNDEnable);
+  server.on("/api/dnd/disable", HTTP_POST, onApiDNDDisable);
 
   server.onNotFound(onNotFound);
 
@@ -265,6 +269,15 @@ JsonDocument getStatusObject()
   }
 #endif
 
+  // Add DND status
+  root["dnd"]["enabled"] = dndEnabled;
+  root["dnd"]["timeBasedEnabled"] = dndTimeBasedEnabled;
+  root["dnd"]["startTime"] = String(dndTimeRange.startHour) + ":" + 
+                             (dndTimeRange.startMinute < 10 ? "0" : "") + String(dndTimeRange.startMinute);
+  root["dnd"]["endTime"] = String(dndTimeRange.endHour) + ":" + 
+                           (dndTimeRange.endMinute < 10 ? "0" : "") + String(dndTimeRange.endMinute);
+  root["dnd"]["active"] = isDNDActive();
+  
   return root;
 }
 
@@ -605,6 +618,23 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     settingsChanged = true;
   }
 
+  // Handle DND settings
+  if (settings.containsKey("dnd")) {
+    JsonObject dndObj = settings["dnd"];
+    if (dndObj.containsKey("timeBasedEnabled")) {
+      setDNDTimeBasedEnabled(dndObj["timeBasedEnabled"].as<bool>());
+    }
+    if (dndObj.containsKey("startHour") && dndObj.containsKey("startMinute") &&
+        dndObj.containsKey("endHour") && dndObj.containsKey("endMinute")) {
+      setDNDTimeRange(
+        dndObj["startHour"].as<uint8_t>(),
+        dndObj["startMinute"].as<uint8_t>(),
+        dndObj["endHour"].as<uint8_t>(),
+        dndObj["endMinute"].as<uint8_t>()
+      );
+    }
+  }
+
   request->send(HTTP_OK);
   if (settingsChanged)
   {
@@ -765,6 +795,14 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
   root["ceEndpoint"] = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
   root["ceDisableSSL"] = preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+
+  // Add DND settings
+  root["dnd"]["enabled"] = dndEnabled;
+  root["dnd"]["timeBasedEnabled"] = dndTimeBasedEnabled;
+  root["dnd"]["startHour"] = dndTimeRange.startHour;
+  root["dnd"]["startMinute"] = dndTimeRange.startMinute;
+  root["dnd"]["endHour"] = dndTimeRange.endHour;
+  root["dnd"]["endMinute"] = dndTimeRange.endMinute;
 
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
@@ -1092,3 +1130,28 @@ void onApiFrontlightOff(AsyncWebServerRequest *request)
   request->send(HTTP_OK);
 }
 #endif
+
+void onApiDNDStatus(AsyncWebServerRequest *request) {
+  JsonDocument doc;
+  doc["enabled"] = dndEnabled;
+  doc["timeBasedEnabled"] = dndTimeBasedEnabled;
+  doc["startTime"] = String(dndTimeRange.startHour) + ":" + 
+                     (dndTimeRange.startMinute < 10 ? "0" : "") + String(dndTimeRange.startMinute);
+  doc["endTime"] = String(dndTimeRange.endHour) + ":" + 
+                   (dndTimeRange.endMinute < 10 ? "0" : "") + String(dndTimeRange.endMinute);
+  doc["active"] = isDNDActive();
+  
+  String response;
+  serializeJson(doc, response);
+  request->send(200, "application/json", response);
+}
+
+void onApiDNDEnable(AsyncWebServerRequest *request) {
+  setDNDEnabled(true);
+  request->send(200);
+}
+
+void onApiDNDDisable(AsyncWebServerRequest *request) {
+  setDNDEnabled(false);
+  request->send(200);
+}
