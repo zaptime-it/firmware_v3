@@ -279,6 +279,7 @@ void syncTime()
 
   while (!getLocalTime(&timeinfo))
   {
+    queueLedEffect(LED_EFFECT_CONFIGURING);
     configTime(preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS), 0,
                NTP_SERVER);
     delay(500);

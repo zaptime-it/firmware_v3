@@ -333,6 +333,26 @@ void ledTask(void *parameter)
           blinkDelayTwoColor(100, 3, pixels.Color(8, 161, 236),
                              pixels.Color(255, 0, 0));
           break;
+        case LED_EFFECT_CONFIGURING:
+          for (int i = NEOPIXEL_COUNT; i--; i > 0)
+          {
+            for (int j = NEOPIXEL_COUNT; j--; j > 0)
+            {
+              uint32_t c = pixels.Color(0, 0, 0);
+              if (i == j)
+                c = pixels.Color(0, 0, 255);
+
+              pixels.setPixelColor(j, c);
+            }
+
+            pixels.show();
+
+            delay(100);
+          }
+
+          pixels.clear();
+          pixels.show();
+          break;
         case LED_FLASH_ERROR:
           blinkDelayColor(250, 3, 255, 0, 0);
           break;
