@@ -157,8 +157,7 @@ void setupWifi()
 
       byte mac[6];
       WiFi.macAddress(mac);
-      String softAP_SSID =
-          String("BTClock" + String(mac[5], 16) + String(mac[1], 16));
+      String softAP_SSID = getMyHostname();
       WiFi.setHostname(softAP_SSID.c_str());
       String softAP_password = replaceAmbiguousChars(
           base64::encode(String(mac[2], 16) + String(mac[4], 16) +
@@ -183,7 +182,8 @@ void setupWifi()
                               ";T:WPA;P:" + softAP_password.c_str() + ";;";
         const String explainText = "*SSID: *\r\n" +
                                    wifiManager->getConfigPortalSSID() +
-                                   "\r\n\r\n*Password:*\r\n" + softAP_password;
+                                   "\r\n\r\n*Password:*\r\n" + softAP_password +
+                                   "\r\n\r\n*Hostname*:\r\n" + getMyHostname();
         // Set the UNIX timestamp
         time_t timestamp = LAST_BUILD_TIME; // Example timestamp: March 7, 2021 00:00:00 UTC
 
@@ -193,14 +193,19 @@ void setupWifi()
         // Format the date
         char formattedDate[20];
         strftime(formattedDate, sizeof(formattedDate), "%y-%m-%d\r\n%H:%M:%S", timeinfo);
-  
+        String hwStr = String(HW_REV);
+        hwStr.replace("_EPD_", "\r\nEPD_");
         std::array<String, NUM_SCREENS> epdContent = {
             "Welcome!",
             "Bienvenidos!",
             "To setup\r\nscan QR or\r\nconnect\r\nmanually",
             "Para\r\nconfigurar\r\nescanear QR\r\no conectar\r\nmanualmente",
             explainText,
-            "*Hostname*:\r\n" + getMyHostname() + "\r\n\r\n" + "*FW build date:*\r\n" + formattedDate,
+           "*HW version:*\r\n" + hwStr +
+#ifdef GIT_TAG
+            "\r\n\r\n*SW Version:*\r\n" + GIT_TAG +
+#endif
+            "\r\n\r\n*FW build date:*\r\n" + formattedDate,
             qrText};
         setEpdContent(epdContent); });
 
