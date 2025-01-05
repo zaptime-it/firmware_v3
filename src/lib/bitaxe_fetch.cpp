@@ -1,24 +1,19 @@
 #include "bitaxe_fetch.hpp"
 
-TaskHandle_t bitaxeFetchTaskHandle;
-
-uint64_t bitaxeHashrate;
-uint64_t bitaxeBestDiff;
-
-uint64_t getBitAxeHashRate()
-{
-    return bitaxeHashrate;
+void BitAxeFetch::taskWrapper(void* pvParameters) {
+    BitAxeFetch::getInstance().task();
 }
 
-uint64_t getBitaxeBestDiff()
-{
-    return bitaxeBestDiff;
+uint64_t BitAxeFetch::getHashRate() const {
+    return hashrate;
 }
 
-void taskBitaxeFetch(void *pvParameters)
-{
-    for (;;)
-    {
+uint64_t BitAxeFetch::getBestDiff() const {
+    return bestDiff;
+}
+
+void BitAxeFetch::task() {
+    for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         HTTPClient http;
@@ -28,46 +23,38 @@ void taskBitaxeFetch(void *pvParameters)
 
         int httpCode = http.GET();
 
-        if (httpCode == 200)
-        {
+        if (httpCode == 200) {
             String payload = http.getString();
             JsonDocument doc;
             deserializeJson(doc, payload);
             
             // Convert GH/s to H/s (multiply by 10^9)
             float hashRateGH = doc["hashRate"].as<float>();
-            bitaxeHashrate = static_cast<uint64_t>(std::round(hashRateGH * std::pow(10, getHashrateMultiplier('G'))));
+            hashrate = static_cast<uint64_t>(std::round(hashRateGH * std::pow(10, getHashrateMultiplier('G'))));
             
             // Parse difficulty string and convert to uint64_t
             std::string diffStr = doc["bestDiff"].as<std::string>();
             char diffUnit = diffStr[diffStr.length() - 1];
             if (std::isalpha(diffUnit)) {
                 float diffValue = std::stof(diffStr.substr(0, diffStr.length() - 1));
-                bitaxeBestDiff = static_cast<uint64_t>(std::round(diffValue * std::pow(10, getDifficultyMultiplier(diffUnit))));
+                bestDiff = static_cast<uint64_t>(std::round(diffValue * std::pow(10, getDifficultyMultiplier(diffUnit))));
             } else {
-                bitaxeBestDiff = std::stoull(diffStr);
+                bestDiff = std::stoull(diffStr);
             }
 
-            if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_BESTDIFF))
-            {
+            if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_BESTDIFF)) {
                 WorkItem priceUpdate = {TASK_BITAXE_UPDATE, 0};
                 xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
             }
-        }
-        else
-        {
-            Serial.print(
-                F("Error retrieving BitAxe data. HTTP status code: "));
+        } else {
+            Serial.print(F("Error retrieving BitAxe data. HTTP status code: "));
             Serial.println(httpCode);
             Serial.println(bitaxeApiUrl);
         }
     }
 }
 
-void setupBitaxeFetchTask()
-{
-    xTaskCreate(taskBitaxeFetch, "bitaxeFetch", (3 * 1024), NULL, tskIDLE_PRIORITY,
-                &bitaxeFetchTaskHandle);
-
-    xTaskNotifyGive(bitaxeFetchTaskHandle);
+void BitAxeFetch::setup() {
+    xTaskCreate(taskWrapper, "bitaxeFetch", (3 * 1024), NULL, tskIDLE_PRIORITY, &taskHandle);
+    xTaskNotifyGive(taskHandle);
 }

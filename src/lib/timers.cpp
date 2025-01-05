@@ -68,8 +68,9 @@ void IRAM_ATTR minuteTimerISR(void *arg) {
   WorkItem timeUpdate = {TASK_TIME_UPDATE, 0};
   xQueueSendFromISR(workQueue, &timeUpdate, &xHigherPriorityTaskWoken);
 
-  if (bitaxeFetchTaskHandle != NULL) {
-    vTaskNotifyGiveFromISR(bitaxeFetchTaskHandle, &xHigherPriorityTaskWoken);
+  TaskHandle_t bitaxeHandle = BitAxeFetch::getInstance().getTaskHandle();
+  if (bitaxeHandle != NULL) {
+    vTaskNotifyGiveFromISR(bitaxeHandle, &xHigherPriorityTaskWoken);
   }
 
   if (miningPoolStatsFetchTaskHandle != NULL) {

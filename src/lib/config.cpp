@@ -100,7 +100,7 @@ void setup()
 
   if (preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED))
   {
-    setupBitaxeFetchTask();
+    BitAxeFetch::getInstance().setup();
   }
 
   if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
@@ -221,7 +221,7 @@ void setupWifi()
 
       // waitUntilNoneBusy();
       // std::array<String, NUM_SCREENS> epdContent = {"Welcome!",
-      // "Bienvenidos!", "Use\r\nweb-interface\r\nto configure", "Use\r\nla
+      // "Bienvenidos!", "Use\r\nweb-interface\r\npara configurar", "Use\r\nla
       // interfaz web\r\npara configurar", "Or
       // restart\r\nwhile\r\nholding\r\n2nd button\r\r\nto start\r\n QR-config",
       // "O reinicie\r\nmientras\r\n mantiene presionado\r\nel segundo
