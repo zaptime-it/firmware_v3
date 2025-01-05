@@ -52,10 +52,10 @@ void setupTimers();
 void finishSetup();
 void setupMcp();
 #ifdef HAS_FRONTLIGHT
-void setupFrontlight();
+extern BH1750 bh1750;
+extern bool hasLuxSensor;
 float getLightLevel();
 bool hasLightLevel();
-extern PCA9685 flArray;
 #endif
 
 String getMyHostname();
@@ -96,6 +96,10 @@ extern Preferences preferences;
 extern MCP23017 mcp1;
 #ifdef IS_BTCLOCK_V8
 extern MCP23017 mcp2;
+#endif
+
+#ifdef HAS_FRONTLIGHT
+extern PCA9685 flArray;
 #endif
 
 // Expose DataSourceType enum

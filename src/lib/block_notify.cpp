@@ -1,4 +1,5 @@
 #include "block_notify.hpp"
+#include "led_handler.hpp"
 
 char *wsServer;
 esp_websocket_client_handle_t blockNotifyClient = NULL;
@@ -217,7 +218,7 @@ void processNewBlock(uint32_t newBlockHeight) {
       if (preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD))
       {
         vTaskDelay(pdMS_TO_TICKS(250)); // Wait until screens are updated
-        queueLedEffect(LED_FLASH_BLOCK_NOTIFY);
+        getLedHandler().queueEffect(LED_FLASH_BLOCK_NOTIFY);
       }
     }
 }

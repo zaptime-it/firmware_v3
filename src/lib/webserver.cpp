@@ -1,4 +1,6 @@
 #include "webserver.hpp"
+#include "lib/led_handler.hpp"
+#include "lib/shared.hpp"
 
 static const char* JSON_CONTENT = "application/json";
 
@@ -231,6 +233,7 @@ void asyncFirmwareUpdateHandler(AsyncWebServerRequest *request, String filename,
 
 JsonDocument getStatusObject()
 {
+  auto& ledHandler = getLedHandler();
   JsonDocument root;
 
   root["currentScreen"] = ScreenHandler::getCurrentScreen();
@@ -238,25 +241,21 @@ JsonDocument getStatusObject()
   root["timerRunning"] = isTimerActive();
   root["isOTAUpdating"] = getIsOTAUpdating();
   root["espUptime"] = esp_timer_get_time() / 1000000;
-  // root["currentPrice"] = getPrice();
-  // root["currentBlockHeight"] = getBlockHeight();
   root["espFreeHeap"] = ESP.getFreeHeap();
   root["espHeapSize"] = ESP.getHeapSize();
-  // root["espFreePsram"] = ESP.getFreePsram();
-  // root["espPsramSize"] = ESP.getPsramSize();
 
   JsonObject conStatus = root["connectionStatus"].to<JsonObject>();
 
   conStatus["price"] = isPriceNotifyConnected();
   conStatus["blocks"] = isBlockNotifyConnected();
   conStatus["V2"] = V2Notify::isV2NotifyConnected();
-
   conStatus["nostr"] = nostrConnected();
 
   root["rssi"] = WiFi.RSSI();
   root["currency"] = getCurrencyCode(ScreenHandler::getCurrentCurrency());
+
 #ifdef HAS_FRONTLIGHT
-  std::vector<uint16_t> statuses = frontlightGetStatus();
+  std::vector<uint16_t> statuses = ledHandler.frontlightGetStatus();
   uint16_t arr[NUM_SCREENS];
   std::copy(statuses.begin(), statuses.end(), arr);
 
@@ -270,22 +269,24 @@ JsonDocument getStatusObject()
 #endif
 
   // Add DND status
-  root["dnd"]["enabled"] = dndEnabled;
-  root["dnd"]["timeBasedEnabled"] = dndTimeBasedEnabled;
-  root["dnd"]["startTime"] = String(dndTimeRange.startHour) + ":" + 
-                             (dndTimeRange.startMinute < 10 ? "0" : "") + String(dndTimeRange.startMinute);
-  root["dnd"]["endTime"] = String(dndTimeRange.endHour) + ":" + 
-                           (dndTimeRange.endMinute < 10 ? "0" : "") + String(dndTimeRange.endMinute);
-  root["dnd"]["active"] = isDNDActive();
+  root["dnd"]["enabled"] = ledHandler.isDNDEnabled();
+  root["dnd"]["timeBasedEnabled"] = ledHandler.isDNDTimeBasedEnabled();
+  root["dnd"]["startTime"] = String(ledHandler.getDNDStartHour()) + ":" + 
+                           (ledHandler.getDNDStartMinute() < 10 ? "0" : "") + String(ledHandler.getDNDStartMinute());
+  root["dnd"]["endTime"] = String(ledHandler.getDNDEndHour()) + ":" + 
+                         (ledHandler.getDNDEndMinute() < 10 ? "0" : "") + String(ledHandler.getDNDEndMinute());
+  root["dnd"]["active"] = ledHandler.isDNDActive();
   
   return root;
 }
 
 JsonDocument getLedStatusObject()
 {
+  auto& ledHandler = getLedHandler();
+  auto& pixels = ledHandler.getPixels();
+  
   JsonDocument root;
   JsonArray colors = root["data"].to<JsonArray>();
-  //    Adafruit_NeoPixel pix = getPixels();
 
   for (uint i = 0; i < pixels.numPixels(); i++)
   {
@@ -295,13 +296,7 @@ JsonDocument getLedStatusObject()
     uint blue = pixColor & 0xFF;
     char hexColor[8];
     snprintf(hexColor, sizeof(hexColor), "#%02X%02X%02X", red, green, blue);
-
-
-    JsonObject object = colors.add<JsonObject>();
-    object["red"] = red;
-    object["green"] = green;
-    object["blue"] = blue;
-    object["hex"] = hexColor;
+    colors.add(hexColor);
   }
 
   return root;
@@ -621,24 +616,26 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
   // Handle DND settings
   if (settings.containsKey("dnd")) {
     JsonObject dndObj = settings["dnd"];
+    auto& ledHandler = getLedHandler();
+    
     if (dndObj.containsKey("timeBasedEnabled")) {
-      setDNDTimeBasedEnabled(dndObj["timeBasedEnabled"].as<bool>());
+      ledHandler.setDNDTimeBasedEnabled(dndObj["timeBasedEnabled"].as<bool>());
     }
     if (dndObj.containsKey("startHour") && dndObj.containsKey("startMinute") &&
         dndObj.containsKey("endHour") && dndObj.containsKey("endMinute")) {
-      setDNDTimeRange(
-        dndObj["startHour"].as<uint8_t>(),
-        dndObj["startMinute"].as<uint8_t>(),
-        dndObj["endHour"].as<uint8_t>(),
-        dndObj["endMinute"].as<uint8_t>()
-      );
+      ledHandler.setDNDTimeRange(
+          dndObj["startHour"].as<uint8_t>(),
+          dndObj["startMinute"].as<uint8_t>(),
+          dndObj["endHour"].as<uint8_t>(),
+          dndObj["endMinute"].as<uint8_t>());
     }
   }
 
   request->send(HTTP_OK);
   if (settingsChanged)
   {
-    queueLedEffect(LED_FLASH_SUCCESS);
+    auto& ledHandler = getLedHandler();
+    ledHandler.queueEffect(LED_FLASH_SUCCESS);
   }
 }
 
@@ -659,7 +656,8 @@ void onApiRestart(AsyncWebServerRequest *request)
 
 void onApiIdentify(AsyncWebServerRequest *request)
 {
-  queueLedEffect(LED_FLASH_IDENTIFY);
+  auto& ledHandler = getLedHandler();
+  ledHandler.queueEffect(LED_FLASH_IDENTIFY);
 
   request->send(HTTP_OK);
 }
@@ -797,12 +795,13 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["ceDisableSSL"] = preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
 
   // Add DND settings
-  root["dnd"]["enabled"] = dndEnabled;
-  root["dnd"]["timeBasedEnabled"] = dndTimeBasedEnabled;
-  root["dnd"]["startHour"] = dndTimeRange.startHour;
-  root["dnd"]["startMinute"] = dndTimeRange.startMinute;
-  root["dnd"]["endHour"] = dndTimeRange.endHour;
-  root["dnd"]["endMinute"] = dndTimeRange.endMinute;
+  auto& ledHandler = getLedHandler();
+  root["dnd"]["enabled"] = ledHandler.isDNDEnabled();
+  root["dnd"]["timeBasedEnabled"] = ledHandler.isDNDTimeBasedEnabled();
+  root["dnd"]["startHour"] = ledHandler.getDNDStartHour();
+  root["dnd"]["startMinute"] = ledHandler.getDNDStartMinute();
+  root["dnd"]["endHour"] = ledHandler.getDNDEndHour();
+  root["dnd"]["endMinute"] = ledHandler.getDNDEndMinute();
 
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
@@ -929,7 +928,8 @@ void onApiRestartDataSources(AsyncWebServerRequest *request)
 
 void onApiLightsOff(AsyncWebServerRequest *request)
 {
-  setLights(0, 0, 0);
+  auto& ledHandler = getLedHandler();
+  ledHandler.setLights(0, 0, 0);
   request->send(HTTP_OK);
 }
 
@@ -944,13 +944,15 @@ void onApiLightsSetColor(AsyncWebServerRequest *request)
 
     if (rgbColor.compareTo("off") == 0)
     {
-      setLights(0, 0, 0);
+      auto& ledHandler = getLedHandler();
+      ledHandler.setLights(0, 0, 0);
     }
     else
     {
       uint r, g, b;
       sscanf(rgbColor.c_str(), "%02x%02x%02x", &r, &g, &b);
-      setLights(r, g, b);
+      auto& ledHandler = getLedHandler();
+      ledHandler.setLights(r, g, b);
     }
 
     JsonDocument doc;
@@ -968,6 +970,9 @@ void onApiLightsSetColor(AsyncWebServerRequest *request)
 
 void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
 {
+  auto& ledHandler = getLedHandler();
+  auto& pixels = ledHandler.getPixels();
+  
   JsonArray lights = json.as<JsonArray>();
 
   if (lights.size() != pixels.numPixels())
@@ -1016,7 +1021,7 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
   }
 
   pixels.show();
-  saveLedState();
+  ledHandler.saveLedState();
 
   request->send(HTTP_OK);
 }
@@ -1080,19 +1085,21 @@ void onApiShowCurrency(AsyncWebServerRequest *request)
 #ifdef HAS_FRONTLIGHT
 void onApiFrontlightOn(AsyncWebServerRequest *request)
 {
-  frontlightFadeInAll();
+  auto& ledHandler = getLedHandler();
+  ledHandler.frontlightFadeInAll();
 
   request->send(HTTP_OK);
 }
 
 void onApiFrontlightStatus(AsyncWebServerRequest *request)
 {
+  auto& ledHandler = getLedHandler();
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
 
   JsonDocument root;
 
-  std::vector<uint16_t> statuses = frontlightGetStatus();
+  std::vector<uint16_t> statuses = ledHandler.frontlightGetStatus();
   uint16_t arr[NUM_SCREENS];
   std::copy(statuses.begin(), statuses.end(), arr);
 
@@ -1105,7 +1112,8 @@ void onApiFrontlightStatus(AsyncWebServerRequest *request)
 
 void onApiFrontlightFlash(AsyncWebServerRequest *request)
 {
-  frontlightFlash(preferences.getUInt("flEffectDelay"));
+  auto& ledHandler = getLedHandler();
+  ledHandler.frontlightFlash(preferences.getUInt("flEffectDelay"));
 
   request->send(HTTP_OK);
 }
@@ -1114,7 +1122,8 @@ void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
 {
   if (request->hasParam("b"))
   {
-    frontlightSetBrightness(request->getParam("b")->value().toInt());
+    auto& ledHandler = getLedHandler();
+    ledHandler.frontlightSetBrightness(request->getParam("b")->value().toInt());
     request->send(HTTP_OK);
   }
   else
@@ -1125,21 +1134,51 @@ void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
 
 void onApiFrontlightOff(AsyncWebServerRequest *request)
 {
-  frontlightFadeOutAll();
+  auto& ledHandler = getLedHandler();
+  ledHandler.frontlightFadeOutAll();
 
   request->send(HTTP_OK);
 }
 #endif
 
+void onApiDNDTimeBasedEnable(AsyncWebServerRequest *request) {
+  auto& ledHandler = getLedHandler();
+  ledHandler.setDNDTimeBasedEnabled(true);
+  request->send(200);
+}
+
+void onApiDNDTimeBasedDisable(AsyncWebServerRequest *request) {
+  auto& ledHandler = getLedHandler();
+  ledHandler.setDNDTimeBasedEnabled(false);
+  request->send(200);
+}
+
+void onApiDNDSetTimeRange(AsyncWebServerRequest *request) {
+  if (request->hasParam("startHour") && request->hasParam("startMinute") &&
+      request->hasParam("endHour") && request->hasParam("endMinute")) {
+    auto& ledHandler = getLedHandler();
+    uint8_t startHour = request->getParam("startHour")->value().toInt();
+    uint8_t startMinute = request->getParam("startMinute")->value().toInt();
+    uint8_t endHour = request->getParam("endHour")->value().toInt();
+    uint8_t endMinute = request->getParam("endMinute")->value().toInt();
+    
+    ledHandler.setDNDTimeRange(startHour, startMinute, endHour, endMinute);
+    request->send(200);
+  } else {
+    request->send(400);
+  }
+}
+
 void onApiDNDStatus(AsyncWebServerRequest *request) {
+  auto& ledHandler = getLedHandler();
   JsonDocument doc;
-  doc["enabled"] = dndEnabled;
-  doc["timeBasedEnabled"] = dndTimeBasedEnabled;
-  doc["startTime"] = String(dndTimeRange.startHour) + ":" + 
-                     (dndTimeRange.startMinute < 10 ? "0" : "") + String(dndTimeRange.startMinute);
-  doc["endTime"] = String(dndTimeRange.endHour) + ":" + 
-                   (dndTimeRange.endMinute < 10 ? "0" : "") + String(dndTimeRange.endMinute);
-  doc["active"] = isDNDActive();
+  doc["enabled"] = ledHandler.isDNDEnabled();
+  doc["timeBasedEnabled"] = ledHandler.isDNDTimeBasedEnabled();
+  doc["startTime"] = String(ledHandler.getDNDStartHour()) + ":" + 
+                     (ledHandler.getDNDStartMinute() < 10 ? "0" : "") + String(ledHandler.getDNDStartMinute());
+  doc["endTime"] = String(ledHandler.getDNDEndHour()) + ":" + 
+                 (ledHandler.getDNDEndMinute() < 10 ? "0" : "") + String(ledHandler.getDNDEndMinute());
+  doc["active"] = ledHandler.isDNDActive();
   
   String response;
   serializeJson(doc, response);
@@ -1147,11 +1186,92 @@ void onApiDNDStatus(AsyncWebServerRequest *request) {
 }
 
 void onApiDNDEnable(AsyncWebServerRequest *request) {
-  setDNDEnabled(true);
+  auto& ledHandler = getLedHandler();
+  ledHandler.setDNDEnabled(true);
   request->send(200);
 }
 
 void onApiDNDDisable(AsyncWebServerRequest *request) {
-  setDNDEnabled(false);
+  auto& ledHandler = getLedHandler();
+  ledHandler.setDNDEnabled(false);
   request->send(200);
+}
+
+void onApiLightsGet(AsyncWebServerRequest *request)
+{
+  auto& ledHandler = getLedHandler();
+  auto& pixels = ledHandler.getPixels();
+  
+  DynamicJsonDocument doc(1024);
+  JsonArray lights = doc.createNestedArray("lights");
+
+  for (uint i = 0; i < pixels.numPixels(); i++)
+  {
+    uint32_t pixColor = pixels.getPixelColor(pixels.numPixels() - i - 1);
+    JsonObject light = lights.createNestedObject();
+    light["r"] = (uint8_t)(pixColor >> 16);
+    light["g"] = (uint8_t)(pixColor >> 8);
+    light["b"] = (uint8_t)pixColor;
+  }
+
+  String output;
+  serializeJson(doc, output);
+  request->send(200, "application/json", output);
+}
+
+void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
+                    size_t index, size_t total)
+{
+  auto& ledHandler = getLedHandler();
+  auto& pixels = ledHandler.getPixels();
+  
+  DynamicJsonDocument doc(1024);
+  DeserializationError error = deserializeJson(doc, data);
+  if (error)
+  {
+    request->send(400);
+    return;
+  }
+
+  JsonArray lights = doc["lights"];
+  if (lights.size() != pixels.numPixels())
+  {
+    request->send(400);
+    return;
+  }
+
+  for (uint i = 0; i < pixels.numPixels(); i++)
+  {
+    JsonObject light = lights[i];
+    uint8_t red = light["r"];
+    uint8_t green = light["g"];
+    uint8_t blue = light["b"];
+
+    pixels.setPixelColor((pixels.numPixels() - i - 1),
+                        pixels.Color(red, green, blue));
+  }
+  pixels.show();
+
+  request->send(200);
+}
+
+void onApiSettings(AsyncWebServerRequest *request, JsonVariant &json)
+{
+  JsonObject settings = json.as<JsonObject>();
+  auto& ledHandler = getLedHandler();
+
+  if (settings.containsKey("dnd")) {
+    JsonObject dndObj = settings["dnd"];
+    if (dndObj.containsKey("timeBasedEnabled")) {
+      ledHandler.setDNDTimeBasedEnabled(dndObj["timeBasedEnabled"].as<bool>());
+    }
+    if (dndObj.containsKey("startHour") && dndObj.containsKey("startMinute") &&
+        dndObj.containsKey("endHour") && dndObj.containsKey("endMinute")) {
+      ledHandler.setDNDTimeRange(
+          dndObj["startHour"].as<uint8_t>(),
+          dndObj["startMinute"].as<uint8_t>(),
+          dndObj["endHour"].as<uint8_t>(),
+          dndObj["endMinute"].as<uint8_t>());
+    }
+  }
 }

@@ -1,4 +1,5 @@
 #include "ota.hpp"
+#include "led_handler.hpp"
 
 TaskHandle_t taskOtaHandle = NULL;
 bool isOtaUpdating = false;
@@ -31,6 +32,9 @@ void setupOTA()
 void onOTAProgress(unsigned int progress, unsigned int total)
 {
   uint percentage = progress / (total / 100);
+  auto& ledHandler = getLedHandler();
+  auto& pixels = ledHandler.getPixels();
+  
   pixels.fill(pixels.Color(0, 255, 0));
   if (percentage < 100)
   {
@@ -84,15 +88,15 @@ void handleOTATask(void *parameter)
     {
       if (msg.updateType == UPDATE_ALL) {
         isOtaUpdating = true;
-        queueLedEffect(LED_FLASH_UPDATE);
+        getLedHandler().queueEffect(LED_FLASH_UPDATE);
         int resultWebUi = downloadUpdateHandler(UPDATE_WEBUI);
-        queueLedEffect(LED_FLASH_UPDATE);
+        getLedHandler().queueEffect(LED_FLASH_UPDATE);
         int resultFw = downloadUpdateHandler(UPDATE_FIRMWARE);
 
         if (resultWebUi == 0 && resultFw == 0) {
           ESP.restart();
         } else {
-          queueLedEffect(LED_FLASH_ERROR);
+          getLedHandler().queueEffect(LED_FLASH_ERROR);
           vTaskDelay(pdMS_TO_TICKS(3000));
           ESP.restart();
         }

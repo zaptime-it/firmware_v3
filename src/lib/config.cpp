@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "led_handler.hpp"
 
 #define MAX_ATTEMPTS_WIFI_CONNECTION 20
 
@@ -50,7 +51,8 @@ void setup()
   setupDisplays();
   if (preferences.getBool("ledTestOnPower", DEFAULT_LED_TEST_ON_POWER))
   {
-    queueLedEffect(LED_POWER_TEST);
+    auto& ledHandler = getLedHandler();
+    ledHandler.queueEffect(LED_POWER_TEST);
   }
   {
     std::lock_guard<std::mutex> lockMcp(mcpMutex);
@@ -60,7 +62,8 @@ void setup()
       preferences.remove("txPower");
 
       WiFi.eraseAP();
-      queueLedEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
+      auto& ledHandler = getLedHandler();
+      ledHandler.queueEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
     }
   }
 
@@ -76,7 +79,8 @@ void setup()
     else if (mcp1.read1(1) == LOW)
     {
       preferences.clear();
-      queueLedEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
+      auto& ledHandler = getLedHandler();
+      ledHandler.queueEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
       nvs_flash_erase();
       delay(1000);
 
@@ -116,13 +120,13 @@ void setup()
 #ifdef HAS_FRONTLIGHT
   if (!preferences.getBool("flAlwaysOn", DEFAULT_FL_ALWAYS_ON))
   {
-    frontlightFadeOutAll(preferences.getUInt("flEffectDelay"), true);
+    auto& ledHandler = getLedHandler();
+    ledHandler.frontlightFadeOutAll(preferences.getUInt("flEffectDelay"), true);
     flArray.allOFF();
   }
 #endif
 
   forceFullRefresh();
-
 }
 
 void setupWifi()
@@ -144,7 +148,8 @@ void setupWifi()
   // if (!preferences.getBool("wifiConfigured", DEFAULT_WIFI_CONFIGURED)
   {
 
-    queueLedEffect(LED_EFFECT_WIFI_WAIT_FOR_CONFIG);
+    auto& ledHandler = getLedHandler();
+    ledHandler.queueEffect(LED_EFFECT_WIFI_WAIT_FOR_CONFIG);
 
     bool buttonPress = false;
     {
@@ -279,7 +284,8 @@ void syncTime()
 
   while (!getLocalTime(&timeinfo))
   {
-    queueLedEffect(LED_EFFECT_CONFIGURING);
+    auto& ledHandler = getLedHandler();
+    ledHandler.queueEffect(LED_EFFECT_CONFIGURING);
     configTime(preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS), 0,
                NTP_SERVER);
     delay(500);
@@ -420,13 +426,14 @@ void setupTimers()
 
 void finishSetup()
 {
+  auto& ledHandler = getLedHandler();
   if (preferences.getBool("ledStatus", DEFAULT_LED_STATUS))
   {
-    restoreLedState();
+    ledHandler.restoreLedState();
   }
   else
   {
-    clearLeds();
+    ledHandler.clear();
   }
 }
 
@@ -475,22 +482,9 @@ void setupHardware()
     Serial.println(F("Error loading WebUI"));
   }
 
-  // {
-  //   File f = LittleFS.open("/qr.txt", "w");
-
-  //   if(f) {
-  //     if (f.print("Hello")) {
-  //     Serial.println(F("Written QR to FS"));
-  //     Serial.printf("\nLittleFS free: %zu\n", LittleFS.totalBytes() - LittleFS.usedBytes()); 
-  //     }
-  //   } else {
-  //     Serial.println(F("Can't write QR to FS"));
-  //   }
-
-  //   f.close();
-  // }
-
-  setupLeds();
+  // Initialize LED handler
+  auto& ledHandler = getLedHandler();
+  ledHandler.setup();
 
   WiFi.setHostname(getMyHostname().c_str());
   if (!psramInit())
@@ -548,7 +542,8 @@ void setupHardware()
 #endif
 
 #ifdef HAS_FRONTLIGHT
-  setupFrontlight();
+  // Initialize frontlight through LedHandler
+  ledHandler.initializeFrontlight();
 
   Wire.beginTransmission(0x5C);
   byte error = Wire.endTransmission();
@@ -570,6 +565,7 @@ void setupHardware()
 void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
 {
   static bool first_connect = true;
+  auto& ledHandler = getLedHandler();  // Get ledHandler reference once at the start
 
   Serial.printf("[WiFi-event] event: %d\n", event);
 
@@ -595,7 +591,7 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
     if (!first_connect)
     {
       Serial.println(F("Disconnected from WiFi access point"));
-      queueLedEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
+      ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
       uint8_t reason = info.wifi_sta_disconnected.reason;
       if (reason)
         Serial.printf("Disconnect reason: %s, ",
@@ -611,13 +607,13 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
     Serial.print("Obtained IP address: ");
     Serial.println(WiFi.localIP());
     if (!first_connect)
-      queueLedEffect(LED_EFFECT_WIFI_CONNECT_SUCCESS);
+      ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_SUCCESS);
     first_connect = false;
     break;
   }
   case ARDUINO_EVENT_WIFI_STA_LOST_IP:
     Serial.println(F("Lost IP address and IP address is reset to 0"));
-    queueLedEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
+    ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
     WiFi.reconnect();
     break;
   case ARDUINO_EVENT_WIFI_AP_START:
@@ -667,30 +663,6 @@ uint getLastTimeSync()
 }
 
 #ifdef HAS_FRONTLIGHT
-void setupFrontlight()
-{
-  if (!flArray.begin(PCA9685_MODE1_AUTOINCR | PCA9685_MODE1_ALLCALL, PCA9685_MODE2_TOTEMPOLE))
-  {
-    Serial.println(F("FL driver error"));
-    return;
-  }
-  flArray.setFrequency(200);
-  Serial.println(F("FL driver active"));
-
-  if (!preferences.isKey("flMaxBrightness"))
-  {
-    preferences.putUInt("flMaxBrightness", DEFAULT_FL_MAX_BRIGHTNESS);
-  }
-  if (!preferences.isKey("flEffectDelay"))
-  {
-    preferences.putUInt("flEffectDelay", DEFAULT_FL_EFFECT_DELAY);
-  }
-
-  if (!preferences.isKey("flFlashOnUpd"))
-  {
-    preferences.putBool("flFlashOnUpd", DEFAULT_FL_FLASH_ON_UPDATE);
-  }
-}
 
 float getLightLevel()
 {

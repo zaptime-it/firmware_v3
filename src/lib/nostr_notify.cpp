@@ -1,4 +1,5 @@
 #include "nostr_notify.hpp"
+#include "led_handler.hpp"
 
 std::vector<nostr::NostrPool *> pools;
 nostr::Transport *transport;
@@ -286,7 +287,7 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
     vTaskDelay(pdMS_TO_TICKS(315 * NUM_SCREENS) + pdMS_TO_TICKS(250));
     if (preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP))
     {
-        queueLedEffect(LED_EFFECT_NOSTR_ZAP);
+        getLedHandler().queueEffect(LED_EFFECT_NOSTR_ZAP);
     }
     if (timerPeriod > 0)
     {

@@ -18,6 +18,7 @@
 #define WEBSERVER_H
 #include "ESPAsyncWebServer.h"
 #include "lib/config.hpp"
+#include "lib/led_handler.hpp"
 
 uint wifiLostConnection;
 uint priceNotifyLostConnection = 0;
@@ -58,13 +59,14 @@ void handleFrontlight() {
   if (hasLightLevel() && preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) != 0) {
     uint lightLevel = getLightLevel();
     uint luxThreshold = preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE);
+    auto& ledHandler = getLedHandler();
     
     if (lightLevel <= 1 && preferences.getBool("flOffWhenDark", DEFAULT_FL_OFF_WHEN_DARK)) {
-      if (frontlightIsOn()) frontlightFadeOutAll();
-    } else if (lightLevel < luxThreshold && !frontlightIsOn()) {
-      frontlightFadeInAll();
-    } else if (frontlightIsOn() && lightLevel > luxThreshold) {
-      frontlightFadeOutAll();
+      if (ledHandler.frontlightIsOn()) ledHandler.frontlightFadeOutAll();
+    } else if (lightLevel < luxThreshold && !ledHandler.frontlightIsOn()) {
+      ledHandler.frontlightFadeInAll();
+    } else if (ledHandler.frontlightIsOn() && lightLevel > luxThreshold) {
+      ledHandler.frontlightFadeOutAll();
     }
   }
 #endif
@@ -100,9 +102,7 @@ void checkMissedBlocks() {
   }
 }
 
-
 void monitorDataConnections() {
- 
   // Price notification monitoring
   if (getPriceNotifyInit() && !preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE) && !isPriceNotifyConnected()) {
     handlePriceNotifyDisconnection();
@@ -136,7 +136,6 @@ extern "C" void app_main() {
   setup();
 
   bool thirdPartySource = getDataSource() == THIRD_PARTY_SOURCE;
-
 
   while (true) {
     if (eventSourceTaskHandle != NULL) {

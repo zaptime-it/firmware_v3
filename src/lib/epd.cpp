@@ -140,8 +140,6 @@ const GFXfont *FONT_SATSYMBOL;
 std::mutex epdUpdateMutex;
 std::mutex epdMutex[NUM_SCREENS];
 
-uint8_t qrcode[800];
-
 #ifdef IS_BTCLOCK_V8
 #define EPD_TASK_STACK_SIZE 4096
 #else
@@ -158,8 +156,6 @@ void forceFullRefresh()
     lastFullRefresh[i] = NULL;
   }
 }
-
-GFXfont font90;
 
 void loadFonts(const String& fontName) {
   if (fontName == FontNames::ANTONIO) {
@@ -628,35 +624,45 @@ bool renderIcon(const uint dispNum, const String &text, bool partial)
 void renderQr(const uint dispNum, const String &text, bool partial)
 {
 #ifdef USE_QR
+    // Dynamically allocate QR buffer
+    uint8_t* qrcode = (uint8_t*)malloc(qrcodegen_BUFFER_LEN_MAX);
+    if (!qrcode) {
+        log_e("Failed to allocate QR buffer");
+        return;
+    }
 
     uint8_t tempBuffer[800];
     bool ok = qrcodegen_encodeText(
         text.substring(2).c_str(), tempBuffer, qrcode, qrcodegen_Ecc_LOW,
         qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
 
-    const int size = qrcodegen_getSize(qrcode);
+    if (ok) {
+        const int size = qrcodegen_getSize(qrcode);
+        const int padding = floor(float(displays[dispNum].width() - (size * 4)) / 2);
+        const int paddingY =
+            floor(float(displays[dispNum].height() - (size * 4)) / 2);
+        displays[dispNum].setRotation(2);
 
-    const int padding = floor(float(displays[dispNum].width() - (size * 4)) / 2);
-    const int paddingY =
-        floor(float(displays[dispNum].height() - (size * 4)) / 2);
-    displays[dispNum].setRotation(2);
+        displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
+                                           displays[dispNum].height());
+        displays[dispNum].fillScreen(GxEPD_WHITE);
+        const int border = 0;
 
-    displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
-                                       displays[dispNum].height());
-    displays[dispNum].fillScreen(GxEPD_WHITE);
-    const int border = 0;
-
-    for (int y = -border; y < size * 4 + border; y++)
-    {
-        for (int x = -border; x < size * 4 + border; x++)
+        for (int y = -border; y < size * 4 + border; y++)
         {
-            displays[dispNum].drawPixel(
-                padding + x, paddingY + y,
-                qrcodegen_getModule(qrcode, floor(float(x) / 4), floor(float(y) / 4))
-                    ? GxEPD_BLACK
-                    : GxEPD_WHITE);
+            for (int x = -border; x < size * 4 + border; x++)
+            {
+                displays[dispNum].drawPixel(
+                    padding + x, paddingY + y,
+                    qrcodegen_getModule(qrcode, floor(float(x) / 4), floor(float(y) / 4))
+                        ? GxEPD_BLACK
+                        : GxEPD_WHITE);
+            }
         }
     }
+
+    // Free the buffer after we're done
+    free(qrcode);
 #endif
 }
 
