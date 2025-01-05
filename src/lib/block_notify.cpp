@@ -158,7 +158,7 @@ void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data)
   //   return;
   // }
 
-  if (doc.containsKey("block"))
+  if (doc["block"].is<JsonObject>())
   {
     JsonObject block = doc["block"];
 
@@ -168,7 +168,7 @@ void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data)
 
     processNewBlock(block["height"].as<uint>());
   }
-  else if (doc.containsKey("mempool-blocks"))
+  else if (doc["mempool-blocks"].is<JsonArray>())
   {
     JsonArray blockInfo = doc["mempool-blocks"].as<JsonArray>();
 
@@ -181,7 +181,7 @@ void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data)
 }
 
 void processNewBlock(uint32_t newBlockHeight) {
-    if (currentBlockHeight <= newBlockHeight)
+    if (newBlockHeight <= currentBlockHeight)
     {
         return;
     }

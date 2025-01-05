@@ -612,15 +612,15 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
   }
 
   // Handle DND settings
-  if (settings.containsKey("dnd")) {
+  if (settings["dnd"].is<JsonObject>()) {
     JsonObject dndObj = settings["dnd"];
     auto& ledHandler = getLedHandler();
     
-    if (dndObj.containsKey("timeBasedEnabled")) {
+    if (dndObj["timeBasedEnabled"].is<bool>()) {
       ledHandler.setDNDTimeBasedEnabled(dndObj["timeBasedEnabled"].as<bool>());
     }
-    if (dndObj.containsKey("startHour") && dndObj.containsKey("startMinute") &&
-        dndObj.containsKey("endHour") && dndObj.containsKey("endMinute")) {
+    if (dndObj["startHour"].is<uint8_t>() && dndObj["startMinute"].is<uint8_t>() &&
+        dndObj["endHour"].is<uint8_t>() && dndObj["endMinute"].is<uint8_t>()) {
       ledHandler.setDNDTimeRange(
           dndObj["startHour"].as<uint8_t>(),
           dndObj["startMinute"].as<uint8_t>(),
@@ -1251,25 +1251,4 @@ void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
   pixels.show();
 
   request->send(200);
-}
-
-void onApiSettings(AsyncWebServerRequest *request, JsonVariant &json)
-{
-  JsonObject settings = json.as<JsonObject>();
-  auto& ledHandler = getLedHandler();
-
-  if (settings.containsKey("dnd")) {
-    JsonObject dndObj = settings["dnd"];
-    if (dndObj.containsKey("timeBasedEnabled")) {
-      ledHandler.setDNDTimeBasedEnabled(dndObj["timeBasedEnabled"].as<bool>());
-    }
-    if (dndObj.containsKey("startHour") && dndObj.containsKey("startMinute") &&
-        dndObj.containsKey("endHour") && dndObj.containsKey("endMinute")) {
-      ledHandler.setDNDTimeRange(
-          dndObj["startHour"].as<uint8_t>(),
-          dndObj["startMinute"].as<uint8_t>(),
-          dndObj["endHour"].as<uint8_t>(),
-          dndObj["endMinute"].as<uint8_t>());
-    }
-  }
 }

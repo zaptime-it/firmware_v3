@@ -127,7 +127,7 @@ namespace V2Notify
 
     void handleV2Message(JsonDocument doc)
     {
-        if (doc.containsKey("blockheight"))
+        if (doc["blockheight"].is<JsonObject>())
         {
             uint newBlockHeight = doc["blockheight"].as<uint>();
 
@@ -138,13 +138,13 @@ namespace V2Notify
 
             processNewBlock(newBlockHeight);
         }
-        else if (doc.containsKey("blockfee"))
+        else if (doc["blockfee"].is<JsonObject>())
         {
             uint medianFee = doc["blockfee"].as<uint>();
 
             processNewBlockFee(medianFee);
         }
-        else if (doc.containsKey("price"))
+        else if (doc["price"].is<JsonObject>())
         {
 
             // Iterate through the key-value pairs of the "price" object
