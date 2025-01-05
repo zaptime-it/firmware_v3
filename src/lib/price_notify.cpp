@@ -2,103 +2,64 @@
 
 const char *wsServerPrice = "wss://ws.coincap.io/prices?assets=bitcoin";
 
-// WebsocketsClient client;
-esp_websocket_client_handle_t clientPrice = NULL;
-esp_websocket_client_config_t config;
+WebSocketsClient webSocket;
 uint currentPrice = 90000;
 unsigned long int lastPriceUpdate;
 bool priceNotifyInit = false;
 std::map<char, std::uint64_t> currencyMap;
 std::map<char, unsigned long int> lastUpdateMap;
-WebSocketsClient priceNotifyWs;
+TaskHandle_t priceNotifyTaskHandle;
+
+void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length);
 
 void setupPriceNotify()
 {
-  config = {.uri = wsServerPrice,
-            .user_agent = USER_AGENT};
-  config.cert_pem = isrg_root_x1cert;
+  webSocket.beginSSL("ws.coincap.io", 443, "/prices?assets=bitcoin");
+  webSocket.onEvent([](WStype_t type, uint8_t * payload, size_t length) {
+    onWebsocketPriceEvent(type, payload, length);
+  });
+  webSocket.setReconnectInterval(5000);
+  webSocket.enableHeartbeat(15000, 3000, 2);
 
-  config.task_stack = (6*1024);
-
-
-  clientPrice = esp_websocket_client_init(&config);
-  esp_websocket_register_events(clientPrice, WEBSOCKET_EVENT_ANY,
-                                onWebsocketPriceEvent, clientPrice);
-  esp_websocket_client_start(clientPrice);
-
-  // priceNotifyWs.beginSSL("ws.coincap.io", 443, "/prices?assets=bitcoin");
-  // priceNotifyWs.onEvent(onWebsocketPriceEvent);
-  // priceNotifyWs.setReconnectInterval(5000);
-  // priceNotifyWs.enableHeartbeat(15000, 3000, 2);
+  setupPriceNotifyTask();
 }
 
+void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
+    switch(type) {
+        case WStype_DISCONNECTED:
+            Serial.println(F("Price WS Connection Closed"));
+            break;
+        case WStype_CONNECTED:
+        {
+            Serial.println("Connected to " + String(wsServerPrice));
+            priceNotifyInit = true;
+            break;
+        }
+        case WStype_TEXT:
+        {
+            JsonDocument doc;
+            deserializeJson(doc, (char *)payload);
 
-// void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
-//     switch(type) {
-// 		case WStype_DISCONNECTED:
-// 			Serial.printf("[WSc] Disconnected!\n");
-// 			break;
-// 		case WStype_CONNECTED:
-//         {
-// 			Serial.printf("[WSc] Connected to url: %s\n", payload);
-
-
-// 			break;
-//         }
-// 		case WStype_TEXT:
-//         String message = String((char*)payload);
-//         onWebsocketPriceMessage(message);
-// 		break;
-// 		case WStype_BIN:
-// 			break;
-// 		case WStype_ERROR:			
-// 		case WStype_FRAGMENT_TEXT_START:
-// 		case WStype_FRAGMENT_BIN_START:
-// 		case WStype_FRAGMENT:
-//         case WStype_PING:
-//         case WStype_PONG:
-// 		case WStype_FRAGMENT_FIN:
-// 			break;
-// 	}
-// }
-
-void onWebsocketPriceEvent(void *handler_args, esp_event_base_t base,
-                           int32_t event_id, void *event_data)
-{
-  esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
-
-  switch (event_id)
-  {
-  case WEBSOCKET_EVENT_CONNECTED:
-    Serial.println("Connected to " + String(config.uri) + " WebSocket");
-    priceNotifyInit = true;
-
-    break;
-  case WEBSOCKET_EVENT_DATA:
-    onWebsocketPriceMessage(data);
-    break;
-  case WEBSOCKET_EVENT_ERROR:
-    Serial.println(F("Price WS Connnection error"));
-    break;
-  case WEBSOCKET_EVENT_DISCONNECTED:
-    Serial.println(F("Price WS Connnection Closed"));
-    break;
-  }
-}
-
-void onWebsocketPriceMessage(esp_websocket_event_data_t *event_data)
-{
-  JsonDocument doc;
-
-  deserializeJson(doc, (char *)event_data->data_ptr);
-
-  if (doc.containsKey("bitcoin"))
-  {
-    if (currentPrice != doc["bitcoin"].as<long>())
-    {
-      processNewPrice(doc["bitcoin"].as<long>(), CURRENCY_USD);
+            if (doc["bitcoin"].is<JsonObject>())
+            {
+                if (currentPrice != doc["bitcoin"].as<long>())
+                {
+                    processNewPrice(doc["bitcoin"].as<long>(), CURRENCY_USD);
+                }
+            }
+            break;
+        }
+        case WStype_BIN:
+            break;
+        case WStype_ERROR:            
+        case WStype_FRAGMENT_TEXT_START:
+        case WStype_FRAGMENT_BIN_START:
+        case WStype_FRAGMENT:
+        case WStype_PING:
+        case WStype_PONG:
+        case WStype_FRAGMENT_FIN:
+            break;
     }
-  }
 }
 
 void processNewPrice(uint newPrice, char currency)
@@ -175,9 +136,7 @@ void setPrice(uint newPrice, char currency)
 
 bool isPriceNotifyConnected()
 {
-  if (clientPrice == NULL)
-    return false;
-  return esp_websocket_client_is_connected(clientPrice);
+  return webSocket.isConnected();
 }
 
 bool getPriceNotifyInit()
@@ -187,24 +146,30 @@ bool getPriceNotifyInit()
 
 void stopPriceNotify()
 {
-  if (clientPrice == NULL)
-    return;
-  esp_websocket_client_close(clientPrice, pdMS_TO_TICKS(5000));
-  esp_websocket_client_stop(clientPrice);
-  esp_websocket_client_destroy(clientPrice);
-
-  clientPrice = NULL;
+  webSocket.disconnect();
+  if (priceNotifyTaskHandle != NULL) {
+    vTaskDelete(priceNotifyTaskHandle);
+    priceNotifyTaskHandle = NULL;
+  }
 }
 
 void restartPriceNotify()
 {
   stopPriceNotify();
-  if (clientPrice == NULL)
+  setupPriceNotify();
+}
+
+void taskPriceNotify(void *pvParameters)
+{
+  for (;;)
   {
-    setupPriceNotify();
-    return;
+    webSocket.loop();
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
-  // esp_websocket_client_close(clientPrice, pdMS_TO_TICKS(5000));
-  // esp_websocket_client_stop(clientPrice);
-  // esp_websocket_client_start(clientPrice);
+}
+
+void setupPriceNotifyTask()
+{
+  xTaskCreate(taskPriceNotify, "priceNotify", (6 * 1024), NULL, tskIDLE_PRIORITY,
+              &priceNotifyTaskHandle);
 }
