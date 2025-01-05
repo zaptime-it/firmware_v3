@@ -127,7 +127,7 @@ namespace V2Notify
 
     void handleV2Message(JsonDocument doc)
     {
-        if (doc["blockheight"].is<JsonObject>())
+        if (doc["blockheight"].is<uint>())
         {
             uint newBlockHeight = doc["blockheight"].as<uint>();
 
@@ -136,16 +136,29 @@ namespace V2Notify
                 return;
             }
 
+            if (debugLogEnabled()) {
+                Serial.print(F("processNewBlock "));
+                Serial.println(newBlockHeight);
+            }
             processNewBlock(newBlockHeight);
         }
-        else if (doc["blockfee"].is<JsonObject>())
+        else if (doc["blockfee"].is<uint>())
         {
             uint medianFee = doc["blockfee"].as<uint>();
+
+            if (debugLogEnabled()) {
+                Serial.print(F("processNewBlockFee "));
+                Serial.println(medianFee);
+            }
 
             processNewBlockFee(medianFee);
         }
         else if (doc["price"].is<JsonObject>())
         {
+            if (debugLogEnabled()) {
+                Serial.print(F("processNewPrice "));
+                Serial.println(doc["price"].as<JsonObject>().size());
+            }
 
             // Iterate through the key-value pairs of the "price" object
             for (JsonPair kv : doc["price"].as<JsonObject>())
