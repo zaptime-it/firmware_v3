@@ -181,7 +181,7 @@ void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data)
 }
 
 void processNewBlock(uint32_t newBlockHeight) {
-    if (currentBlockHeight == newBlockHeight)
+    if (currentBlockHeight <= newBlockHeight)
     {
         return;
     }
