@@ -243,3 +243,14 @@ int getHashrateMultiplier(char unit) {
     };
     return multipliers.at(unit);
 }
+
+int getDifficultyMultiplier(char unit) {
+    if (unit == '0')
+        return 0;
+
+    static const std::unordered_map<char, int> multipliers = {
+        {'Q', 15}, {'T', 12}, {'B', 9}, {'M', 6}, {'K', 3}, {'G', 9},
+        {'q', 15}, {'t', 12}, {'b', 9}, {'m', 6}, {'k', 3}, {'g', 9}
+    };
+    return multipliers.at(unit);
+}

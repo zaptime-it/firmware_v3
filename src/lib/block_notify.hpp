@@ -22,20 +22,20 @@ void onWebsocketBlockEvent(void *handler_args, esp_event_base_t base,
                       int32_t event_id, void *event_data);
 void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data);
 
-void setBlockHeight(uint newBlockHeight);
-uint getBlockHeight();
+void setBlockHeight(uint32_t newBlockHeight);
+uint32_t getBlockHeight();
 
-void setBlockMedianFee(uint blockMedianFee);
-uint getBlockMedianFee();
+void setBlockMedianFee(uint16_t blockMedianFee);
+uint16_t getBlockMedianFee();
 
 bool isBlockNotifyConnected();
 void stopBlockNotify();
 void restartBlockNotify();
 
-void processNewBlock(uint newBlockHeight);
-void processNewBlockFee(uint newBlockFee);
+void processNewBlock(uint32_t newBlockHeight);
+void processNewBlockFee(uint16_t newBlockFee);
 
 bool getBlockNotifyInit();
-uint getLastBlockUpdate();
+uint32_t getLastBlockUpdate();
 int getBlockFetch();
-void setLastBlockUpdate(uint lastUpdate);
+void setLastBlockUpdate(uint32_t lastUpdate);

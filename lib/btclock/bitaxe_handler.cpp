@@ -1,14 +1,20 @@
 #include "bitaxe_handler.hpp"
 
-std::array<std::string, NUM_SCREENS> parseBitaxeHashRate(std::string text)
+std::array<std::string, NUM_SCREENS> parseBitaxeHashRate(uint64_t hashrate)
 {
     std::array<std::string, NUM_SCREENS> ret;
     ret.fill(""); // Initialize all elements to empty strings
 
-    std::size_t textLength = text.length();
+    // Convert hashrate to GH/s and round to nearest integer
+    double hashRateGH = static_cast<double>(hashrate) / std::pow(10, getHashrateMultiplier('G'));
+    std::string hashRateStr = std::to_string(static_cast<uint64_t>(std::round(hashRateGH)));
+
+    // Place the icons
+    ret[0] = "mdi:bitaxe";
+    ret[NUM_SCREENS - 1] = "GH/S";
 
     // Calculate the position where the digits should start
-    // Account for the position of the "mdi:pickaxe" and the "GH/S" label
+    std::size_t textLength = hashRateStr.length();
     std::size_t startIndex = NUM_SCREENS - 1 - textLength;
 
     // Insert the "mdi:pickaxe" icon just before the digits
@@ -17,34 +23,64 @@ std::array<std::string, NUM_SCREENS> parseBitaxeHashRate(std::string text)
         ret[startIndex - 1] = "mdi:pickaxe";
     }
 
-    // Place the digits
+    // Place each digit
     for (std::size_t i = 0; i < textLength; ++i)
     {
-        ret[startIndex + i] = text.substr(i, 1);
+        ret[startIndex + i] = std::string(1, hashRateStr[i]);
     }
-
-    ret[NUM_SCREENS - 1] = "GH/S";
-    ret[0] = "mdi:bitaxe";
 
     return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseBitaxeBestDiff(std::string text)
+std::array<std::string, NUM_SCREENS> parseBitaxeBestDiff(uint64_t difficulty)
 {
     std::array<std::string, NUM_SCREENS> ret;
-    std::uint32_t firstIndex = 0;
+    ret.fill("");
 
-    if (text.length() < NUM_SCREENS)
-    {
-        text.insert(text.begin(), NUM_SCREENS - text.length(), ' ');
-        ret[0] = "mdi:bitaxe";
-        ret[1] = "mdi:rocket";
-        firstIndex = 2;
+    // Add icons at the start
+    ret[0] = "mdi:bitaxe";
+    ret[1] = "mdi:rocket";
+
+    if (difficulty == 0) {
+        ret[NUM_SCREENS - 1] = "0";
+        return ret;
     }
 
-    for (std::uint8_t i = firstIndex; i < NUM_SCREENS; i++)
+    // Find the appropriate suffix and format the number
+    const std::pair<char, int> suffixes[] = {
+        {'Q', 15}, {'T', 12}, {'G', 9}, {'M', 6}, {'K', 3}
+    };
+
+    std::string text;
+    for (const auto& suffix : suffixes) {
+        if (difficulty >= std::pow(10, suffix.second)) {
+            double value = difficulty / std::pow(10, suffix.second);
+            char buffer[32];
+            snprintf(buffer, sizeof(buffer), "%.1f", value);
+            text = buffer;
+            // Remove trailing zeros and decimal point if not needed
+            if (text.find('.') != std::string::npos) {
+                text = text.substr(0, text.find_last_not_of('0') + 1);
+                if (text.back() == '.') {
+                    text.pop_back();
+                }
+            }
+            text += suffix.first;
+            break;
+        }
+    }
+
+    if (text.empty()) {
+        text = std::to_string(difficulty);
+    }
+
+    // Calculate start position to right-align the text
+    std::size_t startIndex = NUM_SCREENS - text.length();
+    
+    // Place the formatted difficulty string
+    for (std::size_t i = 0; i < text.length() && (startIndex + i) < NUM_SCREENS; ++i)
     {
-        ret[i] = text[i];
+        ret[startIndex + i] = std::string(1, text[i]);
     }
 
     return ret;

@@ -2,15 +2,15 @@
 
 TaskHandle_t bitaxeFetchTaskHandle;
 
-std::string bitaxeHashrate;
-std::string bitaxeBestDiff;
+uint64_t bitaxeHashrate;
+uint64_t bitaxeBestDiff;
 
-std::string getBitAxeHashRate()
+uint64_t getBitAxeHashRate()
 {
     return bitaxeHashrate;
 }
 
-std::string getBitaxeBestDiff()
+uint64_t getBitaxeBestDiff()
 {
     return bitaxeBestDiff;
 }
@@ -33,8 +33,20 @@ void taskBitaxeFetch(void *pvParameters)
             String payload = http.getString();
             JsonDocument doc;
             deserializeJson(doc, payload);
-            bitaxeHashrate = std::to_string(static_cast<int>(std::round(doc["hashRate"].as<float>())));
-            bitaxeBestDiff = doc["bestDiff"].as<std::string>();
+            
+            // Convert GH/s to H/s (multiply by 10^9)
+            float hashRateGH = doc["hashRate"].as<float>();
+            bitaxeHashrate = static_cast<uint64_t>(std::round(hashRateGH * std::pow(10, getHashrateMultiplier('G'))));
+            
+            // Parse difficulty string and convert to uint64_t
+            std::string diffStr = doc["bestDiff"].as<std::string>();
+            char diffUnit = diffStr[diffStr.length() - 1];
+            if (std::isalpha(diffUnit)) {
+                float diffValue = std::stof(diffStr.substr(0, diffStr.length() - 1));
+                bitaxeBestDiff = static_cast<uint64_t>(std::round(diffValue * std::pow(10, getDifficultyMultiplier(diffUnit))));
+            } else {
+                bitaxeBestDiff = std::stoull(diffStr);
+            }
 
             if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_BESTDIFF))
             {

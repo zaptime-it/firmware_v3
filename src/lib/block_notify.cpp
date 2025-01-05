@@ -2,8 +2,8 @@
 
 char *wsServer;
 esp_websocket_client_handle_t blockNotifyClient = NULL;
-uint currentBlockHeight = 873400;
-uint blockMedianFee = 1;
+uint32_t currentBlockHeight = 873400;
+uint16_t blockMedianFee = 1;
 bool blockNotifyInit = false;
 unsigned long int lastBlockUpdate;
 
@@ -179,7 +179,7 @@ void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data)
   doc.clear();
 }
 
-void processNewBlock(uint newBlockHeight) {
+void processNewBlock(uint32_t newBlockHeight) {
   if (newBlockHeight < currentBlockHeight)
     return;
 
@@ -222,7 +222,7 @@ void processNewBlock(uint newBlockHeight) {
     }
 }
 
-void processNewBlockFee(uint newBlockFee) {
+void processNewBlockFee(uint16_t newBlockFee) {
   if (blockMedianFee == newBlockFee)
     {
       return;
@@ -238,16 +238,16 @@ void processNewBlockFee(uint newBlockFee) {
     }
 }
 
-uint getBlockHeight() { return currentBlockHeight; }
+uint32_t getBlockHeight() { return currentBlockHeight; }
 
-void setBlockHeight(uint newBlockHeight)
+void setBlockHeight(uint32_t newBlockHeight)
 {
   currentBlockHeight = newBlockHeight;
 }
 
-uint getBlockMedianFee() { return blockMedianFee; }
+uint16_t getBlockMedianFee() { return blockMedianFee; }
 
-void setBlockMedianFee(uint newBlockMedianFee)
+void setBlockMedianFee(uint16_t newBlockMedianFee)
 {
   blockMedianFee = newBlockMedianFee;
 }
