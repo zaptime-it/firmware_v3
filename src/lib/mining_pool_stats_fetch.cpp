@@ -1,95 +1,98 @@
 #include "mining_pool_stats_fetch.hpp"
 
-TaskHandle_t miningPoolStatsFetchTaskHandle;
-
-std::string miningPoolName;
-std::string miningPoolStatsHashrate;
-int miningPoolStatsDailyEarnings;
-
-std::string getMiningPoolStatsHashRate()
-{
-    return miningPoolStatsHashrate;
+void MiningPoolStatsFetch::taskWrapper(void* pvParameters) {
+    MiningPoolStatsFetch::getInstance().task();
 }
 
-int getMiningPoolStatsDailyEarnings()
-{
-    return miningPoolStatsDailyEarnings;
+void MiningPoolStatsFetch::downloadLogoTaskWrapper(void* pvParameters) {
+    MiningPoolStatsFetch::getInstance().downloadLogoTask();
 }
 
-void taskMiningPoolStatsFetch(void *pvParameters)
-{
+std::string MiningPoolStatsFetch::getHashRate() const {
+    return hashrate;
+}
+
+int MiningPoolStatsFetch::getDailyEarnings() const {
+    return dailyEarnings;
+}
+
+MiningPoolInterface* MiningPoolStatsFetch::getPool() {
+    if (!currentPool) {
+        std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
+        currentPool = PoolFactory::createPool(poolName);
+    }
+    return currentPool.get();
+}
+
+const MiningPoolInterface* MiningPoolStatsFetch::getPool() const {
+    return currentPool.get();
+}
+
+LogoData MiningPoolStatsFetch::getLogo() const {
+    if (const auto* pool = getPool()) {
+        return pool->getLogo();
+    }
+    return LogoData{};
+}
+
+void MiningPoolStatsFetch::task() {
     std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
-    auto poolInterface = PoolFactory::createPool(poolName);
+    auto* poolInterface = getPool();
+    if (!poolInterface) return;
     
     std::string poolUser = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER).c_str();
 
     // Main stats fetching loop
-    for (;;)
-    {
+    for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         HTTPClient http;
         http.setUserAgent(USER_AGENT);
-
-
-     
+        
         poolInterface->setPoolUser(poolUser);
         std::string apiUrl = poolInterface->getApiUrl();
         http.begin(apiUrl.c_str());
-        if (debugLogEnabled())
-        {
+        if (debugLogEnabled()) {
             Serial.printf("Fetching mining pool stats from %s\r\n", apiUrl.c_str());
         }
         poolInterface->prepareRequest(http);
         int httpCode = http.GET();
-        if (httpCode == 200)
-        {
+        if (httpCode == 200) {
             String payload = http.getString();
             JsonDocument doc;
             deserializeJson(doc, payload);
 
-            if (debugLogEnabled())
-            {
+            if (debugLogEnabled()) {
                 Serial.printf("Mining pool stats response: %s\r\n", payload.c_str());
             }
 
             PoolStats stats = poolInterface->parseResponse(doc);
+            hashrate = stats.hashrate;
 
-            miningPoolStatsHashrate = stats.hashrate;
-
-            if (debugLogEnabled())
-            {
+            if (debugLogEnabled()) {
                 Serial.printf("Mining pool stats parsed hashrate: %s\r\n", stats.hashrate.c_str());
             }
 
-            if (stats.dailyEarnings)
-            {
-                miningPoolStatsDailyEarnings = *stats.dailyEarnings;
-            }
-            else
-            {
-                miningPoolStatsDailyEarnings = 0; // or any other default value
-            }
+            dailyEarnings = stats.dailyEarnings ? *stats.dailyEarnings : 0;
 
-            if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS))
-            {
+            if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || 
+                ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS)) {
                 WorkItem priceUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
                 xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
             }
-        }
-        else
-        {
-            Serial.print(
-                F("Error retrieving mining pool data. HTTP status code: "));
+        } else {
+            Serial.print(F("Error retrieving mining pool data. HTTP status code: "));
             Serial.println(httpCode);
         }
     }
 }
 
-void downloadMiningPoolLogoTask(void *pvParameters) {
+void MiningPoolStatsFetch::downloadLogoTask() {
     std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
-    auto poolInterface = PoolFactory::createPool(poolName);
-    PoolFactory::downloadPoolLogo(poolName, poolInterface.get());
+    auto* poolInterface = getPool();
+    if (!poolInterface) return;
+    
+    PoolFactory::downloadPoolLogo(poolName, poolInterface);
 
     // If we're on the mining pool stats screen, trigger a display update
     if (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE) {
@@ -97,41 +100,22 @@ void downloadMiningPoolLogoTask(void *pvParameters) {
         xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
     }
 
-    xTaskNotifyGive(miningPoolStatsFetchTaskHandle);
+    xTaskNotifyGive(taskHandle);
     vTaskDelete(NULL);
 }
 
-void setupMiningPoolStatsFetchTask()
-{
-    xTaskCreate(downloadMiningPoolLogoTask, 
+void MiningPoolStatsFetch::setup() {
+    xTaskCreate(downloadLogoTaskWrapper, 
                 "logoDownload", 
                 (6 * 1024),  
                 NULL, 
                 tskIDLE_PRIORITY,
                 NULL);
 
-    xTaskCreate(taskMiningPoolStatsFetch, 
+    xTaskCreate(taskWrapper, 
                 "miningPoolStatsFetch", 
                 (6 * 1024), 
                 NULL, 
                 tskIDLE_PRIORITY,
-                &miningPoolStatsFetchTaskHandle);
-}
-
-std::unique_ptr<MiningPoolInterface>& getMiningPool()
-{
-   static std::unique_ptr<MiningPoolInterface> currentMiningPool;
-    
-    if (!currentMiningPool) {
-        std::string poolName = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME).c_str();
-        currentMiningPool = PoolFactory::createPool(poolName);
-    }
-
-    return currentMiningPool;
-}
-
-LogoData getMiningPoolLogo()
-{
-    LogoData logo =  getMiningPool()->getLogo();
-    return logo;
+                &taskHandle);
 }

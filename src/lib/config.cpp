@@ -105,7 +105,7 @@ void setup()
 
   if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
   {
-    setupMiningPoolStatsFetchTask();
+    MiningPoolStatsFetch::getInstance().setup();
   }
 
   ButtonHandler::setup();
@@ -374,7 +374,7 @@ void setupPreferences()
   if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
   {
     addScreenMapping(SCREEN_MINING_POOL_STATS_HASHRATE, "Mining Pool Hashrate");
-    if (getMiningPool()->supportsDailyEarnings()) {
+    if (MiningPoolStatsFetch::getInstance().getPool()->supportsDailyEarnings()) {
       addScreenMapping(SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings");
     }
   }

@@ -600,7 +600,7 @@ bool renderIcon(const uint dispNum, const String &text, bool partial)
     }
     else if (text.endsWith("miningpool"))
     {
-        LogoData logo = getMiningPoolLogo();
+        LogoData logo = MiningPoolStatsFetch::getInstance().getLogo();
 
         if (logo.size == 0)
         {

@@ -231,9 +231,10 @@ void workerTask(void *pvParameters) {
                         currentScreenValue != SCREEN_MINING_POOL_STATS_EARNINGS) break;
                         
                     taskEpdContent = (currentScreenValue == SCREEN_MINING_POOL_STATS_HASHRATE) ?
-                        parseMiningPoolStatsHashRate(getMiningPoolStatsHashRate(), *getMiningPool()) :
-                        parseMiningPoolStatsDailyEarnings(getMiningPoolStatsDailyEarnings(), 
-                            getMiningPool()->getDailyEarningsLabel(), *getMiningPool());
+                        parseMiningPoolStatsHashRate(MiningPoolStatsFetch::getInstance().getHashRate(), *MiningPoolStatsFetch::getInstance().getPool()) :
+                        parseMiningPoolStatsDailyEarnings(MiningPoolStatsFetch::getInstance().getDailyEarnings(), 
+                            MiningPoolStatsFetch::getInstance().getPool()->getDailyEarningsLabel(), 
+                            *MiningPoolStatsFetch::getInstance().getPool());
                     setEpdContent(taskEpdContent);
                     break;
                 }
