@@ -309,7 +309,7 @@ void eventSourceUpdate() {
     doc["leds"] = getLedStatusObject()["data"];
 
     // Get current EPD content directly as array
-    std::array<String, NUM_SCREENS> epdContent = getCurrentEpdContent();
+    std::array<String, NUM_SCREENS> epdContent = EPDManager::getInstance().getCurrentContent();
     
     // Add EPD content arrays
     JsonArray data = doc["data"].to<JsonArray>();
@@ -336,7 +336,7 @@ void onApiStatus(AsyncWebServerRequest *request)
   JsonDocument root = getStatusObject();
   
   // Get current EPD content directly as array
-  std::array<String, NUM_SCREENS> epdContent = getCurrentEpdContent();
+  std::array<String, NUM_SCREENS> epdContent = EPDManager::getInstance().getCurrentContent();
   
   // Add EPD content arrays
   JsonArray data = root["data"].to<JsonArray>();
@@ -378,11 +378,9 @@ void onApiActionTimerRestart(AsyncWebServerRequest *request)
  */
 void onApiFullRefresh(AsyncWebServerRequest *request)
 {
-  forceFullRefresh();
-  std::array<String, NUM_SCREENS> newEpdContent = getCurrentEpdContent();
-
-  setEpdContent(newEpdContent, true);
-
+  EPDManager::getInstance().forceFullRefresh();
+  std::array<String, NUM_SCREENS> newEpdContent = EPDManager::getInstance().getCurrentContent();
+  EPDManager::getInstance().setContent(newEpdContent, true);
   request->send(HTTP_OK);
 }
 
@@ -429,7 +427,7 @@ void onApiShowText(AsyncWebServerRequest *request)
       textEpdContent[i] = t[i];
     }
 
-    setEpdContent(textEpdContent);
+    EPDManager::getInstance().setContent(textEpdContent);
   }
   ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
   request->send(HTTP_OK);
@@ -447,7 +445,7 @@ void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
     i++;
   }
 
-  setEpdContent(epdContent);
+  EPDManager::getInstance().setContent(epdContent);
 
   ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
   request->send(HTTP_OK);
@@ -475,13 +473,13 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     if (inverted) {
       preferences.putUInt("fgColor", GxEPD_WHITE);
       preferences.putUInt("bgColor", GxEPD_BLACK);
-      setFgColor(GxEPD_WHITE);
-      setBgColor(GxEPD_BLACK);
+      EPDManager::getInstance().setForegroundColor(GxEPD_WHITE);
+      EPDManager::getInstance().setBackgroundColor(GxEPD_BLACK);
     } else {
       preferences.putUInt("fgColor", GxEPD_BLACK);
       preferences.putUInt("bgColor", GxEPD_WHITE);
-      setFgColor(GxEPD_BLACK);
-      setBgColor(GxEPD_WHITE);
+      EPDManager::getInstance().setForegroundColor(GxEPD_BLACK);
+      EPDManager::getInstance().setBackgroundColor(GxEPD_WHITE);
     }
     Serial.printf("Setting invertedColor to %d\r\n", inverted);
     settingsChanged = true;
@@ -680,7 +678,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
 
   JsonDocument root;
   root["numScreens"] = NUM_SCREENS;
-  root["invertedColor"] = preferences.getBool("invertedColor", getFgColor() == GxEPD_WHITE);
+  root["invertedColor"] = preferences.getBool("invertedColor", EPDManager::getInstance().getForegroundColor() == GxEPD_WHITE);
   root["timerSeconds"] = getTimerSeconds();
   root["timerRunning"] = isTimerActive();
   root["minSecPriceUpd"] = preferences.getUInt(
@@ -818,7 +816,7 @@ bool processEpdColorSettings(AsyncWebServerRequest *request)
     const AsyncWebParameter *fgColor = request->getParam("fgColor", true);
     uint32_t color = strtol(fgColor->value().c_str(), NULL, 16);
     preferences.putUInt("fgColor", color);
-    setFgColor(color);
+    EPDManager::getInstance().setForegroundColor(color);
     // Serial.print(F("Setting foreground color to "));
     // Serial.println(fgColor->value().c_str());
     settingsChanged = true;
@@ -829,7 +827,7 @@ bool processEpdColorSettings(AsyncWebServerRequest *request)
 
     uint32_t color = strtol(bgColor->value().c_str(), NULL, 16);
     preferences.putUInt("bgColor", color);
-    setBgColor(color);
+    EPDManager::getInstance().setBackgroundColor(color);
     // Serial.print(F("Setting background color to "));
     // Serial.println(bgColor->value().c_str());
     settingsChanged = true;
@@ -1202,7 +1200,7 @@ void onApiLightsGet(AsyncWebServerRequest *request)
   auto& ledHandler = getLedHandler();
   auto& pixels = ledHandler.getPixels();
   
-  DynamicJsonDocument doc(1024);
+  JsonDocument doc;
   JsonArray lights = doc.createNestedArray("lights");
 
   for (uint i = 0; i < pixels.numPixels(); i++)
@@ -1225,7 +1223,7 @@ void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
   auto& ledHandler = getLedHandler();
   auto& pixels = ledHandler.getPixels();
   
-  DynamicJsonDocument doc(1024);
+  JsonDocument doc;
   DeserializationError error = deserializeJson(doc, data);
   if (error)
   {

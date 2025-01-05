@@ -16,6 +16,8 @@
 
 #include <mutex>
 #include <utils.hpp>
+#include <array>
+#include <string>
 
 #include "defaults.hpp"
 
@@ -119,3 +121,4 @@ private:
     static bool certBundleSet;
     static WiFiClient insecureClient;
 };
+

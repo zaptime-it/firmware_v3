@@ -48,7 +48,7 @@ void setup()
   setupPreferences();
   setupHardware();
 
-  setupDisplays();
+  EPDManager::getInstance().initialize();
   if (preferences.getBool("ledTestOnPower", DEFAULT_LED_TEST_ON_POWER))
   {
     auto& ledHandler = getLedHandler();
@@ -115,7 +115,7 @@ void setup()
   ButtonHandler::setup();
   setupOTA();
 
-  waitUntilNoneBusy();
+  EPDManager::getInstance().waitUntilNoneBusy();
 
 #ifdef HAS_FRONTLIGHT
   if (!preferences.getBool("flAlwaysOn", DEFAULT_FL_ALWAYS_ON))
@@ -126,7 +126,7 @@ void setup()
   }
 #endif
 
-  forceFullRefresh();
+  EPDManager::getInstance().forceFullRefresh();
 }
 
 void setupWifi()
@@ -181,8 +181,8 @@ void setupWifi()
         wifiManager->getConfigPortalSSID().c_str(),
         softAP_password.c_str());
         // delay(6000);
-        setFgColor(GxEPD_BLACK);
-        setBgColor(GxEPD_WHITE);
+        EPDManager::getInstance().setForegroundColor(GxEPD_BLACK);
+        EPDManager::getInstance().setBackgroundColor(GxEPD_WHITE);
         const String qrText = "qrWIFI:S:" + wifiManager->getConfigPortalSSID() +
                               ";T:WPA;P:" + softAP_password.c_str() + ";;";
         const String explainText = "*SSID: *\r\n" +
@@ -212,58 +212,22 @@ void setupWifi()
 #endif
             "\r\n\r\n*FW build date:*\r\n" + formattedDate,
             qrText};
-        setEpdContent(epdContent); });
+      
+        EPDManager::getInstance().setContent(epdContent); });
 
       wm.setSaveConfigCallback([]()
                                {
         preferences.putBool("wifiConfigured", true);
 
         delay(1000);
-        // just restart after succes
+        // just restart after success
         ESP.restart(); });
 
       bool ac = wm.autoConnect(softAP_SSID.c_str(), softAP_password.c_str());
-
-      // waitUntilNoneBusy();
-      // std::array<String, NUM_SCREENS> epdContent = {"Welcome!",
-      // "Bienvenidos!", "Use\r\nweb-interface\r\npara configurar", "Use\r\nla
-      // interfaz web\r\npara configurar", "Or
-      // restart\r\nwhile\r\nholding\r\n2nd button\r\r\nto start\r\n QR-config",
-      // "O reinicie\r\nmientras\r\n mantiene presionado\r\nel segundo
-      // botón\r\r\npara iniciar\r\nQR-config", ""}; setEpdContent(epdContent);
-      //  esp_task_wdt_init(30, false);
-      //  uint count = 0;
-      //  while (WiFi.status() != WL_CONNECTED)
-      //  {
-      //      if (Serial.available() > 0)
-      //      {
-      //          uint8_t b = Serial.read();
-
-      //         if (parse_improv_serial_byte(x_position, b, x_buffer,
-      //         onImprovCommandCallback, onImprovErrorCallback))
-      //         {
-      //             x_buffer[x_position++] = b;
-      //         }
-      //         else
-      //         {
-      //             x_position = 0;
-      //         }
-      //     }
-      //     count++;
-
-      //     if (count > 2000000) {
-      //         queueLedEffect(LED_EFFECT_HEARTBEAT);
-      //         count = 0;
-      //     }
-      // }
-      // esp_task_wdt_deinit();
-      // esp_task_wdt_reset();
     }
 
-
-
-    setFgColor(preferences.getUInt("fgColor", isWhiteVersion() ? GxEPD_BLACK : GxEPD_WHITE));
-    setBgColor(preferences.getUInt("bgColor", isWhiteVersion() ? GxEPD_WHITE : GxEPD_BLACK));
+    EPDManager::getInstance().setForegroundColor(preferences.getUInt("fgColor", isWhiteVersion() ? GxEPD_BLACK : GxEPD_WHITE));
+    EPDManager::getInstance().setBackgroundColor(preferences.getUInt("bgColor", isWhiteVersion() ? GxEPD_WHITE : GxEPD_BLACK));
   }
   // else
   // {
@@ -299,8 +263,8 @@ void setupPreferences()
 {
   preferences.begin("btclock", false);
 
-  setFgColor(preferences.getUInt("fgColor", DEFAULT_FG_COLOR));
-  setBgColor(preferences.getUInt("bgColor", DEFAULT_BG_COLOR));
+  EPDManager::getInstance().setForegroundColor(preferences.getUInt("fgColor", DEFAULT_FG_COLOR));
+  EPDManager::getInstance().setBackgroundColor(preferences.getUInt("bgColor", DEFAULT_BG_COLOR));
   setBlockHeight(preferences.getUInt("blockHeight", INITIAL_BLOCK_HEIGHT));
   setPrice(preferences.getUInt("lastPrice", INITIAL_LAST_PRICE), CURRENCY_USD);
 

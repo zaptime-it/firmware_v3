@@ -57,10 +57,10 @@ void onOTAProgress(unsigned int progress, unsigned int total)
 
 void onOTAStart()
 {
-  forceFullRefresh();
+  EPDManager::getInstance().forceFullRefresh();
   std::array<String, NUM_SCREENS> epdContent = {"U", "P", "D", "A",
                                                 "T", "E", "!"};
-  setEpdContent(epdContent);
+  EPDManager::getInstance().setContent(epdContent);
   // Stop all timers
   esp_timer_stop(screenRotateTimer);
   esp_timer_stop(minuteTimer);

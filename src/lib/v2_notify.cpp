@@ -106,6 +106,11 @@ namespace V2Notify
             JsonDocument doc;
             DeserializationError error = deserializeMsgPack(doc, payload, length);
 
+            if (error) {
+                Serial.println(F("Error deserializing message"));
+                break;
+            }
+
             V2Notify::handleV2Message(doc);
             break;
         }

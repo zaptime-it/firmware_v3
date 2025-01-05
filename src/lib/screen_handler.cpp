@@ -203,7 +203,7 @@ void ScreenHandler::showSystemStatusScreen() {
         String((int)round(ESP.getFreeHeap() / 1024)) + "/" +
         (int)round(ESP.getHeapSize() / 1024);
     setCurrentScreen(SCREEN_CUSTOM);
-    setEpdContent(sysStatusEpdContent);
+    EPDManager::getInstance().setContent(sysStatusEpdContent);
 }
 
 // Keep these as free functions
@@ -222,7 +222,7 @@ void workerTask(void *pvParameters) {
                     taskEpdContent = (currentScreenValue == SCREEN_BITAXE_HASHRATE) ?
                         parseBitaxeHashRate(BitAxeFetch::getInstance().getHashRate()) :
                         parseBitaxeBestDiff(BitAxeFetch::getInstance().getBestDiff());
-                    setEpdContent(taskEpdContent);
+                    EPDManager::getInstance().setContent(taskEpdContent);
                     break;
                 }
 
@@ -235,7 +235,7 @@ void workerTask(void *pvParameters) {
                         parseMiningPoolStatsDailyEarnings(MiningPoolStatsFetch::getInstance().getDailyEarnings(), 
                             MiningPoolStatsFetch::getInstance().getPool()->getDailyEarningsLabel(), 
                             *MiningPoolStatsFetch::getInstance().getPool());
-                    setEpdContent(taskEpdContent);
+                    EPDManager::getInstance().setContent(taskEpdContent);
                     break;
                 }
 
@@ -256,13 +256,13 @@ void workerTask(void *pvParameters) {
                                            preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR));
                     }
 
-                    setEpdContent(taskEpdContent);
+                    EPDManager::getInstance().setContent(taskEpdContent);
                     break;
                 }
                 case TASK_FEE_UPDATE: {
                     if (currentScreenValue == SCREEN_BLOCK_FEE_RATE) {
                         taskEpdContent = parseBlockFees(static_cast<std::uint16_t>(getBlockMedianFee()));
-                        setEpdContent(taskEpdContent);
+                        EPDManager::getInstance().setContent(taskEpdContent);
                     } 
                     break;
                 }
@@ -275,7 +275,7 @@ void workerTask(void *pvParameters) {
 
                     if (currentScreenValue == SCREEN_HALVING_COUNTDOWN ||
                         currentScreenValue == SCREEN_BLOCK_HEIGHT) {
-                        setEpdContent(taskEpdContent);
+                        EPDManager::getInstance().setContent(taskEpdContent);
                     }
                     break;
                 }
@@ -302,7 +302,7 @@ void workerTask(void *pvParameters) {
                         for (uint i = 1; i < NUM_SCREENS; i++) {
                             taskEpdContent[i] = timeString[i];
                         }
-                        setEpdContent(taskEpdContent);
+                        EPDManager::getInstance().setContent(taskEpdContent);
                     }
 
                     break;
@@ -329,8 +329,6 @@ void setupTasks() {
 
     xTaskCreate(taskScreenRotate, "rotateScreen", 4096, NULL, tskIDLE_PRIORITY,
                 &taskScreenRotateTaskHandle);
-
-    waitUntilNoneBusy();
 
     if (findScreenIndexByValue(preferences.getUInt("currentScreen", DEFAULT_CURRENT_SCREEN)) != -1)
         ScreenHandler::setCurrentScreen(preferences.getUInt("currentScreen", DEFAULT_CURRENT_SCREEN));

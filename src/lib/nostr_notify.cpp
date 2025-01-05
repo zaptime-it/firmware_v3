@@ -283,7 +283,7 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
     }
     ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
 
-    setEpdContent(textEpdContent);
+    EPDManager::getInstance().setContent(textEpdContent);
     vTaskDelay(pdMS_TO_TICKS(315 * NUM_SCREENS) + pdMS_TO_TICKS(250));
     if (preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP))
     {
@@ -295,3 +295,19 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
                                 timerPeriod * usPerSecond);
     }
 }
+
+// void onNostrEvent(const String &subId, const nostr::Event &event) {
+//     // This is the callback that will be called when a new event is received
+//     if (event.kind == 9735) {
+//         // Parse the zap amount from the event
+//         uint16_t amount = parseZapAmount(event);
+//         if (amount > 0) {
+//             std::array<std::string, NUM_SCREENS> zapContent = parseZapNotify(amount, true);
+//             EPDManager::getInstance().setContent(zapContent);
+            
+//             if (preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD)) {
+//                 getLedHandler().queueEffect(LED_FLASH_BLOCK_NOTIFY);
+//             }
+//         }
+//     }
+// }

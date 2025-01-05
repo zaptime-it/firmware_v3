@@ -181,45 +181,42 @@ void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data)
 }
 
 void processNewBlock(uint32_t newBlockHeight) {
-  if (newBlockHeight < currentBlockHeight)
-    return;
+    if (currentBlockHeight == newBlockHeight)
+    {
+        return;
+    }
 
-  currentBlockHeight = newBlockHeight;
-
-    // Serial.printf("New block found: %d\r\n", block["height"].as<uint>());
-    preferences.putUInt("blockHeight", currentBlockHeight);
+    currentBlockHeight = newBlockHeight;
     lastBlockUpdate = esp_timer_get_time() / 1000000;
 
     if (workQueue != nullptr)
     {
-      WorkItem blockUpdate = {TASK_BLOCK_UPDATE, 0};
-      xQueueSend(workQueue, &blockUpdate, portMAX_DELAY);
-      // xTaskNotifyGive(blockUpdateTaskHandle);
+        WorkItem blockUpdate = {TASK_BLOCK_UPDATE, 0};
+        xQueueSend(workQueue, &blockUpdate, portMAX_DELAY);
+    }
 
-      if (ScreenHandler::getCurrentScreen() != SCREEN_BLOCK_HEIGHT &&
-          preferences.getBool("stealFocus", DEFAULT_STEAL_FOCUS))
-      {
+    if (ScreenHandler::getCurrentScreen() != SCREEN_BLOCK_HEIGHT &&
+        preferences.getBool("stealFocus", DEFAULT_STEAL_FOCUS))
+    {
         uint64_t timerPeriod = 0;
         if (isTimerActive())
         {
-          // store timer periode before making inactive to prevent artifacts
-          timerPeriod = getTimerSeconds();
-          esp_timer_stop(screenRotateTimer);
+            timerPeriod = getTimerSeconds();
+            esp_timer_stop(screenRotateTimer);
         }
         ScreenHandler::setCurrentScreen(SCREEN_BLOCK_HEIGHT);
         if (timerPeriod > 0)
         {
-          esp_timer_start_periodic(screenRotateTimer,
+            esp_timer_start_periodic(screenRotateTimer,
                                    timerPeriod * usPerSecond);
         }
         vTaskDelay(pdMS_TO_TICKS(315*NUM_SCREENS)); // Extra delay because of screen switching
-      }
+    }
 
-      if (preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD))
-      {
+    if (preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD))
+    {
         vTaskDelay(pdMS_TO_TICKS(250)); // Wait until screens are updated
         getLedHandler().queueEffect(LED_FLASH_BLOCK_NOTIFY);
-      }
     }
 }
 
