@@ -674,6 +674,7 @@ void setupFrontlight()
     Serial.println(F("FL driver error"));
     return;
   }
+  flArray.setFrequency(200);
   Serial.println(F("FL driver active"));
 
   if (!preferences.isKey("flMaxBrightness"))

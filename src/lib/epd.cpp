@@ -182,7 +182,7 @@ void loadFonts(const String& fontName) {
     FONT_SMALL = oswaldFonts.small;
   }
 
-  FONT_SATSYMBOL = &Satoshi_Symbol90pt7b;
+  FONT_SATSYMBOL = FontLoader::loadCompressedFont(Satoshi_Symbol90pt7b_Properties);
 }
 
 void setupDisplays() {
