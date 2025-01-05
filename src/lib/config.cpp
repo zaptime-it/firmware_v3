@@ -265,7 +265,7 @@ void setupPreferences()
 
   EPDManager::getInstance().setForegroundColor(preferences.getUInt("fgColor", DEFAULT_FG_COLOR));
   EPDManager::getInstance().setBackgroundColor(preferences.getUInt("bgColor", DEFAULT_BG_COLOR));
-  setBlockHeight(preferences.getUInt("blockHeight", INITIAL_BLOCK_HEIGHT));
+  BlockNotify::getInstance().setBlockHeight(preferences.getUInt("blockHeight", INITIAL_BLOCK_HEIGHT));
   setPrice(preferences.getUInt("lastPrice", INITIAL_LAST_PRICE), CURRENCY_USD);
 
   if (!preferences.isKey("enableDebugLog")) {
@@ -373,7 +373,7 @@ void setupWebsocketClients(void *pvParameters)
   }
   else if (dataSource == THIRD_PARTY_SOURCE)
   {
-    setupBlockNotify();
+    BlockNotify::getInstance().setup();
     setupPriceNotify();
   }
 

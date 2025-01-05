@@ -19,6 +19,7 @@
 #include "ESPAsyncWebServer.h"
 #include "lib/config.hpp"
 #include "lib/led_handler.hpp"
+#include "lib/block_notify.hpp"
 
 uint wifiLostConnection;
 uint priceNotifyLostConnection = 0;
@@ -49,7 +50,8 @@ void handleBlockNotifyDisconnection() {
     
     if ((getUptime() - blockNotifyLostConnection) > 300) { // 5 minutes timeout
         Serial.println(F("Block notification connection lost for 5 minutes, restarting handler..."));
-        restartBlockNotify();
+        auto& blockNotify = BlockNotify::getInstance();
+        blockNotify.restart();
         blockNotifyLostConnection = 0;
     }
 } 
@@ -92,13 +94,14 @@ void checkWiFiConnection() {
 
 void checkMissedBlocks() {
   Serial.println(F("Long time (45 min) since last block, checking if I missed anything..."));
-  int currentBlock = getBlockFetch();
+  auto& blockNotify = BlockNotify::getInstance();
+  int currentBlock = blockNotify.fetchLatestBlock();
   if (currentBlock != -1) {
-    if (currentBlock != getBlockHeight()) {
+    if (currentBlock != blockNotify.getBlockHeight()) {
       Serial.println(F("Detected stuck block height... restarting block handler."));
-      restartBlockNotify();
+      blockNotify.restart();
     }
-    setLastBlockUpdate(getUptime());
+    blockNotify.setLastBlockUpdate(getUptime());
   }
 }
 
@@ -111,9 +114,10 @@ void monitorDataConnections() {
   }
 
   // Block notification monitoring
-  if (getBlockNotifyInit() && !isBlockNotifyConnected()) {
+  auto& blockNotify = BlockNotify::getInstance();
+  if (blockNotify.isInitialized() && !blockNotify.isConnected()) {
     handleBlockNotifyDisconnection();
-  } else if (blockNotifyLostConnection > 0 && isBlockNotifyConnected()) {
+  } else if (blockNotifyLostConnection > 0 && blockNotify.isConnected()) {
     blockNotifyLostConnection = 0;
   }
 
@@ -125,7 +129,7 @@ void monitorDataConnections() {
   }
 
   // Check for missed blocks
-  if ((getLastBlockUpdate() - getUptime()) > 45 * 60) {
+  if ((blockNotify.getLastBlockUpdate() - getUptime()) > 45 * 60) {
     checkMissedBlocks();
   }
 }

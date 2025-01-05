@@ -74,8 +74,8 @@ void onOTAStart()
   ButtonHandler::suspendTask();
 
   // stopWebServer();
-  stopBlockNotify();
-  stopPriceNotify();
+  auto& blockNotify = BlockNotify::getInstance();
+  blockNotify.stop();
 }
 
 void handleOTATask(void *parameter)

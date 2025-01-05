@@ -247,7 +247,8 @@ JsonDocument getStatusObject()
   JsonObject conStatus = root["connectionStatus"].to<JsonObject>();
 
   conStatus["price"] = isPriceNotifyConnected();
-  conStatus["blocks"] = isBlockNotifyConnected();
+  auto& blockNotify = BlockNotify::getInstance();
+  conStatus["blocks"] = blockNotify.isConnected();
   conStatus["V2"] = V2Notify::isV2NotifyConnected();
   conStatus["nostr"] = nostrConnected();
 
@@ -906,7 +907,7 @@ void onApiStopDataSources(AsyncWebServerRequest *request)
       request->beginResponseStream(JSON_CONTENT);
 
   stopPriceNotify();
-  stopBlockNotify();
+  BlockNotify::getInstance().stop();
 
   request->send(response);
 }
@@ -917,9 +918,7 @@ void onApiRestartDataSources(AsyncWebServerRequest *request)
       request->beginResponseStream(JSON_CONTENT);
 
   restartPriceNotify();
-  restartBlockNotify();
-  //  setupPriceNotify();
-  //  setupBlockNotify();
+  BlockNotify::getInstance().restart();
 
   request->send(response);
 }

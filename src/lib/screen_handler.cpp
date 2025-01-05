@@ -251,9 +251,8 @@ void workerTask(void *pvParameters) {
                     } else if (currentScreenValue == SCREEN_SATS_PER_CURRENCY) {
                         taskEpdContent = parseSatsPerCurrency(price, currency, preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL));
                     } else {
-                        taskEpdContent =
-                            parseMarketCap(getBlockHeight(), price, currency,
-                                           preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR));
+                        auto& blockNotify = BlockNotify::getInstance();
+                        taskEpdContent = parseMarketCap(blockNotify.getBlockHeight(), price, currency,  preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR));
                     }
 
                     EPDManager::getInstance().setContent(taskEpdContent);
@@ -261,16 +260,19 @@ void workerTask(void *pvParameters) {
                 }
                 case TASK_FEE_UPDATE: {
                     if (currentScreenValue == SCREEN_BLOCK_FEE_RATE) {
-                        taskEpdContent = parseBlockFees(static_cast<std::uint16_t>(getBlockMedianFee()));
+                        auto& blockNotify = BlockNotify::getInstance();
+                        taskEpdContent = parseBlockFees(static_cast<std::uint16_t>(blockNotify.getBlockMedianFee()));
                         EPDManager::getInstance().setContent(taskEpdContent);
                     } 
                     break;
                 }
                 case TASK_BLOCK_UPDATE: {
                     if (currentScreenValue != SCREEN_HALVING_COUNTDOWN) {
-                        taskEpdContent = parseBlockHeight(getBlockHeight());
+                        auto& blockNotify = BlockNotify::getInstance();
+                        taskEpdContent = parseBlockHeight(blockNotify.getBlockHeight());
                     } else {
-                        taskEpdContent = parseHalvingCountdown(getBlockHeight(), preferences.getBool("useBlkCountdown", DEFAULT_USE_BLOCK_COUNTDOWN));
+                        auto& blockNotify = BlockNotify::getInstance();
+                        taskEpdContent = parseHalvingCountdown(blockNotify.getBlockHeight(), preferences.getBool("useBlkCountdown", DEFAULT_USE_BLOCK_COUNTDOWN));
                     }
 
                     if (currentScreenValue == SCREEN_HALVING_COUNTDOWN ||

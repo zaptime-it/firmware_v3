@@ -79,8 +79,9 @@ void nostrTask(void *pvParameters)
 {
     DataSourceType dataSource = getDataSource();
     if(dataSource == NOSTR_SOURCE) {
-        int blockFetch = getBlockFetch();
-        processNewBlock(blockFetch);
+        auto& blockNotify = BlockNotify::getInstance();
+        int blockFetch = blockNotify.fetchLatestBlock();
+        blockNotify.processNewBlock(blockFetch);
     }
 
     while (1)
@@ -174,11 +175,13 @@ void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *even
             processNewPrice(obj["content"].as<uint>(), CURRENCY_USD);
         }
         else if (typeValue == "blockHeight") {
-            processNewBlock(obj["content"].as<uint>());
+            auto& blockNotify = BlockNotify::getInstance();
+            blockNotify.processNewBlock(obj["content"].as<uint>());
         }
 
         if (medianFee != 0) {
-            processNewBlockFee(medianFee);
+            auto& blockNotify = BlockNotify::getInstance();
+            blockNotify.processNewBlockFee(medianFee);
         }
     }
 }

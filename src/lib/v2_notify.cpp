@@ -131,7 +131,7 @@ namespace V2Notify
         {
             uint newBlockHeight = doc["blockheight"].as<uint>();
 
-            if (newBlockHeight == getBlockHeight())
+            if (newBlockHeight == BlockNotify::getInstance().getBlockHeight())
             {
                 return;
             }
@@ -140,7 +140,7 @@ namespace V2Notify
                 Serial.print(F("processNewBlock "));
                 Serial.println(newBlockHeight);
             }
-            processNewBlock(newBlockHeight);
+            BlockNotify::getInstance().processNewBlock(newBlockHeight);
         }
         else if (doc["blockfee"].is<uint>())
         {
@@ -151,7 +151,7 @@ namespace V2Notify
                 Serial.println(medianFee);
             }
 
-            processNewBlockFee(medianFee);
+            BlockNotify::getInstance().processNewBlockFee(medianFee);
         }
         else if (doc["price"].is<JsonObject>())
         {
