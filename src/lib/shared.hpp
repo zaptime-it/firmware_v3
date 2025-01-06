@@ -68,7 +68,7 @@ const int usPerSecond = 1000000;
 const int usPerMinute = 60 * usPerSecond;
 
 // extern const char *github_root_ca;
-extern const char *isrg_root_x1cert;
+// extern const char *isrg_root_x1cert;
 
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_x509_crt_bundle_start");
 // extern const uint8_t ocean_logo_comp[] asm("_binary_ocean_gz_start");
