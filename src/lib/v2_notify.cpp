@@ -176,7 +176,7 @@ namespace V2Notify
         for (;;)
         {
             webSocket.loop();
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 

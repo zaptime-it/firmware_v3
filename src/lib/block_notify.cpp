@@ -1,103 +1,116 @@
 #include "block_notify.hpp"
 
 // Initialize static members
-WebSocketsClient BlockNotify::webSocket;
+esp_websocket_client_handle_t BlockNotify::wsClient = nullptr;
 uint32_t BlockNotify::currentBlockHeight = 878000;
 uint16_t BlockNotify::blockMedianFee = 1;
 bool BlockNotify::notifyInit = false;
 unsigned long int BlockNotify::lastBlockUpdate = 0;
 TaskHandle_t BlockNotify::taskHandle = nullptr;
 
-void BlockNotify::taskNotify(void* pvParameters)
-{
-    for (;;)
-    {
-        webSocket.loop();
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-}
+const char* BlockNotify::mempoolWsCert = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIF3jCCA8agAwIBAgIQAf1tMPyjylGoG7xkDjUDLTANBgkqhkiG9w0BAQwFADCB
+iDELMAkGA1UEBhMCVVMxEzARBgNVBAgTCk5ldyBKZXJzZXkxFDASBgNVBAcTC0pl
+cnNleSBDaXR5MR4wHAYDVQQKExVUaGUgVVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNV
+BAMTJVVTRVJUcnVzdCBSU0EgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkwHhcNMTAw
+MjAxMDAwMDAwWhcNMzgwMTE4MjM1OTU5WjCBiDELMAkGA1UEBhMCVVMxEzARBgNV
+BAgTCk5ldyBKZXJzZXkxFDASBgNVBAcTC0plcnNleSBDaXR5MR4wHAYDVQQKExVU
+aGUgVVNFUlRSVVNUIE5ldHdvcmsxLjAsBgNVBAMTJVVTRVJUcnVzdCBSU0EgQ2Vy
+dGlmaWNhdGlvbiBBdXRob3JpdHkwggIiMA0GCSqGSIb3DQEBAQUAA4ICDwAwggIK
+AoICAQCAEmUXNg7D2wiz0KxXDXbtzSfTTK1Qg2HiqiBNCS1kCdzOiZ/MPans9s/B
+3PHTsdZ7NygRK0faOca8Ohm0X6a9fZ2jY0K2dvKpOyuR+OJv0OwWIJAJPuLodMkY
+tJHUYmTbf6MG8YgYapAiPLz+E/CHFHv25B+O1ORRxhFnRghRy4YUVD+8M/5+bJz/
+Fp0YvVGONaanZshyZ9shZrHUm3gDwFA66Mzw3LyeTP6vBZY1H1dat//O+T23LLb2
+VN3I5xI6Ta5MirdcmrS3ID3KfyI0rn47aGYBROcBTkZTmzNg95S+UzeQc0PzMsNT
+79uq/nROacdrjGCT3sTHDN/hMq7MkztReJVni+49Vv4M0GkPGw/zJSZrM233bkf6
+c0Plfg6lZrEpfDKEY1WJxA3Bk1QwGROs0303p+tdOmw1XNtB1xLaqUkL39iAigmT
+Yo61Zs8liM2EuLE/pDkP2QKe6xJMlXzzawWpXhaDzLhn4ugTncxbgtNMs+1b/97l
+c6wjOy0AvzVVdAlJ2ElYGn+SNuZRkg7zJn0cTRe8yexDJtC/QV9AqURE9JnnV4ee
+UB9XVKg+/XRjL7FQZQnmWEIuQxpMtPAlR1n6BB6T1CZGSlCBst6+eLf8ZxXhyVeE
+Hg9j1uliutZfVS7qXMYoCAQlObgOK6nyTJccBz8NUvXt7y+CDwIDAQABo0IwQDAd
+BgNVHQ4EFgQUU3m/WqorSs9UgOHYm8Cd8rIDZsswDgYDVR0PAQH/BAQDAgEGMA8G
+A1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQEMBQADggIBAFzUfA3P9wF9QZllDHPF
+Up/L+M+ZBn8b2kMVn54CVVeWFPFSPCeHlCjtHzoBN6J2/FNQwISbxmtOuowhT6KO
+VWKR82kV2LyI48SqC/3vqOlLVSoGIG1VeCkZ7l8wXEskEVX/JJpuXior7gtNn3/3
+ATiUFJVDBwn7YKnuHKsSjKCaXqeYalltiz8I+8jRRa8YFWSQEg9zKC7F4iRO/Fjs
+8PRF/iKz6y+O0tlFYQXBl2+odnKPi4w2r78NBc5xjeambx9spnFixdjQg3IM8WcR
+iQycE0xyNN+81XHfqnHd4blsjDwSXWXavVcStkNr/+XeTWYRUc+ZruwXtuhxkYze
+Sf7dNXGiFSeUHM9h4ya7b6NnJSFd5t0dCy5oGzuCr+yDZ4XUmFF0sbmZgIn/f3gZ
+XHlKYC6SQK5MNyosycdiyA5d9zZbyuAlJQG03RoHnHcAP9Dc1ew91Pq7P8yF1m9/
+qS3fuQL39ZeatTXaw2ewh0qpKJ4jjv9cJ2vhsE/zB+4ALtRZh8tSQZXq9EfX7mRB
+VXyNWQKV3WKdwrnuWih0hKWbt5DHDAff9Yk2dDLWKMGwsAvgnEzDHNb842m1R0aB
+L6KCq9NjRHDEjf8tM7qtj3u1cIiuPhnPQCjY/MiQu12ZIvVS5ljFH4gxQ+6IHdfG
+jjxDah2nGN59PRbxYvnKkKj9
+-----END CERTIFICATE-----
+)EOF";
 
-void BlockNotify::setupTask()
-{
-    xTaskCreate(taskNotify, "blockNotify", (6 * 1024), NULL, tskIDLE_PRIORITY,
-                &taskHandle);
-}
+void BlockNotify::onWebsocketEvent(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data) {
+    esp_websocket_event_data_t *data = (esp_websocket_event_data_t *)event_data;
+    BlockNotify& instance = BlockNotify::getInstance();
 
-void BlockNotify::onWebsocketEvent(WStype_t type, uint8_t* payload, size_t length) {
-    switch(type) {
-        case WStype_DISCONNECTED: {
-            Serial.println(F("Mempool.space WS Connection Closed"));
-            break;
-        }
-        case WStype_CONNECTED: {
+    switch (event_id) {
+        case WEBSOCKET_EVENT_CONNECTED:
+        {
             notifyInit = true;
             Serial.print(F("Connected to "));
             Serial.println(preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE));
 
             JsonDocument doc;
             doc["action"] = "want";
-            JsonArray data = doc.createNestedArray("data");
-            data.add("blocks");
-            data.add("mempool-blocks");
+            JsonArray dataArray = doc.createNestedArray("data");
+            dataArray.add("blocks");
+            dataArray.add("mempool-blocks");
             
             String sub;
             serializeJson(doc, sub);
-            Serial.println(sub);
-            webSocket.sendTXT(sub.c_str());
+            esp_websocket_client_send_text(wsClient, sub.c_str(), sub.length(), portMAX_DELAY);
             break;
         }
-        case WStype_TEXT: {
-            JsonDocument doc;
-            JsonDocument filter;
-            filter["block"]["height"] = true;
-            filter["mempool-blocks"][0]["medianFee"] = true;
-
-            deserializeJson(doc, (char*)payload, DeserializationOption::Filter(filter));
-
-            if (debugLogEnabled()) {
-                Serial.println(doc.as<String>());
-            }
-
-            if (doc["block"].is<JsonObject>())
-            {
-                JsonObject block = doc["block"];
-                if (block["height"].as<uint>() != currentBlockHeight) {
-                    BlockNotify::getInstance().processNewBlock(block["height"].as<uint>());
-                }
-            }
-            else if (doc["mempool-blocks"].is<JsonArray>())
-            {
-                JsonArray blockInfo = doc["mempool-blocks"].as<JsonArray>();
-                uint medianFee = (uint)round(blockInfo[0]["medianFee"].as<double>());
-                BlockNotify::getInstance().processNewBlockFee(medianFee);
-            }
+        case WEBSOCKET_EVENT_DATA:
+            instance.onWebsocketMessage(data);
             break;
-        }
-        case WStype_BIN:
-        case WStype_ERROR:
-        case WStype_FRAGMENT_TEXT_START:
-        case WStype_FRAGMENT_BIN_START:
-        case WStype_FRAGMENT:
-        case WStype_PING:
-        case WStype_PONG:
-        case WStype_FRAGMENT_FIN: {
+
+        case WEBSOCKET_EVENT_DISCONNECTED:
+            Serial.println(F("Mempool.space WS Connection Closed"));
             break;
-        }
+
+        case WEBSOCKET_EVENT_ERROR:
+            Serial.println(F("Mempool.space WS Connection Error"));
+            break;
     }
 }
 
-void BlockNotify::setup()
-{
+void BlockNotify::onWebsocketMessage(esp_websocket_event_data_t *data) {
+    JsonDocument doc;
+    JsonDocument filter;
+    filter["block"]["height"] = true;
+    filter["mempool-blocks"][0]["medianFee"] = true;
+
+    deserializeJson(doc, (char*)data->data_ptr, DeserializationOption::Filter(filter));
+
+    if (doc["block"].is<JsonObject>()) {
+        JsonObject block = doc["block"];
+        if (block["height"].as<uint>() != currentBlockHeight) {
+            processNewBlock(block["height"].as<uint>());
+        }
+    }
+    else if (doc["mempool-blocks"].is<JsonArray>()) {
+        JsonArray blockInfo = doc["mempool-blocks"].as<JsonArray>();
+        uint medianFee = (uint)round(blockInfo[0]["medianFee"].as<double>());
+        processNewBlockFee(medianFee);
+    }
+}
+
+void BlockNotify::setup() {
     IPAddress result;
     int dnsErr = -1;
     String mempoolInstance = preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
 
-    while (dnsErr != 1 && !strchr(mempoolInstance.c_str(), ':'))
-    {
+    while (dnsErr != 1 && !strchr(mempoolInstance.c_str(), ':')) {
         dnsErr = WiFi.hostByName(mempoolInstance.c_str(), result);
 
-        if (dnsErr != 1)
-        {
+        if (dnsErr != 1) {
             Serial.print(mempoolInstance);
             Serial.println(F("mempool DNS could not be resolved"));
             WiFi.reconnect();
@@ -111,34 +124,38 @@ void BlockNotify::setup()
     if (blockFetch > currentBlockHeight)
         currentBlockHeight = blockFetch;
 
-    if (currentBlockHeight != -1)
-    {
+    if (currentBlockHeight != -1) {
         lastBlockUpdate = esp_timer_get_time() / 1000000;
     }
 
-    if (workQueue != nullptr)
-    {
+    if (workQueue != nullptr) {
         WorkItem blockUpdate = {TASK_BLOCK_UPDATE, 0};
         xQueueSend(workQueue, &blockUpdate, portMAX_DELAY);
     }
 
     const bool useSSL = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE);
-    const int port = useSSL ? 443 : 80;
+    const String protocol = useSSL ? "wss" : "ws";
+    String wsUri = protocol + "://" + mempoolInstance + "/api/v1/ws";
+
+    esp_websocket_client_config_t config = {
+        .task_stack = (6*1024),
+        .user_agent = USER_AGENT
+    };
 
     if (useSSL) {
-        webSocket.beginSSL(mempoolInstance.c_str(), port, "/api/v1/ws");
-//          webSocket.beginSSL("ws.btclock.dev", port, "/api/v1/ws");
-
-    } else {
-        webSocket.begin(mempoolInstance.c_str(), port, "/api/v1/ws");
+        config.cert_pem = mempoolWsCert;
     }
 
-    webSocket.onEvent(onWebsocketEvent);
-    webSocket.setReconnectInterval(5000);
-    webSocket.enableHeartbeat(15000, 3000, 2);
+    config.uri = wsUri.c_str();
 
-    setupTask();
+    Serial.printf("Connecting to %s\r\n", mempoolInstance.c_str());
+
+    wsClient = esp_websocket_client_init(&config);
+    esp_websocket_register_events(wsClient, WEBSOCKET_EVENT_ANY, onWebsocketEvent, wsClient);
+    esp_websocket_client_start(wsClient);
 }
+
+
 
 void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
     if (newBlockHeight <= currentBlockHeight)
@@ -215,7 +232,9 @@ void BlockNotify::setBlockMedianFee(uint16_t newBlockMedianFee)
 
 bool BlockNotify::isConnected() const
 {
-    return webSocket.isConnected();
+    if (wsClient == NULL)
+        return false;
+    return esp_websocket_client_is_connected(wsClient);
 }
 
 bool BlockNotify::isInitialized() const
@@ -225,11 +244,13 @@ bool BlockNotify::isInitialized() const
 
 void BlockNotify::stop()
 {
-    webSocket.disconnect();
-    if (taskHandle != NULL) {
-        vTaskDelete(taskHandle);
-        taskHandle = NULL;
-    }
+    if (wsClient == NULL)
+        return;
+
+    esp_websocket_client_close(wsClient, portMAX_DELAY);
+    esp_websocket_client_stop(wsClient);
+    esp_websocket_client_destroy(wsClient);
+    wsClient = NULL;
 }
 
 void BlockNotify::restart()

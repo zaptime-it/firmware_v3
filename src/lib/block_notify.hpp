@@ -4,7 +4,7 @@
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <esp_timer.h>
-#include <WebSocketsClient.h>
+#include <esp_websocket_client.h>
 #include <cstring>
 #include <string>
 
@@ -48,16 +48,15 @@ public:
     uint getLastBlockUpdate() const;
     void setLastBlockUpdate(uint lastUpdate);
 
-    // Task handling
-    static void taskNotify(void* pvParameters);
-
 private:
     BlockNotify() = default;  // Private constructor for singleton
     
     void setupTask();
-    static void onWebsocketEvent(WStype_t type, uint8_t* payload, size_t length);
+    static void onWebsocketEvent(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
+    void onWebsocketMessage(esp_websocket_event_data_t *data);
 
-    static WebSocketsClient webSocket;
+    static const char* mempoolWsCert;
+    static esp_websocket_client_handle_t wsClient;
     static uint32_t currentBlockHeight;
     static uint16_t blockMedianFee;
     static bool notifyInit;
