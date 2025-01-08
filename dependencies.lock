@@ -4,6 +4,6 @@ dependencies:
     source:
       type: idf
     version: 4.4.7
-manifest_hash: cd2f3ee15e776d949eb4ea4eddc8f39b30c2a7905050850eed01ab4928143cff
+manifest_hash: 04e75badb795f8a851d8b088baff06d145ecf7a66457d960c2f4ede17b45ef05
 target: esp32s3
 version: 1.0.0

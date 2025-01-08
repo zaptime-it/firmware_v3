@@ -10,6 +10,7 @@
 #include "ocean/ocean_pool.hpp"
 #include "satoshi_radio/satoshi_radio_pool.hpp"
 #include "public_pool/public_pool.hpp"
+#include "public_pool/local_public_pool.hpp"
 #include "gobrrr_pool/gobrrr_pool.hpp"
 #include "ckpool/ckpool.hpp"
 #include "ckpool/eu_ckpool.hpp"
@@ -28,6 +29,7 @@ class PoolFactory {
             MINING_POOL_NAME_SATOSHI_RADIO,
             MINING_POOL_NAME_BRAIINS,
             MINING_POOL_NAME_PUBLIC_POOL,
+            MINING_POOL_NAME_LOCAL_PUBLIC_POOL,
             MINING_POOL_NAME_GOBRRR_POOL,
             MINING_POOL_NAME_CKPOOL,
             MINING_POOL_NAME_EU_CKPOOL
@@ -55,6 +57,7 @@ class PoolFactory {
         static const char* MINING_POOL_NAME_BRAIINS;
         static const char* MINING_POOL_NAME_SATOSHI_RADIO;
         static const char* MINING_POOL_NAME_PUBLIC_POOL;
+        static const char* MINING_POOL_NAME_LOCAL_PUBLIC_POOL;
         static const char* MINING_POOL_NAME_GOBRRR_POOL;
         static const char* MINING_POOL_NAME_CKPOOL;
         static const char* MINING_POOL_NAME_EU_CKPOOL;

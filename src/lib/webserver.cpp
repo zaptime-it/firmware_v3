@@ -5,7 +5,7 @@
 static const char* JSON_CONTENT = "application/json";
 
 static const char *const PROGMEM strSettings[] = {
-    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName"};
+    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName", "localPoolEndpoint"};
 
 static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout"};
 
@@ -695,6 +695,9 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   // Mempool settings (only used for THIRD_PARTY_SOURCE)
   root["mempoolInstance"] = preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
   root["mempoolSecure"] = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE);
+  
+  // Local pool settings
+  root["localPoolEndpoint"] = preferences.getString("localPoolEndpoint", DEFAULT_LOCAL_POOL_ENDPOINT);
   
   // Nostr settings (used for NOSTR_SOURCE or when zapNotify is enabled)
   root["nostrPubKey"] = preferences.getString("nostrPubKey", DEFAULT_NOSTR_NPUB);

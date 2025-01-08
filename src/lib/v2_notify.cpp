@@ -155,10 +155,6 @@ namespace V2Notify
         }
         else if (doc["price"].is<JsonObject>())
         {
-            if (debugLogEnabled()) {
-                Serial.print(F("processNewPrice "));
-                Serial.println(doc["price"].as<JsonObject>().size());
-            }
 
             // Iterate through the key-value pairs of the "price" object
             for (JsonPair kv : doc["price"].as<JsonObject>())
