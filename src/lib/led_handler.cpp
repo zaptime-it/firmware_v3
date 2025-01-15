@@ -535,7 +535,7 @@ void LedHandler::frontlightSetBrightness(uint brightness) {
     }
     
     for (int ledPin = 0; ledPin <= NUM_SCREENS; ledPin++) {
-        flArray.setPWM(ledPin, 0, brightness);
+        flArray.setPWM(ledPin + 1, 0, brightness);
     }
 }
 
@@ -543,7 +543,7 @@ std::vector<uint16_t> LedHandler::frontlightGetStatus() {
     std::vector<uint16_t> statuses;
     for (int ledPin = 1; ledPin <= NUM_SCREENS; ledPin++) {
         uint16_t a = 0, b = 0;
-        flArray.getPWM(ledPin, &a, &b);
+        flArray.getPWM(ledPin + 1, &a, &b);
         statuses.push_back(round(b - a / 4096));
     }
     return statuses;
@@ -576,7 +576,7 @@ void LedHandler::frontlightFadeInAll(int flDelayTime, bool staggered) {
     } else {
         for (int dutyCycle = 0; dutyCycle <= maxBrightness; dutyCycle += FL_FADE_STEP) {
             for (int ledPin = 0; ledPin <= NUM_SCREENS; ledPin++) {
-                flArray.setPWM(ledPin, 0, dutyCycle);
+                flArray.setPWM(ledPin + 1, 0, dutyCycle);
             }
             vTaskDelay(pdMS_TO_TICKS(flDelayTime));
         }
@@ -611,7 +611,7 @@ void LedHandler::frontlightFadeOutAll(int flDelayTime, bool staggered) {
     } else {
         for (int dutyCycle = preferences.getUInt("flMaxBrightness"); dutyCycle >= 0; dutyCycle -= FL_FADE_STEP) {
             for (int ledPin = 0; ledPin <= NUM_SCREENS; ledPin++) {
-                flArray.setPWM(ledPin, 0, dutyCycle);
+                flArray.setPWM(ledPin + 1, 0, dutyCycle);
             }
             vTaskDelay(pdMS_TO_TICKS(flDelayTime));
         }
@@ -628,7 +628,7 @@ void LedHandler::frontlightFadeIn(uint num, int flDelayTime) {
     }
     
     for (int dutyCycle = 0; dutyCycle <= preferences.getUInt("flMaxBrightness"); dutyCycle += 5) {
-        flArray.setPWM(num, 0, dutyCycle);
+        flArray.setPWM(num + 1, 0, dutyCycle);
         vTaskDelay(pdMS_TO_TICKS(flDelayTime));
     }
 }
@@ -639,7 +639,7 @@ void LedHandler::frontlightFadeOut(uint num, int flDelayTime) {
     }
 
     for (int dutyCycle = preferences.getUInt("flMaxBrightness"); dutyCycle >= 0; dutyCycle -= 5) {
-        flArray.setPWM(num, 0, dutyCycle);
+        flArray.setPWM(num + 1, 0, dutyCycle);
         vTaskDelay(pdMS_TO_TICKS(flDelayTime));
     }
 }
