@@ -46,8 +46,8 @@
 #define DEFAULT_LUX_LIGHT_TOGGLE 128
 #define DEFAULT_FL_OFF_WHEN_DARK true   
 
-#define DEFAULT_FL_ALWAYS_ON false
-#define DEFAULT_FL_FLASH_ON_UPDATE false
+#define DEFAULT_FL_ALWAYS_ON true
+#define DEFAULT_FL_FLASH_ON_UPDATE true
 
 #define DEFAULT_LED_STATUS false
 #define DEFAULT_TIMER_ACTIVE true
