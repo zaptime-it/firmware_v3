@@ -132,9 +132,25 @@ void setup()
 void setupWifi()
 {
   WiFi.onEvent(WiFiEvent);
+  
+  // wifi_country_t country = {
+  //   .cc = "NL",
+  //   .schan = 1,
+  //   .nchan = 13,
+  //   .policy = WIFI_COUNTRY_POLICY_MANUAL
+  // };
+
+  // esp_err_t err = esp_wifi_set_country(&country);
+  // if (err != ESP_OK) {
+  //   Serial.printf("Failed to set country: %d\n", err);
+  // }
+
   WiFi.setAutoConnect(true);
   WiFi.setAutoReconnect(true);
   WiFi.begin();
+
+
+
   if (preferences.getInt("txPower", DEFAULT_TX_POWER))
   {
     if (WiFi.setTxPower(
@@ -172,6 +188,7 @@ void setupWifi()
       wm.setConfigPortalTimeout(preferences.getUInt("wpTimeout", DEFAULT_WP_TIMEOUT));
       wm.setWiFiAutoReconnect(false);
       wm.setDebugOutput(false);
+      wm.setCountry("NL");
       wm.setConfigPortalBlocking(true);
 
       wm.setAPCallback([&](WiFiManager *wifiManager)
