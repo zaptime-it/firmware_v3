@@ -30,7 +30,8 @@ TaskHandle_t eventSourceTaskHandle;
 void setupWebserver()
 {
   events.onConnect([](AsyncEventSourceClient *client)
-                   { client->send("welcome", NULL, millis(), 1000); });
+                   { client->send("welcome", NULL, millis(), 1000);
+                     });
   server.addHandler(&events);
 
   AsyncStaticWebHandler &staticHandler = server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
@@ -306,14 +307,18 @@ JsonDocument getLedStatusObject()
 void eventSourceUpdate() {
     if (!events.count()) return;
     
-    JsonDocument doc = getStatusObject();
-    doc["leds"] = getLedStatusObject()["data"];
+    static JsonDocument doc;
+    doc.clear();
+    
+    JsonDocument root = getStatusObject();
+    
+    root["leds"] = getLedStatusObject()["data"];
 
     // Get current EPD content directly as array
     std::array<String, NUM_SCREENS> epdContent = EPDManager::getInstance().getCurrentContent();
     
     // Add EPD content arrays
-    JsonArray data = doc["data"].to<JsonArray>();
+    JsonArray data = root["data"].to<JsonArray>();
     
     // Copy array elements directly
     for(const auto& content : epdContent) {
@@ -321,7 +326,7 @@ void eventSourceUpdate() {
     }
 
     String buffer;
-    serializeJson(doc, buffer);
+    serializeJson(root, buffer);
     events.send(buffer.c_str(), "status");
 }
 
