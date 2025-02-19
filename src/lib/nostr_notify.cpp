@@ -41,7 +41,7 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
                 {relay},
                 {// First filter
                  {
-                     {"kinds", {"1"}},
+                     {"kinds", {"12203"}},
                      {"since", {String(getMinutesAgo(60))}},
                      {"authors", {pubKey}},
                  }},
@@ -146,6 +146,7 @@ void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *even
     // Use direct value access instead of multiple comparisons
     String typeValue;
     uint medianFee = 0;
+    uint blockHeight = 0;
     
     for (JsonArray tag : tags) {
         if (tag.size() != 2) continue;
@@ -166,6 +167,11 @@ void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *even
                     medianFee = tag[1].as<uint>();
                 }
                 break;
+            case 'b':  // blockHeight
+                if (strcmp(key, "block") == 0) {
+                    blockHeight = tag[1].as<uint>();
+                }
+                break;
         }
     }
     
@@ -173,6 +179,10 @@ void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *even
     if (!typeValue.isEmpty()) {
         if (typeValue == "priceUsd") {
             processNewPrice(obj["content"].as<uint>(), CURRENCY_USD);
+            if (blockHeight != 0) {
+                auto& blockNotify = BlockNotify::getInstance();
+                blockNotify.processNewBlock(blockHeight);
+            }
         }
         else if (typeValue == "blockHeight") {
             auto& blockNotify = BlockNotify::getInstance();
