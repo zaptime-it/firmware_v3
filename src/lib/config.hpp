@@ -33,7 +33,7 @@
 
 #include "shared.hpp"
 #include "defaults.hpp"
-
+#include "timezone_data.hpp"
 #define NTP_SERVER "pool.ntp.org"
 #define DEFAULT_TIME_OFFSET_SECONDS 3600
 #ifndef MCP_DEV_ADDR
@@ -43,6 +43,7 @@
 
 void setup();
 void syncTime();
+void setTimezone(String timezone);
 uint getLastTimeSync();
 void setupPreferences();
 void setupWebsocketClients(void *pvParameters);

@@ -5,7 +5,7 @@
 static const char* JSON_CONTENT = "application/json";
 
 static const char *const PROGMEM strSettings[] = {
-    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName", "localPoolEndpoint"};
+    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName", "localPoolEndpoint", "tzString"};
 
 static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout"};
 
@@ -692,8 +692,9 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["fullRefreshMin"] =
       preferences.getUInt("fullRefreshMin", DEFAULT_MINUTES_FULL_REFRESH);
   root["wpTimeout"] = preferences.getUInt("wpTimeout", DEFAULT_WP_TIMEOUT);
-  root["tzOffset"] = preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS) / 60;
-  
+  //root["tzOffset"] = preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS) / 60;
+  root["tzString"] = preferences.getString("tzString", DEFAULT_TZ_STRING);
+
   // Add data source settings
   root["dataSource"] = preferences.getUChar("dataSource", DEFAULT_DATA_SOURCE);
   

@@ -259,7 +259,7 @@ void setupWifi()
 
 void syncTime()
 {
-  configTime(preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS), 0,
+  configTime(0, 0,
              NTP_SERVER);
   struct tm timeinfo;
 
@@ -267,14 +267,23 @@ void syncTime()
   {
     auto& ledHandler = getLedHandler();
     ledHandler.queueEffect(LED_EFFECT_CONFIGURING);
-    configTime(preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS), 0,
+    configTime(0, 0,
                NTP_SERVER);
     delay(500);
     Serial.println(F("Retry set time"));
   }
 
+  setTimezone(get_timezone_value_string(timezone_data::find_timezone_value(preferences.getString("tzString", DEFAULT_TZ_STRING))));
+
   lastTimeSync = esp_timer_get_time() / 1000000;
 }
+
+void setTimezone(String timezone) {
+  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
+  setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+  tzset();
+}
+
 
 void setupPreferences()
 {
