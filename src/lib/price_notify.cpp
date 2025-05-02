@@ -1,6 +1,6 @@
 #include "price_notify.hpp"
 
-const char *wsServerPrice = "wss://ws.coincap.io/prices?assets=bitcoin";
+const char *wsServerPrice = "wss://ws.kraken.com/v2";
 
 WebSocketsClient webSocket;
 uint currentPrice = 90000;
@@ -14,7 +14,7 @@ void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length);
 
 void setupPriceNotify()
 {
-  webSocket.beginSSL("ws.coincap.io", 443, "/prices?assets=bitcoin");
+  webSocket.beginSSL("ws.kraken.com", 443, "/v2");
   webSocket.onEvent([](WStype_t type, uint8_t * payload, size_t length) {
     onWebsocketPriceEvent(type, payload, length);
   });
@@ -32,7 +32,14 @@ void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
         case WStype_CONNECTED:
         {
             Serial.println("Connected to " + String(wsServerPrice));
-            priceNotifyInit = true;
+
+            JsonDocument doc;
+            doc["method"] = "subscribe";
+            JsonObject params = doc["params"].to<JsonObject>();
+            params["channel"] = "ticker";
+            params["symbol"][0] = "BTC/USD";
+            
+            webSocket.sendTXT(doc.as<String>().c_str());
             break;
         }
         case WStype_TEXT:
@@ -40,13 +47,15 @@ void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
             JsonDocument doc;
             deserializeJson(doc, (char *)payload);
 
-            if (doc["bitcoin"].is<JsonObject>())
+            if (doc["data"][0].is<JsonObject>())
             {
-                if (currentPrice != doc["bitcoin"].as<long>())
+                float price = doc["data"][0]["last"].as<float>();
+                uint roundedPrice = round(price);
+                if (currentPrice != roundedPrice)
                 {
-                    processNewPrice(doc["bitcoin"].as<long>(), CURRENCY_USD);
+                    processNewPrice(roundedPrice, CURRENCY_USD);
                 }
-            }
+            } 
             break;
         }
         case WStype_BIN:
