@@ -298,7 +298,13 @@ JsonDocument getLedStatusObject()
     uint blue = pixColor & 0xFF;
     char hexColor[8];
     snprintf(hexColor, sizeof(hexColor), "#%02X%02X%02X", red, green, blue);
-    colors.add(hexColor);
+    // colors.add(hexColor);
+
+    JsonObject object = colors.add<JsonObject>();
+    object["red"] = red;
+    object["green"] = green;
+    object["blue"] = blue;
+    object["hex"] = hexColor;
   }
 
   return root;
