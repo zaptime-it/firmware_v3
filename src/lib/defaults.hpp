@@ -86,6 +86,7 @@
 #define DEFAULT_CUSTOM_ENDPOINT "ws-staging.btclock.dev"
 #define DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL false
 #define DEFAULT_MOW_MODE false
+#define DEFAULT_SCREEN_RESTORE_AFTER_ZAP true
 
 // Define data source types
 enum DataSourceType {

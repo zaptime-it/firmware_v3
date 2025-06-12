@@ -10,6 +10,14 @@ boolean nostrIsSubscribing = true;
 
 String subIdZap;
 
+void screenRestoreAfterZapCallback(TimerHandle_t xTimer)
+{
+    Serial.println("Restoring screen after zap");
+    int screenBeforeZap = (int)(uintptr_t)pvTimerGetTimerID(xTimer);
+    ScreenHandler::setCurrentScreen(screenBeforeZap);
+    xTimerDelete(xTimer, 0);
+}
+
 void setupNostrNotify(bool asDatasource, bool zapNotify)
 {
     nostr::esp32::ESP32Platform::initNostr(false);
@@ -288,12 +296,13 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
     }
 
     uint64_t timerPeriod = 0;
+    int screenBeforeZap = ScreenHandler::getCurrentScreen();
     if (isTimerActive())
     {
         // store timer periode before making inactive to prevent artifacts
         timerPeriod = getTimerSeconds();
         esp_timer_stop(screenRotateTimer);
-    }
+    } 
     ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
 
     EPDManager::getInstance().setContent(textEpdContent);
@@ -306,6 +315,10 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
     {
         esp_timer_start_periodic(screenRotateTimer,
                                 timerPeriod * usPerSecond);
+    } else if (preferences.getBool("scrnRestoreZap", DEFAULT_SCREEN_RESTORE_AFTER_ZAP)) {
+        TimerHandle_t screenRestoreAfterZapTimer = xTimerCreate("screenRestoreAfterZap", pdMS_TO_TICKS(getTimerSeconds() * msPerSecond), pdFALSE, (void*)(uintptr_t)screenBeforeZap, screenRestoreAfterZapCallback);
+        Serial.println("Starting screen restore after zap");
+        xTimerStart(screenRestoreAfterZapTimer, 0);
     }
 }
 

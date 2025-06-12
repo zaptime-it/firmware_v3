@@ -18,7 +18,7 @@ static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOn
                                                    "mempoolSecure", "bitaxeEnabled",
                                                    "miningPoolStats", "verticalDesc",
                                                    "nostrZapNotify", "httpAuthEnabled",
-                                                   "enableDebugLog", "ceDisableSSL", "dndEnabled", "dndTimeBasedEnabled"};
+                                                   "enableDebugLog", "ceDisableSSL", "dndEnabled", "dndTimeBasedEnabled", "scrnRestoreZap"};
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -717,6 +717,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["nostrZapNotify"] = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
   root["nostrZapPubkey"] = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
   root["ledFlashOnZap"] = preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP);
+  root["scrnRestoreZap"] = preferences.getBool("scrnRestoreZap", DEFAULT_SCREEN_RESTORE_AFTER_ZAP);
   root["fontName"] = preferences.getString("fontName", DEFAULT_FONT_NAME);
   root["availableFonts"] = FontNames::getAvailableFonts();
   // Custom endpoint settings (only used for CUSTOM_SOURCE)

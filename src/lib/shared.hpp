@@ -66,6 +66,7 @@ const PROGMEM int screens[SCREEN_COUNT] = {
     SCREEN_BLOCK_FEE_RATE};
 const int usPerSecond = 1000000;
 const int usPerMinute = 60 * usPerSecond;
+const int msPerSecond = 1000;
 
 // extern const char *github_root_ca;
 // extern const char *isrg_root_x1cert;
