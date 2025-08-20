@@ -5,7 +5,10 @@ on:
     tags:
       - "*"
   workflow_dispatch:
-
+  pull_request:
+    branches:
+      - main
+      
 jobs:
   build:
     runs-on: docker
@@ -15,7 +18,7 @@ jobs:
       contents: write
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: actions/setup-node@v4
@@ -142,7 +145,10 @@ jobs:
         shell: bash
         run: |
           fs_file=$(find .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }} -name "littlefs*.bin")
-          shasum -a 256 "$fs_file" | awk '{print $1}' > "${fs_file}.sha256"
+          echo $fs_file
+          fs_name=$(basename "$fs_file")
+          shasum -a 256 "$fs_file" | awk '{print $1}' > "${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${fs_name}.sha256"
+          cat "${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${fs_name}.sha256"
       - name: Copy all artifacts to output folder
         run: cp .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin .pio/boot_app0.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}
 

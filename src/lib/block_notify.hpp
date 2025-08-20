@@ -5,7 +5,6 @@
 #include <HTTPClient.h>
 #include <esp_timer.h>
 #include <esp_websocket_client.h>
-
 #include <cstring>
 #include <string>
 
@@ -14,28 +13,53 @@
 #include "lib/timers.hpp"
 #include "lib/shared.hpp"
 
-// using namespace websockets;
+class BlockNotify {
+public:
+    static BlockNotify& getInstance() {
+        static BlockNotify instance;
+        return instance;
+    }
 
-void setupBlockNotify();
+    // Delete copy constructor and assignment operator
+    BlockNotify(const BlockNotify&) = delete;
+    void operator=(const BlockNotify&) = delete;
 
-void onWebsocketBlockEvent(void *handler_args, esp_event_base_t base,
-                      int32_t event_id, void *event_data);
-void onWebsocketBlockMessage(esp_websocket_event_data_t *event_data);
+    // Block notification setup and control
+    void setup();
+    void stop();
+    void restart();
+    bool isConnected() const;
+    bool isInitialized() const;
 
-void setBlockHeight(uint newBlockHeight);
-uint getBlockHeight();
+    // Block height management
+    void setBlockHeight(uint32_t newBlockHeight);
+    uint32_t getBlockHeight() const;
 
-void setBlockMedianFee(uint blockMedianFee);
-uint getBlockMedianFee();
+    // Block fee management
+    void setBlockMedianFee(uint16_t blockMedianFee);
+    uint16_t getBlockMedianFee() const;
 
-bool isBlockNotifyConnected();
-void stopBlockNotify();
-void restartBlockNotify();
+    // Block processing
+    void processNewBlock(uint32_t newBlockHeight);
+    void processNewBlockFee(uint16_t newBlockFee);
 
-void processNewBlock(uint newBlockHeight);
-void processNewBlockFee(uint newBlockFee);
+    // Block fetch and update tracking
+    int fetchLatestBlock();
+    uint getLastBlockUpdate() const;
+    void setLastBlockUpdate(uint lastUpdate);
 
-bool getBlockNotifyInit();
-uint getLastBlockUpdate();
-int getBlockFetch();
-void setLastBlockUpdate(uint lastUpdate);
+private:
+    BlockNotify() = default;  // Private constructor for singleton
+    
+    void setupTask();
+    static void onWebsocketEvent(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
+    void onWebsocketMessage(esp_websocket_event_data_t *data);
+
+    static const char* mempoolWsCert;
+    static esp_websocket_client_handle_t wsClient;
+    static uint32_t currentBlockHeight;
+    static uint16_t blockMedianFee;
+    static bool notifyInit;
+    static unsigned long int lastBlockUpdate;
+    static TaskHandle_t taskHandle;
+};

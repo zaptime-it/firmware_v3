@@ -8,25 +8,36 @@ namespace V2Notify
 
     TaskHandle_t v2NotifyTaskHandle;
 
+    String currentHostname;
+
     void setupV2Notify()
     {
         String hostname = "ws.btclock.dev";
-        if (preferences.getBool("stagingSource", DEFAULT_STAGING_SOURCE))
+        if (getDataSource() == CUSTOM_SOURCE)
         {
-            Serial.println(F("Connecting to V2 staging source"));
-            hostname = "ws-staging.btclock.dev";
+            Serial.println(F("Connecting to custom source"));
+            hostname = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+            bool useSSL = !preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+            
+            if (useSSL) {
+                webSocket.beginSSL(hostname, 443, "/api/v2/ws");
+            } else {
+                webSocket.begin(hostname, 80, "/api/v2/ws");
+            }
         }
         else
         {
             Serial.println(F("Connecting to V2 source"));
+            webSocket.beginSSL(hostname, 443, "/api/v2/ws");
         }
 
-        webSocket.beginSSL(hostname, 443, "/api/v2/ws");
         webSocket.onEvent(V2Notify::onWebsocketV2Event);
         webSocket.setReconnectInterval(5000);
         webSocket.enableHeartbeat(15000, 3000, 2);
 
         V2Notify::setupV2NotifyTask();
+
+        currentHostname = hostname;
     }
 
     void onWebsocketV2Event(WStype_t type, uint8_t *payload, size_t length)
@@ -34,11 +45,14 @@ namespace V2Notify
         switch (type)
         {
         case WStype_DISCONNECTED:
-            Serial.printf("[WSc] Disconnected!\n");
+            Serial.print(F("[WSc] Disconnected!\n"));
             break;
         case WStype_CONNECTED:
         {
-            Serial.printf("[WSc] Connected to url: %s\n", payload);
+            Serial.print(F("[WSc] Connected to "));
+            Serial.print(currentHostname);
+            Serial.print(F(": "));
+            Serial.println((char *)payload);
 
             JsonDocument response;
 
@@ -81,7 +95,8 @@ namespace V2Notify
             break;
         }
         case WStype_TEXT:
-            Serial.printf("[WSc] get text: %s\n", payload);
+            Serial.print(F("[WSc] get text: "));
+            Serial.println((char *)payload);
 
             // send message to server
             // webSocket.sendTXT("message here");
@@ -90,6 +105,11 @@ namespace V2Notify
         {
             JsonDocument doc;
             DeserializationError error = deserializeMsgPack(doc, payload, length);
+
+            if (error) {
+                Serial.println(F("Error deserializing message"));
+                break;
+            }
 
             V2Notify::handleV2Message(doc);
             break;
@@ -107,24 +127,33 @@ namespace V2Notify
 
     void handleV2Message(JsonDocument doc)
     {
-        if (doc.containsKey("blockheight"))
+        if (doc["blockheight"].is<uint>())
         {
             uint newBlockHeight = doc["blockheight"].as<uint>();
 
-            if (newBlockHeight == getBlockHeight())
+            if (newBlockHeight == BlockNotify::getInstance().getBlockHeight())
             {
                 return;
             }
 
-            processNewBlock(newBlockHeight);
+            if (debugLogEnabled()) {
+                Serial.print(F("processNewBlock "));
+                Serial.println(newBlockHeight);
+            }
+            BlockNotify::getInstance().processNewBlock(newBlockHeight);
         }
-        else if (doc.containsKey("blockfee"))
+        else if (doc["blockfee"].is<uint>())
         {
             uint medianFee = doc["blockfee"].as<uint>();
 
-            processNewBlockFee(medianFee);
+            if (debugLogEnabled()) {
+                Serial.print(F("processNewBlockFee "));
+                Serial.println(medianFee);
+            }
+
+            BlockNotify::getInstance().processNewBlockFee(medianFee);
         }
-        else if (doc.containsKey("price"))
+        else if (doc["price"].is<JsonObject>())
         {
 
             // Iterate through the key-value pairs of the "price" object
@@ -143,7 +172,7 @@ namespace V2Notify
         for (;;)
         {
             webSocket.loop();
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
 
