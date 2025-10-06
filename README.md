@@ -15,7 +15,7 @@ Biggest differences with v2 are:
 - LED flash on new block (and focus to block height screen on new block)
 
 New features:
-- BitAxe integration
+- Bitaxe integration
 - Nostr Zap notifier
 - Multiple mining pool stats integrations
 

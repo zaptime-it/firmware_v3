@@ -7,10 +7,10 @@
 #include "lib/config.hpp"
 #include "lib/shared.hpp"
 
-class BitAxeFetch {
+class BitaxeFetch {
 public:
-    static BitAxeFetch& getInstance() {
-        static BitAxeFetch instance;
+    static BitaxeFetch& getInstance() {
+        static BitaxeFetch instance;
         return instance;
     }
 
@@ -21,10 +21,10 @@ public:
     TaskHandle_t getTaskHandle() const { return taskHandle; }
 
 private:
-    BitAxeFetch() = default;
-    ~BitAxeFetch() = default;
-    BitAxeFetch(const BitAxeFetch&) = delete;
-    BitAxeFetch& operator=(const BitAxeFetch&) = delete;
+    BitaxeFetch() = default;
+    ~BitaxeFetch() = default;
+    BitaxeFetch(const BitaxeFetch&) = delete;
+    BitaxeFetch& operator=(const BitaxeFetch&) = delete;
 
     void task();
     

@@ -1,18 +1,18 @@
 #include "bitaxe_fetch.hpp"
 
-void BitAxeFetch::taskWrapper(void* pvParameters) {
-    BitAxeFetch::getInstance().task();
+void BitaxeFetch::taskWrapper(void* pvParameters) {
+    BitaxeFetch::getInstance().task();
 }
 
-uint64_t BitAxeFetch::getHashRate() const {
+uint64_t BitaxeFetch::getHashRate() const {
     return hashrate;
 }
 
-uint64_t BitAxeFetch::getBestDiff() const {
+uint64_t BitaxeFetch::getBestDiff() const {
     return bestDiff;
 }
 
-void BitAxeFetch::task() {
+void BitaxeFetch::task() {
     for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
@@ -47,14 +47,14 @@ void BitAxeFetch::task() {
                 xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
             }
         } else {
-            Serial.print(F("Error retrieving BitAxe data. HTTP status code: "));
+            Serial.print(F("Error retrieving Bitaxe data. HTTP status code: "));
             Serial.println(httpCode);
             Serial.println(bitaxeApiUrl);
         }
     }
 }
 
-void BitAxeFetch::setup() {
+void BitaxeFetch::setup() {
     xTaskCreate(taskWrapper, "bitaxeFetch", (3 * 1024), NULL, tskIDLE_PRIORITY, &taskHandle);
     xTaskNotifyGive(taskHandle);
 }

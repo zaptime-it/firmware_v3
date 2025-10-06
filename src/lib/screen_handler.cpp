@@ -220,8 +220,8 @@ void workerTask(void *pvParameters) {
                         currentScreenValue != SCREEN_BITAXE_BESTDIFF) break;
                         
                     taskEpdContent = (currentScreenValue == SCREEN_BITAXE_HASHRATE) ?
-                        parseBitaxeHashRate(BitAxeFetch::getInstance().getHashRate()) :
-                        parseBitaxeBestDiff(BitAxeFetch::getInstance().getBestDiff());
+                        parseBitaxeHashRate(BitaxeFetch::getInstance().getHashRate()) :
+                        parseBitaxeBestDiff(BitaxeFetch::getInstance().getBestDiff());
                     EPDManager::getInstance().setContent(taskEpdContent);
                     break;
                 }
