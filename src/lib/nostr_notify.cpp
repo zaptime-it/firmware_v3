@@ -1,4 +1,5 @@
 #include "nostr_notify.hpp"
+#include "led_handler.hpp"
 
 std::vector<nostr::NostrPool *> pools;
 nostr::Transport *transport;
@@ -8,6 +9,14 @@ boolean nostrIsSubscribed = false;
 boolean nostrIsSubscribing = true;
 
 String subIdZap;
+
+void screenRestoreAfterZapCallback(TimerHandle_t xTimer)
+{
+    Serial.println("Restoring screen after zap");
+    int screenBeforeZap = (int)(uintptr_t)pvTimerGetTimerID(xTimer);
+    ScreenHandler::setCurrentScreen(screenBeforeZap);
+    xTimerDelete(xTimer, 0);
+}
 
 void setupNostrNotify(bool asDatasource, bool zapNotify)
 {
@@ -27,8 +36,8 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
         String pubKey = preferences.getString("nostrPubKey");
         pools.push_back(pool);
 
-        std::vector<std::map<NostrString, std::initializer_list<NostrString>>> filters;
-
+        std::vector<nostr::NostrRelay *> *relays = pool->getConnectedRelays();
+       
         if (zapNotify)
         {
             subscribeZaps(pool, relay, 60);
@@ -40,37 +49,33 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
                 {relay},
                 {// First filter
                  {
-                     {"kinds", {"1"}},
+                     {"kinds", {"12203"}},
                      {"since", {String(getMinutesAgo(60))}},
                      {"authors", {pubKey}},
                  }},
                 handleNostrEventCallback,
                 onNostrSubscriptionClosed,
-                onNostrSubscriptionEose);
+                onNostrSubscriptionEose
+                );
 
-            Serial.println("[ Nostr ] Subscribing to Nostr Data Feed");
+            Serial.println(F("[ Nostr ] Subscribing to Nostr Data Feed"));
         }
 
-        std::vector<nostr::NostrRelay *> *relays = pool->getConnectedRelays();
         for (nostr::NostrRelay *relay : *relays)
         {
             Serial.println("[ Nostr ] Registering to connection events of: " + relay->getUrl());
-            relay->getConnection()->addConnectionStatusListener([&](const nostr::ConnectionStatus &status)
-                                                                { 
-                String sstatus="UNKNOWN";
-                if(status==nostr::ConnectionStatus::CONNECTED){
-                    nostrIsConnected = true;
-                    sstatus="CONNECTED";
-                }else if(status==nostr::ConnectionStatus::DISCONNECTED){
-                    nostrIsConnected = false;
+            relay->getConnection()->addConnectionStatusListener([](const nostr::ConnectionStatus &status)
+            { 
+                static const char* STATUS_STRINGS[] = {"UNKNOWN", "CONNECTED", "DISCONNECTED", "ERROR"};
+                int statusIndex = static_cast<int>(status);
+                
+                nostrIsConnected = (status == nostr::ConnectionStatus::CONNECTED);
+                if (!nostrIsConnected) {
                     nostrIsSubscribed = false;
-                    sstatus="DISCONNECTED";
-                }else if(status==nostr::ConnectionStatus::ERROR){
-                    sstatus = "ERROR";
-                }
-                Serial.println("[ Nostr ] Connection status changed: " + sstatus); 
-                });
+                }                
+            });
         }
+
     }
     catch (const std::exception &e)
     {
@@ -80,9 +85,11 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
 
 void nostrTask(void *pvParameters)
 {
-    if(preferences.getBool("useNostr", DEFAULT_USE_NOSTR)) {
-        int blockFetch = getBlockFetch();
-        processNewBlock(blockFetch);
+    DataSourceType dataSource = getDataSource();
+    if(dataSource == NOSTR_SOURCE) {
+        auto& blockNotify = BlockNotify::getInstance();
+        int blockFetch = blockNotify.fetchLatestBlock();
+        blockNotify.processNewBlock(blockFetch);
     }
 
     while (1)
@@ -103,7 +110,7 @@ void nostrTask(void *pvParameters)
 
 void setupNostrTask()
 {
-    xTaskCreate(nostrTask, "nostrTask", 16384, NULL, 10, &nostrTaskHandle);
+    xTaskCreate(nostrTask, "nostrTask", 8192, NULL, 10, &nostrTaskHandle);
 }
 
 boolean nostrConnected()
@@ -129,56 +136,70 @@ void onNostrSubscriptionEose(const String &subId)
 
 void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *event)
 {
-    // Received events callback, we can access the event content with
-    // event->getContent() Here you should handle the event, for this
-    // test we will just serialize it and print to console
     JsonDocument doc;
     JsonArray arr = doc["data"].to<JsonArray>();
     event->toSendableEvent(arr);
-    // Access the second element which is the object
+    
+    // Early return if array is invalid
+    if (arr.size() < 2 || !arr[1].is<JsonObject>()) {
+        return;
+    }
+
     JsonObject obj = arr[1].as<JsonObject>();
     JsonArray tags = obj["tags"].as<JsonArray>();
+    if (!tags) {
+        return;
+    }
 
-    // Flag to check if the tag was found
-    bool tagFound = false;
-    uint medianFee = 0;
+    // Use direct value access instead of multiple comparisons
     String typeValue;
-
-    // Iterate over the tags array
-    for (JsonArray tag : tags)
-    {
-        // Check if the tag is an array with two elements
-        if (tag.size() == 2)
-        {
-            const char *key = tag[0];
-            const char *value = tag[1];
-
-            // Check if the key is "type" and the value is "priceUsd"
-            if (strcmp(key, "type") == 0 && (strcmp(value, "priceUsd") == 0 || strcmp(value, "blockHeight") == 0))
-            {
-                typeValue = value;
-                tagFound = true;
-            }
-            else if (strcmp(key, "medianFee") == 0)
-            {
-                medianFee = tag[1].as<uint>();
-            }
+    uint medianFee = 0;
+    uint blockHeight = 0;
+    
+    for (JsonArray tag : tags) {
+        if (tag.size() != 2) continue;
+        
+        const char *key = tag[0];
+        if (!key) continue;
+        
+        // Use switch for better performance on string comparisons
+        switch (key[0]) {
+            case 't':  // type
+                if (strcmp(key, "type") == 0) {
+                    const char *value = tag[1];
+                    if (value) typeValue = value;
+                }
+                break;
+            case 'm':  // medianFee
+                if (strcmp(key, "medianFee") == 0) {
+                    medianFee = tag[1].as<uint>();
+                }
+                break;
+            case 'b':  // blockHeight
+                if (strcmp(key, "block") == 0) {
+                    blockHeight = tag[1].as<uint>();
+                }
+                break;
         }
     }
-    if (tagFound)
-    {
-        if (typeValue.equals("priceUsd"))
-        {
+    
+    // Process the data
+    if (!typeValue.isEmpty()) {
+        if (typeValue == "priceUsd") {
             processNewPrice(obj["content"].as<uint>(), CURRENCY_USD);
+            if (blockHeight != 0) {
+                auto& blockNotify = BlockNotify::getInstance();
+                blockNotify.processNewBlock(blockHeight);
+            }
         }
-        else if (typeValue.equals("blockHeight"))
-        {
-            processNewBlock(obj["content"].as<uint>());
+        else if (typeValue == "blockHeight") {
+            auto& blockNotify = BlockNotify::getInstance();
+            blockNotify.processNewBlock(obj["content"].as<uint>());
         }
 
-        if (medianFee != 0)
-        {
-            processNewBlockFee(medianFee);
+        if (medianFee != 0) {
+            auto& blockNotify = BlockNotify::getInstance();
+            blockNotify.processNewBlockFee(medianFee);
         }
     }
 }
@@ -202,7 +223,27 @@ void subscribeZaps(nostr::NostrPool *pool, const String &relay, int minutesAgo) 
                 {"kinds", {"9735"}},
                 {"limit", {"1"}},
                 {"since", {String(getMinutesAgo(minutesAgo))}},
-                {"#p", {preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY)}},
+                {"#p", {preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY)                }},
+                //     {"#p", [&]() {
+                //     std::initializer_list<NostrString> pubkeys;
+                //     String pubkeysStr = preferences.getString("nostrZapPubkeys", "");
+                //     if (pubkeysStr.length() > 0) {
+                //         // Assuming pubkeys are comma-separated
+                //         char* str = strdup(pubkeysStr.c_str());
+                //         char* token = strtok(str, ",");
+                //         std::vector<NostrString> keys;
+                //         while (token != NULL) {
+                //             keys.push_back(String(token));
+                //             token = strtok(NULL, ",");
+                //         }
+                //         free(str);
+                //         return std::initializer_list<NostrString>(keys.begin(), keys.end());
+                //     }
+                //     // Return default if no pubkeys found
+                //     return std::initializer_list<NostrString>{
+                //         preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY)
+                //     };
+                // }()},
             },
         },
         handleNostrZapCallback,
@@ -212,56 +253,87 @@ void subscribeZaps(nostr::NostrPool *pool, const String &relay, int minutesAgo) 
 }
 
 void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event) {
-    // Received events callback, we can access the event content with
-    // event->getContent() Here you should handle the event, for this
-    // test we will just serialize it and print to console
     JsonDocument doc;
     JsonArray arr = doc["data"].to<JsonArray>();
     event->toSendableEvent(arr);
-    // Access the second element which is the object
+    
+    // Early return if invalid
+    if (arr.size() < 2 || !arr[1].is<JsonObject>()) {
+        return;
+    }
+
     JsonObject obj = arr[1].as<JsonObject>();
     JsonArray tags = obj["tags"].as<JsonArray>();
+    if (!tags) {
+        return;
+    }
 
-    // Iterate over the tags array
-    for (JsonArray tag : tags)
-    {
-        // Check if the tag is an array with two elements
-        if (tag.size() == 2)
-        {
-            const char *key = tag[0];
-            const char *value = tag[1];
+    uint64_t zapAmount = 0;
+    String zapPubkey;
+    
+    for (JsonArray tag : tags) {
+        if (tag.size() != 2) continue;
+        
+        const char *key = tag[0];
+        const char *value = tag[1];
+        if (!key || !value) continue;
 
-            if (strcmp(key, "bolt11") == 0)
-            {
-                Serial.print(F("Got a zap of "));
-                
-                int64_t satsAmount = getAmountInSatoshis(std::string(value));
-                Serial.print(satsAmount);
-                Serial.println(F(" sats"));
-
-                std::array<std::string, NUM_SCREENS> textEpdContent = parseZapNotify(satsAmount, preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL));
-
-                uint64_t timerPeriod = 0;
-                if (isTimerActive())
-                {
-                    // store timer periode before making inactive to prevent artifacts
-                    timerPeriod = getTimerSeconds();
-                    esp_timer_stop(screenRotateTimer);
-                }
-                setCurrentScreen(SCREEN_CUSTOM);
-
-                setEpdContent(textEpdContent);
-                vTaskDelay(pdMS_TO_TICKS(315 * NUM_SCREENS) + pdMS_TO_TICKS(250));
-                if (preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP))
-                {
-                    queueLedEffect(LED_EFFECT_NOSTR_ZAP);
-                }
-                if (timerPeriod > 0)
-                {
-                    esp_timer_start_periodic(screenRotateTimer,
-                                             timerPeriod * usPerSecond);
-                }
-            }
+        if (key[0] == 'b' && strcmp(key, "bolt11") == 0) {
+            zapAmount = getAmountInSatoshis(std::string(value));
+        } 
+        else if (key[0] == 'p' && strcmp(key, "p") == 0) {
+            zapPubkey = value;
         }
     }
+
+    if (zapAmount == 0) return;
+    
+    std::array<std::string, NUM_SCREENS> textEpdContent = parseZapNotify(zapAmount, preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL));
+
+    if (debugLogEnabled())  
+    {
+        Serial.printf("Got a zap of %llu sats for %s\n", zapAmount, zapPubkey.c_str());
+    }
+
+    uint64_t timerPeriod = 0;
+    int screenBeforeZap = ScreenHandler::getCurrentScreen();
+    if (isTimerActive())
+    {
+        // store timer periode before making inactive to prevent artifacts
+        timerPeriod = getTimerSeconds();
+        esp_timer_stop(screenRotateTimer);
+    } 
+    ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
+
+    EPDManager::getInstance().setContent(textEpdContent);
+    vTaskDelay(pdMS_TO_TICKS(315 * NUM_SCREENS) + pdMS_TO_TICKS(250));
+    if (preferences.getBool("ledFlashOnZap", DEFAULT_LED_FLASH_ON_ZAP))
+    {
+        getLedHandler().queueEffect(LED_EFFECT_NOSTR_ZAP);
+    }
+    if (timerPeriod > 0)
+    {
+        esp_timer_start_periodic(screenRotateTimer,
+                                timerPeriod * usPerSecond);
+    } else if (preferences.getBool("scrnRestoreZap", DEFAULT_SCREEN_RESTORE_AFTER_ZAP)) {
+        TimerHandle_t screenRestoreAfterZapTimer = xTimerCreate("screenRestoreAfterZap", pdMS_TO_TICKS(getTimerSeconds() * msPerSecond), pdFALSE, (void*)(uintptr_t)screenBeforeZap, screenRestoreAfterZapCallback);
+        Serial.println("Starting screen restore after zap");
+        xTimerStart(screenRestoreAfterZapTimer, 0);
+    }
 }
+
+// void onNostrEvent(const String &subId, const nostr::Event &event) {
+//     // This is the callback that will be called when a new event is received
+//     if (event.kind == 9735) {
+//         // Parse the zap amount from the event
+//         uint16_t amount = parseZapAmount(event);
+//         if (amount > 0) {
+//             std::array<std::string, NUM_SCREENS> zapContent = parseZapNotify(amount, true);
+//             EPDManager::getInstance().setContent(zapContent);
+            
+//             if (preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD)) {
+//                 getLedHandler().queueEffect(LED_FLASH_BLOCK_NOTIFY);
+//             }
+//         }
+//     }
+// }

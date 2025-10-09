@@ -1,4 +1,5 @@
 #include "timers.hpp"
+#include "led_handler.hpp"
 
 esp_timer_handle_t screenRotateTimer;
 esp_timer_handle_t minuteTimer;
@@ -49,11 +50,11 @@ void setTimerActive(bool status) {
   if (status) {
     esp_timer_start_periodic(screenRotateTimer,
                              getTimerSeconds() * usPerSecond);
-    queueLedEffect(LED_EFFECT_START_TIMER);
+    getLedHandler().queueEffect(LED_EFFECT_START_TIMER);
     preferences.putBool("timerActive", true);
   } else {
     esp_timer_stop(screenRotateTimer);
-    queueLedEffect(LED_EFFECT_PAUSE_TIMER);
+    getLedHandler().queueEffect(LED_EFFECT_PAUSE_TIMER);
     preferences.putBool("timerActive", false);
   }
 
@@ -68,8 +69,14 @@ void IRAM_ATTR minuteTimerISR(void *arg) {
   WorkItem timeUpdate = {TASK_TIME_UPDATE, 0};
   xQueueSendFromISR(workQueue, &timeUpdate, &xHigherPriorityTaskWoken);
 
-  if (bitaxeFetchTaskHandle != NULL) {
-    vTaskNotifyGiveFromISR(bitaxeFetchTaskHandle, &xHigherPriorityTaskWoken);
+  TaskHandle_t bitaxeHandle = BitaxeFetch::getInstance().getTaskHandle();
+  if (bitaxeHandle != NULL) {
+    vTaskNotifyGiveFromISR(bitaxeHandle, &xHigherPriorityTaskWoken);
+  }
+
+  TaskHandle_t miningPoolHandle = MiningPoolStatsFetch::getInstance().getTaskHandle();
+  if (miningPoolHandle != NULL) {
+    vTaskNotifyGiveFromISR(miningPoolHandle, &xHigherPriorityTaskWoken);
   }
 
   if (xHigherPriorityTaskWoken == pdTRUE) {

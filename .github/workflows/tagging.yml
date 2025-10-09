@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,7 +13,7 @@ jobs:
       contents: write
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: "Install and build"
@@ -44,12 +45,12 @@ jobs:
             version: esp32s3
         epd_variant: [213epd, 29epd]
         exclude:
-          - chip: {name: btclock_rev_b, version: esp32s3}
+          - chip: { name: btclock_rev_b, version: esp32s3 }
             epd_variant: 29epd
-          - chip: {name: btclock_v8, version: esp32s3}
+          - chip: { name: btclock_v8, version: esp32s3 }
             epd_variant: 29epd
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: prepared-outputs
           path: .pio
@@ -58,9 +59,10 @@ jobs:
       # - name: Create merged firmware binary
       # run: mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} && esptool.py --chip ${{ matrix.chip.version }} merge_bin -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin --flash_mode dio 0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin 0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin 0xe000 .pio/boot_app0.bin 0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin 0x369000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin
       - name: Create merged firmware binary
+        shell: bash
         run: |
+          mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} 
           if [ "${{ matrix.chip.name }}" == "btclock_v8" ]; then
-            mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} && \
             esptool.py --chip ${{ matrix.chip.version }} merge_bin \
             -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
             --flash_mode dio \
@@ -70,10 +72,19 @@ jobs:
             0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
             0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
             0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0x810000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin;
+            0xDF0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_16MB.bin
+          elif [ "${{ matrix.chip.name }}" == "btclock_rev_b" ]; then
+            esptool.py --chip ${{ matrix.chip.version }} merge_bin \
+            -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
+            --flash_mode dio \
+            --flash_freq 80m \
+            --flash_size 8MB \
+            0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin \
+            0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
+            0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
+            0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
+            0x6F0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_8MB.bin;
           else
-            # Original command for other cases
-            mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} && \
             esptool.py --chip ${{ matrix.chip.version }} merge_bin \
             -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
             --flash_mode dio \
@@ -81,7 +92,7 @@ jobs:
             0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
             0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
             0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0x369000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin
+            0x380000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_4MB.bin
             # Adjust the offset for littlefs or other files as needed for the original case
           fi
 
@@ -115,7 +126,7 @@ jobs:
     needs: merge
     steps:
       - name: Download matrix outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: build-*
           merge-multiple: false

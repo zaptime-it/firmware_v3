@@ -18,156 +18,146 @@
 #define WEBSERVER_H
 #include "ESPAsyncWebServer.h"
 #include "lib/config.hpp"
+#include "lib/led_handler.hpp"
+#include "lib/block_notify.hpp"
 
 uint wifiLostConnection;
 uint priceNotifyLostConnection = 0;
 uint blockNotifyLostConnection = 0;
-// char ptrTaskList[1500];
 
-extern "C" void app_main()
-{
+int64_t getUptime() {
+    return esp_timer_get_time() / 1000000;
+}
+
+void handlePriceNotifyDisconnection() {
+    if (priceNotifyLostConnection == 0) {
+        priceNotifyLostConnection = getUptime();
+        Serial.println(F("Lost price notification connection, trying to reconnect..."));
+    }
+    
+    if ((getUptime() - priceNotifyLostConnection) > 300) { // 5 minutes timeout
+        Serial.println(F("Price notification connection lost for 5 minutes, restarting handler..."));
+        restartPriceNotify();
+        priceNotifyLostConnection = 0;
+    }
+}
+
+void handleBlockNotifyDisconnection() {
+    if (blockNotifyLostConnection == 0) {
+        blockNotifyLostConnection = getUptime();
+        Serial.println(F("Lost block notification connection, trying to reconnect..."));
+    }
+    
+    if ((getUptime() - blockNotifyLostConnection) > 300) { // 5 minutes timeout
+        Serial.println(F("Block notification connection lost for 5 minutes, restarting handler..."));
+        auto& blockNotify = BlockNotify::getInstance();
+        blockNotify.restart();
+        blockNotifyLostConnection = 0;
+    }
+} 
+
+void handleFrontlight() {
+#ifdef HAS_FRONTLIGHT
+  if (hasLightLevel() && preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) != 0) {
+    uint lightLevel = getLightLevel();
+    uint luxThreshold = preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE);
+    auto& ledHandler = getLedHandler();
+    
+    if (lightLevel <= 1 && preferences.getBool("flOffWhenDark", DEFAULT_FL_OFF_WHEN_DARK)) {
+      if (ledHandler.frontlightIsOn()) ledHandler.frontlightFadeOutAll();
+    } else if (lightLevel < luxThreshold && !ledHandler.frontlightIsOn()) {
+      ledHandler.frontlightFadeInAll();
+    } else if (ledHandler.frontlightIsOn() && lightLevel > luxThreshold) {
+      ledHandler.frontlightFadeOutAll();
+    }
+  }
+#endif
+}
+
+void checkWiFiConnection() {
+  if (!WiFi.isConnected()) {
+    if (!wifiLostConnection) {
+      wifiLostConnection = getUptime();
+      Serial.println(F("Lost WiFi connection, trying to reconnect..."));
+    }
+    if ((getUptime() - wifiLostConnection) > 600) {
+      Serial.println(F("Still no connection after 10 minutes, restarting..."));
+      delay(2000);
+      ESP.restart();
+    }
+    WiFi.begin();
+  } else if (wifiLostConnection) {
+    wifiLostConnection = 0;
+    Serial.println(F("Connection restored, reset timer."));
+  }
+}
+
+void checkMissedBlocks() {
+  Serial.println(F("Long time (45 min) since last block, checking if I missed anything..."));
+  auto& blockNotify = BlockNotify::getInstance();
+  int currentBlock = blockNotify.fetchLatestBlock();
+  if (currentBlock != -1) {
+    if (currentBlock != blockNotify.getBlockHeight()) {
+      Serial.println(F("Detected stuck block height... restarting block handler."));
+      blockNotify.restart();
+    }
+    blockNotify.setLastBlockUpdate(getUptime());
+  }
+}
+
+void monitorDataConnections() {
+  // Price notification monitoring
+  if (getPriceNotifyInit() && !preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE) && !isPriceNotifyConnected()) {
+    handlePriceNotifyDisconnection();
+  } else if (priceNotifyLostConnection > 0 && isPriceNotifyConnected()) {
+    priceNotifyLostConnection = 0;
+  }
+
+  // Block notification monitoring
+  auto& blockNotify = BlockNotify::getInstance();
+  if (blockNotify.isInitialized() && !blockNotify.isConnected()) {
+    handleBlockNotifyDisconnection();
+  } else if (blockNotifyLostConnection > 0 && blockNotify.isConnected()) {
+    blockNotifyLostConnection = 0;
+  }
+
+  // Check for missed price updates
+  if ((getLastPriceUpdate(CURRENCY_USD) - getUptime()) > (preferences.getUInt("minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE) * 5)) {
+    Serial.println(F("Detected 5 missed price updates... restarting price handler."));
+    restartPriceNotify();
+    priceNotifyLostConnection = 0;
+  }
+
+  // Check for missed blocks
+  if ((blockNotify.getLastBlockUpdate() - getUptime()) > 45 * 60) {
+    checkMissedBlocks();
+  }
+}
+
+extern "C" void app_main() {
   initArduino();
-
   Serial.begin(115200);
   setup();
 
-  while (true)
-  {
-    // vTaskList(ptrTaskList);
-    // Serial.println(F("**********************************"));
-    // Serial.println(F("Task  State   Prio    Stack    Num"));
-    // Serial.println(F("**********************************"));
-    // Serial.print(ptrTaskList);
-    // Serial.println(F("**********************************"));
-    if (eventSourceTaskHandle != NULL)
+  bool thirdPartySource = getDataSource() == THIRD_PARTY_SOURCE;
+
+  while (true) {
+    if (eventSourceTaskHandle != NULL) {
       xTaskNotifyGive(eventSourceTaskHandle);
+    }
 
-    int64_t currentUptime = esp_timer_get_time() / 1000000;
-    ;
-    
-    if (!getIsOTAUpdating())
-    {
-#ifdef HAS_FRONTLIGHT
-      if (hasLightLevel()) {
-        if (preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) != 0)
-        {
-          if (hasLightLevel() && getLightLevel() <= 1 && preferences.getBool("flOffWhenDark", DEFAULT_FL_OFF_WHEN_DARK))
-          {
-            if (frontlightIsOn()) {
-              frontlightFadeOutAll();
-            }
-          }
-          else if (hasLightLevel() && getLightLevel() < preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) && !frontlightIsOn())
-          {
-            frontlightFadeInAll();
-          }
-          else if (frontlightIsOn() && getLightLevel() > preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE))
-          {
-            frontlightFadeOutAll();
-          }
-        }
-      }
-#endif
+    if (!getIsOTAUpdating()) {
+      handleFrontlight();
+      checkWiFiConnection();
 
-      if (!WiFi.isConnected())
-      {
-        if (!wifiLostConnection)
-        {
-          wifiLostConnection = currentUptime;
-          Serial.println(F("Lost WiFi connection, trying to reconnect..."));
-        }
-
-        if ((currentUptime - wifiLostConnection) > 600)
-        {
-          Serial.println(F("Still no connection after 10 minutes, restarting..."));
-          delay(2000);
-          ESP.restart();
-        }
-
-        WiFi.begin();
-      }
-      else if (wifiLostConnection)
-      {
-        wifiLostConnection = 0;
-        Serial.println(F("Connection restored, reset timer."));
+      if (thirdPartySource) {
+        monitorDataConnections();
       }
 
-      if (getPriceNotifyInit() && !preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE) && !isPriceNotifyConnected())
-      {
-        priceNotifyLostConnection++;
-        Serial.println(F("Lost price data connection..."));
-        queueLedEffect(LED_DATA_PRICE_ERROR);
-
-        // if price WS connection does not come back after 6*5 seconds, destroy and recreate
-        if (priceNotifyLostConnection > 6)
-        {
-          Serial.println(F("Restarting price handler..."));
-
-          restartPriceNotify();
-          //  setupPriceNotify();
-          priceNotifyLostConnection = 0;
-        }
-      }
-      else if (priceNotifyLostConnection > 0 && isPriceNotifyConnected())
-      {
-        priceNotifyLostConnection = 0;
-      }
-
-      if (getBlockNotifyInit() && !isBlockNotifyConnected())
-      {
-        blockNotifyLostConnection++;
-        Serial.println(F("Lost block data connection..."));
-        queueLedEffect(LED_DATA_BLOCK_ERROR);
-        // if mempool WS connection does not come back after 6*5 seconds, destroy and recreate
-        if (blockNotifyLostConnection > 6)
-        {
-          Serial.println(F("Restarting block handler..."));
-
-          restartBlockNotify();
-          // setupBlockNotify();
-          blockNotifyLostConnection = 0;
-        }
-      }
-      else if (blockNotifyLostConnection > 0 && isBlockNotifyConnected())
-      {
-        blockNotifyLostConnection = 0;
-      }
-
-      // if more than 5 price updates are missed, there is probably something wrong, reconnect
-      if ((getLastPriceUpdate(CURRENCY_USD) - currentUptime) > (preferences.getUInt("minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE) * 5))
-      {
-        Serial.println(F("Detected 5 missed price updates... restarting price handler."));
-
-        restartPriceNotify();
-        // setupPriceNotify();
-
-        priceNotifyLostConnection = 0;
-      }
-
-      // If after 45 minutes no mempool blocks, check the rest API
-      if ((getLastBlockUpdate() - currentUptime) > 45 * 60)
-      {
-        Serial.println(F("Long time (45 min) since last block, checking if I missed anything..."));
-        int currentBlock = getBlockFetch();
-        if (currentBlock != -1)
-        {
-          if (currentBlock != getBlockHeight())
-          {
-            Serial.println(F("Detected stuck block height... restarting block handler."));
-            // Mempool source stuck, restart
-            restartBlockNotify();
-            // setupBlockNotify();
-          }
-          // set last block update so it doesn't fetch for 45 minutes
-          setLastBlockUpdate(currentUptime);
-        }
-      }
-
-      if (currentUptime - getLastTimeSync() > 24 * 60 * 60)
-      {
+      if (getUptime() - getLastTimeSync() > 24 * 60 * 60) {
         Serial.println(F("Last time update is longer than 24 hours ago, sync again"));
         syncTime();
-      };
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(5000));

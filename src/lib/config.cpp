@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "led_handler.hpp"
 
 #define MAX_ATTEMPTS_WIFI_CONNECTION 20
 
@@ -25,15 +26,33 @@ void addScreenMapping(int value, const char *name)
   screenMappings.push_back({value, name});
 }
 
+void setupDataSource()
+{
+  DataSourceType dataSource = getDataSource();
+  bool zapNotifyEnabled = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
+  
+  // Setup Nostr if it's either the data source or zap notifications are enabled
+  if (dataSource == NOSTR_SOURCE || zapNotifyEnabled) {
+    setupNostrNotify(dataSource == NOSTR_SOURCE, zapNotifyEnabled);
+    setupNostrTask();
+  }
+  // Setup other data sources if Nostr is not the data source
+  if (dataSource != NOSTR_SOURCE) {
+    xTaskCreate(setupWebsocketClients, "setupWebsocketClients", 8192, NULL,
+              tskIDLE_PRIORITY, NULL);
+  }
+}
+
 void setup()
 {
   setupPreferences();
   setupHardware();
 
-  setupDisplays();
+  EPDManager::getInstance().initialize();
   if (preferences.getBool("ledTestOnPower", DEFAULT_LED_TEST_ON_POWER))
   {
-    queueLedEffect(LED_POWER_TEST);
+    auto& ledHandler = getLedHandler();
+    ledHandler.queueEffect(LED_POWER_TEST);
   }
   {
     std::lock_guard<std::mutex> lockMcp(mcpMutex);
@@ -43,7 +62,8 @@ void setup()
       preferences.remove("txPower");
 
       WiFi.eraseAP();
-      queueLedEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
+      auto& ledHandler = getLedHandler();
+      ledHandler.queueEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
     }
   }
 
@@ -59,7 +79,8 @@ void setup()
     else if (mcp1.read1(1) == LOW)
     {
       preferences.clear();
-      queueLedEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
+      auto& ledHandler = getLedHandler();
+      ledHandler.queueEffect(LED_EFFECT_WIFI_ERASE_SETTINGS);
       nvs_flash_erase();
       delay(1000);
 
@@ -78,46 +99,58 @@ void setup()
   setupTasks();
   setupTimers();
 
-  if (preferences.getBool("useNostr", DEFAULT_USE_NOSTR) || preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED))
-  {
-    setupNostrNotify(preferences.getBool("useNostr", DEFAULT_USE_NOSTR), preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED));
-    setupNostrTask();
-  }
-
-  if (!preferences.getBool("useNostr", DEFAULT_USE_NOSTR))
-  {
-    xTaskCreate(setupWebsocketClients, "setupWebsocketClients", 8192, NULL,
-                tskIDLE_PRIORITY, NULL);
-  }
+  // Setup data sources (includes Nostr zap notifications if enabled)
+  setupDataSource();
 
   if (preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED))
   {
-    setupBitaxeFetchTask();
+    BitaxeFetch::getInstance().setup();
   }
 
-  setupButtonTask();
+  if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
+  {
+    MiningPoolStatsFetch::getInstance().setup();
+  }
+
+  ButtonHandler::setup();
   setupOTA();
 
-  waitUntilNoneBusy();
+  EPDManager::getInstance().waitUntilNoneBusy();
 
 #ifdef HAS_FRONTLIGHT
   if (!preferences.getBool("flAlwaysOn", DEFAULT_FL_ALWAYS_ON))
   {
-    frontlightFadeOutAll(preferences.getUInt("flEffectDelay"), true);
+    auto& ledHandler = getLedHandler();
+    ledHandler.frontlightFadeOutAll(preferences.getUInt("flEffectDelay"), true);
     flArray.allOFF();
   }
 #endif
 
-  forceFullRefresh();
-
+  EPDManager::getInstance().forceFullRefresh();
 }
 
 void setupWifi()
 {
   WiFi.onEvent(WiFiEvent);
+  
+  // wifi_country_t country = {
+  //   .cc = "NL",
+  //   .schan = 1,
+  //   .nchan = 13,
+  //   .policy = WIFI_COUNTRY_POLICY_MANUAL
+  // };
+
+  // esp_err_t err = esp_wifi_set_country(&country);
+  // if (err != ESP_OK) {
+  //   Serial.printf("Failed to set country: %d\n", err);
+  // }
+
   WiFi.setAutoConnect(true);
   WiFi.setAutoReconnect(true);
   WiFi.begin();
+
+
+
   if (preferences.getInt("txPower", DEFAULT_TX_POWER))
   {
     if (WiFi.setTxPower(
@@ -131,7 +164,8 @@ void setupWifi()
   // if (!preferences.getBool("wifiConfigured", DEFAULT_WIFI_CONFIGURED)
   {
 
-    queueLedEffect(LED_EFFECT_WIFI_WAIT_FOR_CONFIG);
+    auto& ledHandler = getLedHandler();
+    ledHandler.queueEffect(LED_EFFECT_WIFI_WAIT_FOR_CONFIG);
 
     bool buttonPress = false;
     {
@@ -144,8 +178,7 @@ void setupWifi()
 
       byte mac[6];
       WiFi.macAddress(mac);
-      String softAP_SSID =
-          String("BTClock" + String(mac[5], 16) + String(mac[1], 16));
+      String softAP_SSID = getMyHostname();
       WiFi.setHostname(softAP_SSID.c_str());
       String softAP_password = replaceAmbiguousChars(
           base64::encode(String(mac[2], 16) + String(mac[4], 16) +
@@ -155,6 +188,7 @@ void setupWifi()
       wm.setConfigPortalTimeout(preferences.getUInt("wpTimeout", DEFAULT_WP_TIMEOUT));
       wm.setWiFiAutoReconnect(false);
       wm.setDebugOutput(false);
+      wm.setCountry("NL");
       wm.setConfigPortalBlocking(true);
 
       wm.setAPCallback([&](WiFiManager *wifiManager)
@@ -164,13 +198,14 @@ void setupWifi()
         wifiManager->getConfigPortalSSID().c_str(),
         softAP_password.c_str());
         // delay(6000);
-        setFgColor(GxEPD_BLACK);
-        setBgColor(GxEPD_WHITE);
+        EPDManager::getInstance().setForegroundColor(GxEPD_BLACK);
+        EPDManager::getInstance().setBackgroundColor(GxEPD_WHITE);
         const String qrText = "qrWIFI:S:" + wifiManager->getConfigPortalSSID() +
                               ";T:WPA;P:" + softAP_password.c_str() + ";;";
         const String explainText = "*SSID: *\r\n" +
                                    wifiManager->getConfigPortalSSID() +
-                                   "\r\n\r\n*Password:*\r\n" + softAP_password;
+                                   "\r\n\r\n*Password:*\r\n" + softAP_password +
+                                   "\r\n\r\n*Hostname*:\r\n" + getMyHostname();
         // Set the UNIX timestamp
         time_t timestamp = LAST_BUILD_TIME; // Example timestamp: March 7, 2021 00:00:00 UTC
 
@@ -180,67 +215,36 @@ void setupWifi()
         // Format the date
         char formattedDate[20];
         strftime(formattedDate, sizeof(formattedDate), "%y-%m-%d\r\n%H:%M:%S", timeinfo);
-  
+        String hwStr = String(HW_REV);
+        hwStr.replace("_EPD_", "\r\nEPD_");
         std::array<String, NUM_SCREENS> epdContent = {
             "Welcome!",
             "Bienvenidos!",
             "To setup\r\nscan QR or\r\nconnect\r\nmanually",
             "Para\r\nconfigurar\r\nescanear QR\r\no conectar\r\nmanualmente",
             explainText,
-            "*Hostname*:\r\n" + getMyHostname() + "\r\n\r\n" + "*FW build date:*\r\n" + formattedDate,
+           "*HW version:*\r\n" + hwStr +
+#ifdef GIT_TAG
+            "\r\n\r\n*SW Version:*\r\n" + GIT_TAG +
+#endif
+            "\r\n\r\n*FW build date:*\r\n" + formattedDate,
             qrText};
-        setEpdContent(epdContent); });
+      
+        EPDManager::getInstance().setContent(epdContent); });
 
       wm.setSaveConfigCallback([]()
                                {
         preferences.putBool("wifiConfigured", true);
 
         delay(1000);
-        // just restart after succes
+        // just restart after success
         ESP.restart(); });
 
       bool ac = wm.autoConnect(softAP_SSID.c_str(), softAP_password.c_str());
-
-      // waitUntilNoneBusy();
-      // std::array<String, NUM_SCREENS> epdContent = {"Welcome!",
-      // "Bienvenidos!", "Use\r\nweb-interface\r\nto configure", "Use\r\nla
-      // interfaz web\r\npara configurar", "Or
-      // restart\r\nwhile\r\nholding\r\n2nd button\r\r\nto start\r\n QR-config",
-      // "O reinicie\r\nmientras\r\n mantiene presionado\r\nel segundo
-      // botón\r\r\npara iniciar\r\nQR-config", ""}; setEpdContent(epdContent);
-      //  esp_task_wdt_init(30, false);
-      //  uint count = 0;
-      //  while (WiFi.status() != WL_CONNECTED)
-      //  {
-      //      if (Serial.available() > 0)
-      //      {
-      //          uint8_t b = Serial.read();
-
-      //         if (parse_improv_serial_byte(x_position, b, x_buffer,
-      //         onImprovCommandCallback, onImprovErrorCallback))
-      //         {
-      //             x_buffer[x_position++] = b;
-      //         }
-      //         else
-      //         {
-      //             x_position = 0;
-      //         }
-      //     }
-      //     count++;
-
-      //     if (count > 2000000) {
-      //         queueLedEffect(LED_EFFECT_HEARTBEAT);
-      //         count = 0;
-      //     }
-      // }
-      // esp_task_wdt_deinit();
-      // esp_task_wdt_reset();
     }
 
-
-
-    setFgColor(preferences.getUInt("fgColor", isWhiteVersion() ? GxEPD_BLACK : GxEPD_WHITE));
-    setBgColor(preferences.getUInt("bgColor", isWhiteVersion() ? GxEPD_WHITE : GxEPD_BLACK));
+    EPDManager::getInstance().setForegroundColor(preferences.getUInt("fgColor", isWhiteVersion() ? GxEPD_BLACK : GxEPD_WHITE));
+    EPDManager::getInstance().setBackgroundColor(preferences.getUInt("bgColor", isWhiteVersion() ? GxEPD_WHITE : GxEPD_BLACK));
   }
   // else
   // {
@@ -255,34 +259,65 @@ void setupWifi()
 
 void syncTime()
 {
-  configTime(preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS), 0,
+  configTime(0, 0,
              NTP_SERVER);
   struct tm timeinfo;
 
   while (!getLocalTime(&timeinfo))
   {
-    configTime(preferences.getInt("gmtOffset", DEFAULT_TIME_OFFSET_SECONDS), 0,
+    auto& ledHandler = getLedHandler();
+    ledHandler.queueEffect(LED_EFFECT_CONFIGURING);
+    configTime(0, 0,
                NTP_SERVER);
     delay(500);
     Serial.println(F("Retry set time"));
   }
 
+  setTimezone(get_timezone_value_string(timezone_data::find_timezone_value(preferences.getString("tzString", DEFAULT_TZ_STRING))));
+
   lastTimeSync = esp_timer_get_time() / 1000000;
 }
+
+void setTimezone(String timezone) {
+  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
+  setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
+  tzset();
+}
+
 
 void setupPreferences()
 {
   preferences.begin("btclock", false);
 
-  setFgColor(preferences.getUInt("fgColor", DEFAULT_FG_COLOR));
-  setBgColor(preferences.getUInt("bgColor", DEFAULT_BG_COLOR));
-  setBlockHeight(preferences.getUInt("blockHeight", INITIAL_BLOCK_HEIGHT));
+  EPDManager::getInstance().setForegroundColor(preferences.getUInt("fgColor", DEFAULT_FG_COLOR));
+  EPDManager::getInstance().setBackgroundColor(preferences.getUInt("bgColor", DEFAULT_BG_COLOR));
+  BlockNotify::getInstance().setBlockHeight(preferences.getUInt("blockHeight", INITIAL_BLOCK_HEIGHT));
   setPrice(preferences.getUInt("lastPrice", INITIAL_LAST_PRICE), CURRENCY_USD);
 
-  if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
-    setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
-  else
-    setCurrentCurrency(CURRENCY_USD);
+  if (!preferences.isKey("enableDebugLog")) {
+    preferences.putBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
+  }
+
+  if (!preferences.isKey("dataSource")) {
+    preferences.putUChar("dataSource", DEFAULT_DATA_SOURCE);
+  }
+
+  // Initialize custom endpoint settings if not set
+  if (!preferences.isKey("customEndpoint")) {
+    preferences.putString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  }
+
+  if (!preferences.isKey("customEndpointDisableSSL")) {
+    preferences.putBool("customEndpointDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+  }
+
+  // Set currency based on data source
+  DataSourceType dataSource = static_cast<DataSourceType>(preferences.getUChar("dataSource", DEFAULT_DATA_SOURCE));
+  if (dataSource == BTCLOCK_SOURCE || dataSource == CUSTOM_SOURCE) {
+    ScreenHandler::setCurrentCurrency(preferences.getUChar("lastCurrency", CURRENCY_USD));
+  } else {
+    ScreenHandler::setCurrentCurrency(CURRENCY_USD);
+  }
 
   if (!preferences.isKey("flDisable")) {
     preferences.putBool("flDisable", isWhiteVersion() ? false : true);
@@ -328,8 +363,16 @@ void setupPreferences()
 
   if (preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED))
   {
-    addScreenMapping(SCREEN_BITAXE_HASHRATE, "BitAxe Hashrate");
-    addScreenMapping(SCREEN_BITAXE_BESTDIFF, "BitAxe Best Difficulty");
+    addScreenMapping(SCREEN_BITAXE_HASHRATE, "Bitaxe Hashrate");
+    addScreenMapping(SCREEN_BITAXE_BESTDIFF, "Bitaxe Best Difficulty");
+  }
+
+  if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
+  {
+    addScreenMapping(SCREEN_MINING_POOL_STATS_HASHRATE, "Mining Pool Hashrate");
+    if (MiningPoolStatsFetch::getInstance().getPool()->supportsDailyEarnings()) {
+      addScreenMapping(SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings");
+    }
   }
 }
 
@@ -346,77 +389,17 @@ String replaceAmbiguousChars(String input)
   return input;
 }
 
-// void addCurrencyMappings(const std::vector<std::string>& currencies)
-// {
-//     for (const auto& currency : currencies)
-//     {
-//         int satsPerCurrencyScreen;
-//         int btcTickerScreen;
-//         int marketCapScreen;
-
-//         // Determine the corresponding screen IDs based on the currency code
-//         if (currency == "USD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_USD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_USD;
-//             marketCapScreen = SCREEN_MARKET_CAP_USD;
-//         }
-//         else if (currency == "EUR")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_EUR;
-//             btcTickerScreen = SCREEN_BTC_TICKER_EUR;
-//             marketCapScreen = SCREEN_MARKET_CAP_EUR;
-//         }
-//         else if (currency == "GBP")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_GBP;
-//             btcTickerScreen = SCREEN_BTC_TICKER_GBP;
-//             marketCapScreen = SCREEN_MARKET_CAP_GBP;
-//         }
-//         else if (currency == "JPY")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_JPY;
-//             btcTickerScreen = SCREEN_BTC_TICKER_JPY;
-//             marketCapScreen = SCREEN_MARKET_CAP_JPY;
-//         }
-//         else if (currency == "AUD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_AUD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_AUD;
-//             marketCapScreen = SCREEN_MARKET_CAP_AUD;
-//         }
-//         else if (currency == "CAD")
-//         {
-//             satsPerCurrencyScreen = SCREEN_SATS_PER_CURRENCY_CAD;
-//             btcTickerScreen = SCREEN_BTC_TICKER_CAD;
-//             marketCapScreen = SCREEN_MARKET_CAP_CAD;
-//         }
-//         else
-//         {
-//             continue;  // Unknown currency, skip it
-//         }
-
-//         // Create the string locally to ensure it persists
-//         std::string satsPerCurrencyString = "Sats per " + currency;
-//         std::string btcTickerString = "Ticker " + currency;
-//         std::string marketCapString = "Market Cap " + currency;
-
-//         // Pass the c_str() to the function
-//         addScreenMapping(satsPerCurrencyScreen, satsPerCurrencyString.c_str());
-//         addScreenMapping(btcTickerScreen, btcTickerString.c_str());
-//         addScreenMapping(marketCapScreen, marketCapString.c_str());
-//     }
-// }
-
 void setupWebsocketClients(void *pvParameters)
 {
-  if (preferences.getBool("ownDataSource", DEFAULT_OWN_DATA_SOURCE))
+  DataSourceType dataSource = getDataSource();
+  
+  if (dataSource == BTCLOCK_SOURCE || dataSource == CUSTOM_SOURCE)
   {
     V2Notify::setupV2Notify();
   }
-  else
+  else if (dataSource == THIRD_PARTY_SOURCE)
   {
-    setupBlockNotify();
+    BlockNotify::getInstance().setup();
     setupPriceNotify();
   }
 
@@ -433,13 +416,14 @@ void setupTimers()
 
 void finishSetup()
 {
+  auto& ledHandler = getLedHandler();
   if (preferences.getBool("ledStatus", DEFAULT_LED_STATUS))
   {
-    restoreLedState();
+    ledHandler.restoreLedState();
   }
   else
   {
-    clearLeds();
+    ledHandler.clear();
   }
 }
 
@@ -488,18 +472,9 @@ void setupHardware()
     Serial.println(F("Error loading WebUI"));
   }
 
-  // if (!LittleFS.exists("/qr.txt"))
-  // {
-  //   File f = LittleFS.open("/qr.txt", "w");
-
-  //   if(f) {
-
-  //   } else {
-  //     Serial.println(F("Can't write QR to FS"));
-  //   }
-  // }
-
-  setupLeds();
+  // Initialize LED handler
+  auto& ledHandler = getLedHandler();
+  ledHandler.setup();
 
   WiFi.setHostname(getMyHostname().c_str());
   if (!psramInit())
@@ -511,32 +486,34 @@ void setupHardware()
 
   Wire.begin(I2C_SDA_PIN, I2C_SCK_PIN, 400000);
 
-  if (!mcp1.begin())
-  {
+  if (!mcp1.begin()) {
     Serial.println(F("Error MCP23017 1"));
-
-    // while (1)
-    //         ;
-  }
-  else
-  {
+  } else {
     pinMode(MCP_INT_PIN, INPUT_PULLUP);
-//    mcp1.setupInterrupts(false, false, LOW);
-    mcp1.enableControlRegister(MCP23x17_IOCR_ODR);
-
-    mcp1.mirrorInterrupts(true);
-
-    for (int i = 0; i < 4; i++)
-    {
-      mcp1.pinMode1(i, INPUT_PULLUP);
-      mcp1.enableInterrupt(i, LOW);
+    
+    // Enable mirrored interrupts (both INTA and INTB pins signal any interrupt)
+    if (!mcp1.mirrorInterrupts(true)) {
+        Serial.println(F("Error setting up mirrored interrupts"));
     }
-#ifndef IS_BTCLOCK_V8
-    for (int i = 8; i <= 14; i++)
-    {
-      mcp1.pinMode1(i, OUTPUT);
+
+    // Configure all 4 button pins as inputs with pullups and interrupts
+    for (int i = 0; i < 4; i++) {
+        if (!mcp1.pinMode1(i, INPUT_PULLUP)) {
+            Serial.printf("Error setting pin %d to input pull up\n", i);
+        }
+        // Enable interrupt on CHANGE for each pin
+        if (!mcp1.enableInterrupt(i, CHANGE)) {
+            Serial.printf("Error enabling interrupt for pin %d\n", i);
+        }
     }
-#endif
+
+    // Set interrupt pins as open drain with active-low polarity
+    if (!mcp1.setInterruptPolarity(2)) { // 2 = Open drain
+        Serial.println(F("Error setting interrupt polarity"));
+    }
+
+    // Clear any pending interrupts
+    mcp1.getInterruptCaptureRegister();
   }
 
 #ifdef IS_HW_REV_B
@@ -555,7 +532,8 @@ void setupHardware()
 #endif
 
 #ifdef HAS_FRONTLIGHT
-  setupFrontlight();
+  // Initialize frontlight through LedHandler
+  ledHandler.initializeFrontlight();
 
   Wire.beginTransmission(0x5C);
   byte error = Wire.endTransmission();
@@ -577,6 +555,7 @@ void setupHardware()
 void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
 {
   static bool first_connect = true;
+  auto& ledHandler = getLedHandler();  // Get ledHandler reference once at the start
 
   Serial.printf("[WiFi-event] event: %d\n", event);
 
@@ -602,7 +581,7 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
     if (!first_connect)
     {
       Serial.println(F("Disconnected from WiFi access point"));
-      queueLedEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
+      ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
       uint8_t reason = info.wifi_sta_disconnected.reason;
       if (reason)
         Serial.printf("Disconnect reason: %s, ",
@@ -618,13 +597,13 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
     Serial.print("Obtained IP address: ");
     Serial.println(WiFi.localIP());
     if (!first_connect)
-      queueLedEffect(LED_EFFECT_WIFI_CONNECT_SUCCESS);
+      ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_SUCCESS);
     first_connect = false;
     break;
   }
   case ARDUINO_EVENT_WIFI_STA_LOST_IP:
     Serial.println(F("Lost IP address and IP address is reset to 0"));
-    queueLedEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
+    ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
     WiFi.reconnect();
     break;
   case ARDUINO_EVENT_WIFI_AP_START:
@@ -674,29 +653,6 @@ uint getLastTimeSync()
 }
 
 #ifdef HAS_FRONTLIGHT
-void setupFrontlight()
-{
-  if (!flArray.begin(PCA9685_MODE1_AUTOINCR | PCA9685_MODE1_ALLCALL, PCA9685_MODE2_TOTEMPOLE))
-  {
-    Serial.println(F("FL driver error"));
-    return;
-  }
-  Serial.println(F("FL driver active"));
-
-  if (!preferences.isKey("flMaxBrightness"))
-  {
-    preferences.putUInt("flMaxBrightness", DEFAULT_FL_MAX_BRIGHTNESS);
-  }
-  if (!preferences.isKey("flEffectDelay"))
-  {
-    preferences.putUInt("flEffectDelay", DEFAULT_FL_EFFECT_DELAY);
-  }
-
-  if (!preferences.isKey("flFlashOnUpd"))
-  {
-    preferences.putBool("flFlashOnUpd", DEFAULT_FL_FLASH_ON_UPDATE);
-  }
-}
 
 float getLightLevel()
 {
@@ -799,17 +755,27 @@ const char* getFirmwareFilename() {
     }
 }
 
-// void loadIcons() {
-//   size_t ocean_logo_size = 886;
+const char* getWebUiFilename() {
+    if (HW_REV == "REV_B_EPD_2_13") {
+        return "littlefs_8MB.bin";
+    } else if (HW_REV == "REV_A_EPD_2_13") {
+        return "littlefs_4MB.bin";
+    } else if (HW_REV == "REV_A_EPD_2_9") {
+        return "littlefs_4MB.bin";
+    } else {
+        return "littlefs_4MB.bin";
+    }
+}
 
-//   int iUncompSize = zt.gzip_info((uint8_t *)epd_compress_bitaxe, ocean_logo_size);
-//       Serial.printf("uncompressed size = %d\n", iUncompSize);
+bool debugLogEnabled()
+{
+  return preferences.getBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
+}
 
-//   uint8_t *pUncompressed;
-//   pUncompressed = (uint8_t *)malloc(iUncompSize+4);
-//   int rc = zt.gunzip((uint8_t *)epd_compress_bitaxe, ocean_logo_size, pUncompressed);
+DataSourceType getDataSource() {
+  return static_cast<DataSourceType>(preferences.getUChar("dataSource", DEFAULT_DATA_SOURCE));
+}
 
-//    if (rc == ZT_SUCCESS) {
-//     Serial.println("Decode success");
-//    }
-// }
+void setDataSource(DataSourceType source) {
+  preferences.putUChar("dataSource", static_cast<uint8_t>(source));
+}

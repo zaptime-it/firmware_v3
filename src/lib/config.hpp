@@ -18,6 +18,7 @@
 #include "lib/ota.hpp"
 #include "lib/nostr_notify.hpp"
 #include "lib/bitaxe_fetch.hpp"
+#include "lib/mining_pool_stats_fetch.hpp"
 
 #include "lib/v2_notify.hpp"
 
@@ -30,9 +31,11 @@
 #include "BH1750.h"
 #endif
 
+#include "shared.hpp"
+#include "defaults.hpp"
+#include "timezone_data.hpp"
 #define NTP_SERVER "pool.ntp.org"
 #define DEFAULT_TIME_OFFSET_SECONDS 3600
-#define USER_AGENT "BTClock/3.0"
 #ifndef MCP_DEV_ADDR
 #define MCP_DEV_ADDR 0x20
 #endif
@@ -40,6 +43,7 @@
 
 void setup();
 void syncTime();
+void setTimezone(String timezone);
 uint getLastTimeSync();
 void setupPreferences();
 void setupWebsocketClients(void *pvParameters);
@@ -49,10 +53,10 @@ void setupTimers();
 void finishSetup();
 void setupMcp();
 #ifdef HAS_FRONTLIGHT
-void setupFrontlight();
+extern BH1750 bh1750;
+extern bool hasLuxSensor;
 float getLightLevel();
 bool hasLightLevel();
-extern PCA9685 flArray;
 #endif
 
 String getMyHostname();
@@ -77,6 +81,8 @@ String getHwRev();
 bool isWhiteVersion();
 String getFsRev();
 
+bool debugLogEnabled();
+
 void addScreenMapping(int value, const char* name);
 // void addScreenMapping(int value, const String& name);
 // void addScreenMapping(int value, const std::string& name);
@@ -84,5 +90,19 @@ void addScreenMapping(int value, const char* name);
 int findScreenIndexByValue(int value);
 String replaceAmbiguousChars(String input);
 const char* getFirmwareFilename();
-
+const char* getWebUiFilename();
 // void loadIcons();
+
+extern Preferences preferences;
+extern MCP23017 mcp1;
+#ifdef IS_BTCLOCK_V8
+extern MCP23017 mcp2;
+#endif
+
+#ifdef HAS_FRONTLIGHT
+extern PCA9685 flArray;
+#endif
+
+// Expose DataSourceType enum
+extern DataSourceType getDataSource();
+extern void setDataSource(DataSourceType source);
