@@ -149,8 +149,11 @@ void ScreenHandler::nextScreen() {
     int nextScreen = findNextVisibleScreen(currentIndex, true);
     
     // If moving from a currency-specific screen to another currency-specific screen
-    // reset to first currency
-    if (isCurrencySpecific(getCurrentScreen()) && isCurrencySpecific(nextScreen)) {
+    // reset to first currency 
+    // also if moving from a currency-specific screen to a non-currency-specific screen
+    if (
+        isCurrencySpecific(getCurrentScreen())
+    ) {
         std::vector<std::string> ac = getActiveCurrencies();
         if (!ac.empty()) {
             setCurrentCurrency(getCurrencyChar(ac.front()));
@@ -168,7 +171,8 @@ void ScreenHandler::previousScreen() {
     
     // If moving from a currency-specific screen to another currency-specific screen
     // reset to last currency
-    if (isCurrencySpecific(getCurrentScreen()) && isCurrencySpecific(prevScreen)) {
+    // also if moving from a non-currency-specific screen to a currency-specific screen
+    if (isCurrencySpecific(getCurrentScreen())) {
         std::vector<std::string> ac = getActiveCurrencies();
         if (!ac.empty()) {
             setCurrentCurrency(getCurrencyChar(ac.back()));
