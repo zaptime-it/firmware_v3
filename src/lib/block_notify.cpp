@@ -2,7 +2,7 @@
 
 // Initialize static members
 esp_websocket_client_handle_t BlockNotify::wsClient = nullptr;
-uint32_t BlockNotify::currentBlockHeight = 878000;
+uint32_t BlockNotify::currentBlockHeight = 918300;
 uint16_t BlockNotify::blockMedianFee = 1;
 bool BlockNotify::notifyInit = false;
 unsigned long int BlockNotify::lastBlockUpdate = 0;
@@ -251,6 +251,10 @@ uint32_t BlockNotify::getBlockHeight() const {
 void BlockNotify::setBlockHeight(uint32_t newBlockHeight)
 {
     currentBlockHeight = newBlockHeight;
+
+    if (newBlockHeight % 100 == 0) {
+        preferences.putUInt("blockHeight", newBlockHeight);
+    }
 }
 
 uint16_t BlockNotify::getBlockMedianFee() const { 
