@@ -330,6 +330,12 @@ void setupPreferences()
   if (!preferences.isKey("fgColor")) {
     preferences.putUInt("fgColor", isWhiteVersion() ? GxEPD_BLACK : GxEPD_WHITE);
     preferences.putUInt("bgColor", isWhiteVersion() ? GxEPD_WHITE : GxEPD_BLACK);
+
+    if (isWhiteVersion() && !preferences.isKey("invertedColor")) {
+      preferences.putBool("invertedColor", false);
+    } else {
+      preferences.putBool("invertedColor", true);
+    }
   }
  
 
