@@ -142,6 +142,8 @@ void LedHandler::ledTask(void* pvParameters) {
                             } else {
                                 handler->frontlightFadeInAll(flDelayTime, true);
                             }
+
+                            handler->flInTransition = true;
                         }
 #endif
                         for (int flash = 0; flash < random(7, 10); flash++) {
@@ -150,6 +152,8 @@ void LedHandler::ledTask(void* pvParameters) {
                         }
 #ifdef HAS_FRONTLIGHT
                         if (preferences.getBool("flFlashOnZap", DEFAULT_FL_FLASH_ON_ZAP)) {
+                            handler->flInTransition = false;
+
                             vTaskDelay(pdMS_TO_TICKS(10));
                             if (frontlightWasOn) {
                                 handler->frontlightFadeInAll(flDelayTime, true);
@@ -177,13 +181,16 @@ void LedHandler::ledTask(void* pvParameters) {
                             } else {
                                 handler->frontlightFadeInAll(flDelayTime, true);
                             }
+                            handler->flInTransition = true;
                         }
 #endif
-                        handler->blinkDelayTwoColor(250, 3, handler->pixels.Color(224, 67, 0),
+                        handler->blinkDelayTwoColor(250, 3, preferences.getUInt("blockFlashColor", DEFAULT_BLOCK_FLASH_COLOR),
                                                   handler->pixels.Color(8, 2, 0));
 #ifdef HAS_FRONTLIGHT
                         if (preferences.getBool("flFlashOnUpd", DEFAULT_FL_FLASH_ON_UPDATE)) {
                             vTaskDelay(pdMS_TO_TICKS(10));
+                            handler->flInTransition = false;
+
                             if (frontlightWasOn) {
                                 handler->frontlightFadeInAll(flDelayTime, true);
                             } else {

@@ -7,7 +7,7 @@ static const char* JSON_CONTENT = "application/json";
 static const char *const PROGMEM strSettings[] = {
     "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName", "localPoolEndpoint", "tzString"};
 
-static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout"};
+static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout", "blockFlashColor"};
 
 static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOnUpd",
                                                    "mdnsEnabled", "otaEnabled", "stealFocus",
@@ -738,6 +738,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["mowMode"] = preferences.getBool("mowMode", DEFAULT_MOW_MODE);
   root["verticalDesc"] = preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC);
   root["blockFeeDec"] = preferences.getBool("blockFeeDec", DEFAULT_BLOCK_FEE_DECIMALS);
+  root["blockFlashColor"] = preferences.getUInt("blockFlashColor", DEFAULT_BLOCK_FLASH_COLOR);
 
   root["suffixShareDot"] = preferences.getBool("suffixShareDot", DEFAULT_SUFFIX_SHARE_DOT);
   root["enableDebugLog"] = preferences.getBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);

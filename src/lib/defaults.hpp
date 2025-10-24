@@ -88,6 +88,7 @@
 #define DEFAULT_MOW_MODE false
 #define DEFAULT_SCREEN_RESTORE_AFTER_ZAP true
 #define DEFAULT_BLOCK_FEE_DECIMALS true
+#define DEFAULT_BLOCK_FLASH_COLOR 0xE04300
 
 // Define data source types
 enum DataSourceType {
