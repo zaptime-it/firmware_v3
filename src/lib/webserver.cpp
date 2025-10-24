@@ -18,7 +18,7 @@ static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOn
                                                    "mempoolSecure", "bitaxeEnabled",
                                                    "miningPoolStats", "verticalDesc",
                                                    "nostrZapNotify", "httpAuthEnabled",
-                                                   "enableDebugLog", "ceDisableSSL", "dndEnabled", "dndTimeBasedEnabled", "scrnRestoreZap"};
+                                                   "enableDebugLog", "ceDisableSSL", "dndEnabled", "dndTimeBasedEnabled", "scrnRestoreZap", "blockFeeDec"};
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -737,6 +737,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["disableLeds"] = preferences.getBool("disableLeds", DEFAULT_DISABLE_LEDS);
   root["mowMode"] = preferences.getBool("mowMode", DEFAULT_MOW_MODE);
   root["verticalDesc"] = preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC);
+  root["blockFeeDec"] = preferences.getBool("blockFeeDec", DEFAULT_BLOCK_FEE_DECIMALS);
 
   root["suffixShareDot"] = preferences.getBool("suffixShareDot", DEFAULT_SUFFIX_SHARE_DOT);
   root["enableDebugLog"] = preferences.getBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);

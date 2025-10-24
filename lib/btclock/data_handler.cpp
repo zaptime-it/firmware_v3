@@ -206,10 +206,22 @@ std::array<std::string, NUM_SCREENS> parseBlockHeight(std::uint32_t blockHeight)
     return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseBlockFees(std::uint16_t blockFees)
+std::array<std::string, NUM_SCREENS> parseBlockFees(float blockFees)
 {
     std::array<std::string, NUM_SCREENS> ret;
-    std::string blockFeesString = std::to_string(blockFees);
+    std::string blockFeesString;
+    if (blockFees < 10.0f) {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%.2f", blockFees);
+        // // Remove trailing zeros and possible trailing dot
+        blockFeesString = buf;
+        // if(blockFeesString.find('.') != std::string::npos) {
+        //     blockFeesString.erase(blockFeesString.find_last_not_of('0') + 1);
+        //     if(blockFeesString.back() == '.') blockFeesString.pop_back();
+        // }
+    } else {
+        blockFeesString = std::to_string(static_cast<int>(std::round(blockFees)));
+    }
     std::uint32_t firstIndex = 0;
 
     if (blockFeesString.length() < NUM_SCREENS)
@@ -363,7 +375,7 @@ emscripten::val parseMarketCapArray(std::uint32_t blockHeight, std::uint32_t pri
     return arrayToStringArray(parseMarketCap(blockHeight, price, currencySymbol[0], bigChars));
 }
 
-emscripten::val parseBlockFeesArray(std::uint16_t blockFees)
+emscripten::val parseBlockFeesArray(float blockFees)
 {
     return arrayToStringArray(parseBlockFees(blockFees));
 }

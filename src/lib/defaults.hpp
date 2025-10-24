@@ -1,6 +1,6 @@
 #pragma once
 
-#define INITIAL_BLOCK_HEIGHT 918300
+#define INITIAL_BLOCK_HEIGHT 920560
 #define INITIAL_LAST_PRICE 99000
 #define DEFAULT_TX_POWER 0
 
@@ -87,6 +87,7 @@
 #define DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL false
 #define DEFAULT_MOW_MODE false
 #define DEFAULT_SCREEN_RESTORE_AFTER_ZAP true
+#define DEFAULT_BLOCK_FEE_DECIMALS true
 
 // Define data source types
 enum DataSourceType {

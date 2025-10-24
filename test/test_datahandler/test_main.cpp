@@ -70,13 +70,26 @@ void test_SevenCharacterBlockHeight(void)
 
 void test_FeeRateDisplay(void)
 {
-    uint testValue = 21;
-    std::array<std::string, NUM_SCREENS> output = parseBlockFees(static_cast<std::uint16_t>(testValue));
+    float testValue = 21.21;
+    std::array<std::string, NUM_SCREENS> output = parseBlockFees(testValue);
     TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
     TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 2].c_str());  
     TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
 }
+
+void test_FeeRateDisplay2(void)
+{
+    float testValue = 1.1;
+    std::array<std::string, NUM_SCREENS> output = parseBlockFees(testValue);
+    TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
+    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
+}
+
 
 void test_PriceOf100kusd(void)
 {
@@ -282,6 +295,7 @@ int runUnityTests(void)
     RUN_TEST(test_SixCharacterBlockHeight);
     RUN_TEST(test_SevenCharacterBlockHeight);
     RUN_TEST(test_FeeRateDisplay);
+    RUN_TEST(test_FeeRateDisplay2);
     RUN_TEST(test_PriceOf100kusd);
     RUN_TEST(test_McapLowerUsd);
     RUN_TEST(test_Mcap1TrillionUsd);

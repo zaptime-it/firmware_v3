@@ -2,8 +2,8 @@
 
 // Initialize static members
 esp_websocket_client_handle_t BlockNotify::wsClient = nullptr;
-uint32_t BlockNotify::currentBlockHeight = 918300;
-uint16_t BlockNotify::blockMedianFee = 1;
+uint32_t BlockNotify::currentBlockHeight = INITIAL_BLOCK_HEIGHT;
+float BlockNotify::blockMedianFee = 1;
 bool BlockNotify::notifyInit = false;
 unsigned long int BlockNotify::lastBlockUpdate = 0;
 TaskHandle_t BlockNotify::taskHandle = nullptr;
@@ -229,7 +229,7 @@ void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
     }
 }
 
-void BlockNotify::processNewBlockFee(uint16_t newBlockFee) {
+void BlockNotify::processNewBlockFee(float newBlockFee) {
     if (blockMedianFee == newBlockFee)
     {
         return;
@@ -257,11 +257,11 @@ void BlockNotify::setBlockHeight(uint32_t newBlockHeight)
     }
 }
 
-uint16_t BlockNotify::getBlockMedianFee() const { 
+float BlockNotify::getBlockMedianFee() const { 
     return blockMedianFee; 
 }
 
-void BlockNotify::setBlockMedianFee(uint16_t newBlockMedianFee)
+void BlockNotify::setBlockMedianFee(float newBlockMedianFee)
 {
     blockMedianFee = newBlockMedianFee;
 }

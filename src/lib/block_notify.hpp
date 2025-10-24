@@ -36,12 +36,12 @@ public:
     uint32_t getBlockHeight() const;
 
     // Block fee management
-    void setBlockMedianFee(uint16_t blockMedianFee);
-    uint16_t getBlockMedianFee() const;
+    void setBlockMedianFee(float blockMedianFee);
+    float getBlockMedianFee() const;
 
     // Block processing
     void processNewBlock(uint32_t newBlockHeight);
-    void processNewBlockFee(uint16_t newBlockFee);
+    void processNewBlockFee(float newBlockFee);
 
     // Block fetch and update tracking
     int fetchLatestBlock();
@@ -58,7 +58,7 @@ private:
     static const char* mempoolWsCert;
     static esp_websocket_client_handle_t wsClient;
     static uint32_t currentBlockHeight;
-    static uint16_t blockMedianFee;
+    static float blockMedianFee;
     static bool notifyInit;
     static unsigned long int lastBlockUpdate;
     static TaskHandle_t taskHandle;

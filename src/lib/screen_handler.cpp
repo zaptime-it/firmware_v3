@@ -265,7 +265,7 @@ void workerTask(void *pvParameters) {
                 case TASK_FEE_UPDATE: {
                     if (currentScreenValue == SCREEN_BLOCK_FEE_RATE) {
                         auto& blockNotify = BlockNotify::getInstance();
-                        taskEpdContent = parseBlockFees(static_cast<std::uint16_t>(blockNotify.getBlockMedianFee()));
+                        taskEpdContent = parseBlockFees(blockNotify.getBlockMedianFee());
                         EPDManager::getInstance().setContent(taskEpdContent);
                     } 
                     break;

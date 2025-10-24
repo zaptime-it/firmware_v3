@@ -14,6 +14,7 @@ double getSupplyAtBlock(std::uint32_t blockNr);
 
 std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters = 4);
 std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters, bool mowMode);
+
 int64_t getAmountInSatoshis(std::string bolt11);
 void parseHashrateString(const std::string& hashrate, std::string& label, std::string& output, unsigned int maxCharacters);
 int getHashrateMultiplier(char unit);

@@ -10,9 +10,13 @@ namespace V2Notify
 
     String currentHostname;
 
+    bool blockFeeDecimals = DEFAULT_BLOCK_FEE_DECIMALS;
+
     void setupV2Notify()
     {
         String hostname = "ws.btclock.dev";
+        blockFeeDecimals = preferences.getBool("blockFeeDec", DEFAULT_BLOCK_FEE_DECIMALS);
+
         if (getDataSource() == CUSTOM_SOURCE)
         {
             Serial.println(F("Connecting to custom source"));
@@ -57,7 +61,7 @@ namespace V2Notify
             JsonDocument response;
 
             response["type"] = "subscribe";
-            response["eventType"] = "blockfee";
+            response["eventType"] = blockFeeDecimals ? "blockfee2" : "blockfee";
             size_t responseLength = measureMsgPack(response);
             uint8_t *buffer = new uint8_t[responseLength];
             serializeMsgPack(response, buffer, responseLength);
@@ -142,13 +146,13 @@ namespace V2Notify
             }
             BlockNotify::getInstance().processNewBlock(newBlockHeight);
         }
-        else if (doc["blockfee"].is<uint>())
+        else if (blockFeeDecimals ? doc["blockfee2"].is<float>() : doc["blockfee"].is<float>())
         {
-            uint medianFee = doc["blockfee"].as<uint>();
+            float medianFee = blockFeeDecimals ? doc["blockfee2"].as<float>() : doc["blockfee"].as<float>();
 
             if (debugLogEnabled()) {
                 Serial.print(F("processNewBlockFee "));
-                Serial.println(medianFee);
+                Serial.println(String(medianFee, 2));
             }
 
             BlockNotify::getInstance().processNewBlockFee(medianFee);
