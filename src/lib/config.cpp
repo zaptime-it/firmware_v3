@@ -348,22 +348,7 @@ void setupPreferences()
   addScreenMapping(SCREEN_SATS_PER_CURRENCY, "Sats per dollar");
   addScreenMapping(SCREEN_BTC_TICKER, "Ticker");
   addScreenMapping(SCREEN_MARKET_CAP, "Market Cap");
-
-  // addScreenMapping(SCREEN_SATS_PER_CURRENCY_USD, "Sats per USD");
-  // addScreenMapping(SCREEN_BTC_TICKER_USD, "Ticker USD");
-  // addScreenMapping(SCREEN_MARKET_CAP_USD, "Market Cap USD");
-
-  // addScreenMapping(SCREEN_SATS_PER_CURRENCY_EUR, "Sats per EUR");
-  // addScreenMapping(SCREEN_BTC_TICKER_EUR, "Ticker EUR");
-  // addScreenMapping(SCREEN_MARKET_CAP_EUR, "Market Cap EUR");
-
-  // screenNameMap[SCREEN_BLOCK_HEIGHT] = "Block Height";
-  // screenNameMap[SCREEN_BLOCK_FEE_RATE] = "Block Fee Rate";
-  // screenNameMap[SCREEN_SATS_PER_CURRENCY] = "Sats per dollar";
-  // screenNameMap[SCREEN_BTC_TICKER] = "Ticker";
-  // screenNameMap[SCREEN_TIME] = "Time";
-  // screenNameMap[SCREEN_HALVING_COUNTDOWN] = "Halving countdown";
-  // screenNameMap[SCREEN_MARKET_CAP] = "Market Cap";
+  addScreenMapping(SCREEN_BITCOIN_SUPPLY, "Bitcoin Supply");
 
   // addCurrencyMappings(getActiveCurrencies());
 

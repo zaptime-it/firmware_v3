@@ -283,6 +283,46 @@ std::array<std::string, NUM_SCREENS> parseHalvingCountdown(std::uint32_t blockHe
     return ret;
 }
 
+std::array<std::string, NUM_SCREENS> parseBitcoinSupply(std::uint32_t blockHeight, bool bigChars)
+{
+    std::array<std::string, NUM_SCREENS> ret;
+
+    ret[0] = "BTC/SUPPLY";
+
+    if (bigChars)
+    {
+        std::string supplyString = formatNumberWithSuffix(getSupplyAtBlock(blockHeight), (NUM_SCREENS - 2));
+        supplyString.insert(supplyString.begin(), NUM_SCREENS - supplyString.length(), ' ');
+
+        for (std::uint32_t i = 1; i < NUM_SCREENS; i++)
+        {
+            ret[i] = supplyString[i];
+        }
+    }
+    else
+    {
+        std::string supplyString = std::to_string(static_cast<uint64_t>(getSupplyAtBlock(blockHeight)));
+        size_t supplyLength = supplyString.length();
+        size_t leadingSpaces = (3 - supplyLength % 3) % 3;
+        supplyString = std::string(leadingSpaces, ' ') + supplyString;
+        std::uint32_t groups = (supplyLength + leadingSpaces) / 3;
+
+        std::uint32_t firstIndex = 1;
+
+        for (int i = firstIndex; i < NUM_SCREENS - groups - 1; i++)
+        {
+            ret[i] = "";
+        }
+
+        ret[NUM_SCREENS - groups - 1] = std::string(" ");
+        for (std::uint32_t i = 0; i < groups; i++)
+        {
+            ret[(NUM_SCREENS - groups + i)] = supplyString.substr(i * 3, 3).c_str();
+        }
+    }
+    return ret;
+}
+
 std::array<std::string, NUM_SCREENS> parseMarketCap(std::uint32_t blockHeight, std::uint32_t price, char currencySymbol, bool bigChars)
 {
     std::array<std::string, NUM_SCREENS> ret;
@@ -375,6 +415,11 @@ emscripten::val parseMarketCapArray(std::uint32_t blockHeight, std::uint32_t pri
     return arrayToStringArray(parseMarketCap(blockHeight, price, currencySymbol[0], bigChars));
 }
 
+emscripten::val parseBitcoinSupplyArray(std::uint32_t blockHeight, bool bigChars)
+{
+    return arrayToStringArray(parseBitcoinSupply(blockHeight, bigChars));
+}
+
 emscripten::val parseBlockFeesArray(float blockFees)
 {
     return arrayToStringArray(parseBlockFees(blockFees));
@@ -392,6 +437,7 @@ EMSCRIPTEN_BINDINGS(my_module)
     emscripten::function("parseBlockHeight", &parseBlockHeightArray);
     emscripten::function("parseHalvingCountdown", &parseHalvingCountdownArray);
     emscripten::function("parseMarketCap", &parseMarketCapArray);
+    emscripten::function("parseBitcoinSupply", &parseBitcoinSupplyArray);
     emscripten::function("parseBlockFees", &parseBlockFeesArray);
     emscripten::function("parseSatsPerCurrency", &parseSatsPerCurrencyArray);
     emscripten::function("parsePriceData", &parsePriceDataArray);

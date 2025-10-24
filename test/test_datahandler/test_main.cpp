@@ -285,6 +285,33 @@ void test_Mcap1TrillionJpySmallChars(void)
     TEST_ASSERT_EQUAL_STRING("000", output[NUM_SCREENS - 1].c_str());
 }
 
+void test_BitcoinSupply(void)
+{
+    std::array<std::string, NUM_SCREENS> output = parseBitcoinSupply(831000, true);
+
+    std::string joined = joinArrayWithBrackets(output);
+
+    TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 4].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 3].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("6", output[NUM_SCREENS - 2].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+}
+
+void test_BitcoinSupplySmallChars(void)
+{
+    std::array<std::string, NUM_SCREENS> output = parseBitcoinSupply(655987, false);
+
+    std::string joined = joinArrayWithBrackets(output);
+
+    TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE(" 18", output[NUM_SCREENS - 3].c_str(), joined.c_str());
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("537", output[NUM_SCREENS - 2].c_str(), joined.c_str());
+    // TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 3].c_str(), joined.c_str());
+    // TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 2].c_str(), joined.c_str());
+    // TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+}
+
 // not needed when using generate_test_runner.rb
 int runUnityTests(void)
 {
@@ -309,6 +336,8 @@ int runUnityTests(void)
     RUN_TEST(test_PriceSuffixModeCompact2);
     RUN_TEST(test_PriceSuffixModeMow);
     RUN_TEST(test_PriceSuffixModeMowCompact);
+    RUN_TEST(test_BitcoinSupply);
+    RUN_TEST(test_BitcoinSupplySmallChars);
 
     return UNITY_END();
 }

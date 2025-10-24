@@ -23,6 +23,7 @@ void ScreenHandler::setCurrentScreen(uint newScreen) {
             xQueueSend(workQueue, &timeUpdate, portMAX_DELAY);
             break;
         }
+        case SCREEN_BITCOIN_SUPPLY:
         case SCREEN_HALVING_COUNTDOWN:
         case SCREEN_BLOCK_HEIGHT: {
             WorkItem blockUpdate = {TASK_BLOCK_UPDATE, 0};
@@ -271,16 +272,20 @@ void workerTask(void *pvParameters) {
                     break;
                 }
                 case TASK_BLOCK_UPDATE: {
-                    if (currentScreenValue != SCREEN_HALVING_COUNTDOWN) {
+                    if (currentScreenValue == SCREEN_BITCOIN_SUPPLY) {
                         auto& blockNotify = BlockNotify::getInstance();
-                        taskEpdContent = parseBlockHeight(blockNotify.getBlockHeight());
-                    } else {
+                        taskEpdContent = parseBitcoinSupply(blockNotify.getBlockHeight(), preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR));
+                    } else if (currentScreenValue == SCREEN_HALVING_COUNTDOWN) {
                         auto& blockNotify = BlockNotify::getInstance();
                         taskEpdContent = parseHalvingCountdown(blockNotify.getBlockHeight(), preferences.getBool("useBlkCountdown", DEFAULT_USE_BLOCK_COUNTDOWN));
+                    } else {
+                        auto& blockNotify = BlockNotify::getInstance();
+                        taskEpdContent = parseBlockHeight(blockNotify.getBlockHeight());
                     }
 
                     if (currentScreenValue == SCREEN_HALVING_COUNTDOWN ||
-                        currentScreenValue == SCREEN_BLOCK_HEIGHT) {
+                        currentScreenValue == SCREEN_BLOCK_HEIGHT ||
+                        currentScreenValue == SCREEN_BITCOIN_SUPPLY) {
                         EPDManager::getInstance().setContent(taskEpdContent);
                     }
                     break;
