@@ -20,7 +20,7 @@ static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOn
                                                    "nostrZapNotify", "httpAuthEnabled",
                                                    "enableDebugLog", "ceDisableSSL", "dndEnabled", 
                                                    "dndTimeBasedEnabled", "scrnRestoreZap", "blockFeeDec",
-                                                   "supplyPercent"};
+                                                   "supplyPercent", "refrScrnChange"};
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -742,7 +742,8 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["blockFeeDec"] = preferences.getBool("blockFeeDec", DEFAULT_BLOCK_FEE_DECIMALS);
   root["blockFlashColor"] = preferences.getUInt("blockFlashColor", DEFAULT_BLOCK_FLASH_COLOR);
   root["supplyPercent"] = preferences.getBool("supplyPercent", DEFAULT_SUPPLY_PERCENT);
-  
+  root["refrScrnChange"] = preferences.getBool("refrScrnChange", DEFAULT_REFRESH_ON_SCREEN_CHANGE);
+
   root["suffixShareDot"] = preferences.getBool("suffixShareDot", DEFAULT_SUFFIX_SHARE_DOT);
   root["enableDebugLog"] = preferences.getBool("enableDebugLog", DEFAULT_ENABLE_DEBUG_LOG);
 

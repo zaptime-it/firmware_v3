@@ -90,6 +90,7 @@
 #define DEFAULT_BLOCK_FEE_DECIMALS true
 #define DEFAULT_BLOCK_FLASH_COLOR 0xE04300
 #define DEFAULT_SUPPLY_PERCENT false
+#define DEFAULT_REFRESH_ON_SCREEN_CHANGE false
 
 // Define data source types
 enum DataSourceType {

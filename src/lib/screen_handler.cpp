@@ -15,6 +15,11 @@ void ScreenHandler::setCurrentScreen(uint newScreen) {
     if (newScreen != SCREEN_CUSTOM) {
         preferences.putUInt("currentScreen", newScreen);
     }
+
+    if (currentScreen != newScreen && preferences.getBool("refrScrnChange", DEFAULT_REFRESH_ON_SCREEN_CHANGE)) {
+        EPDManager::getInstance().forceFullRefresh();
+    }
+
     currentScreen = newScreen;
 
     switch (currentScreen) {
