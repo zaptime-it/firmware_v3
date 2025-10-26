@@ -274,7 +274,7 @@ void workerTask(void *pvParameters) {
                 case TASK_BLOCK_UPDATE: {
                     if (currentScreenValue == SCREEN_BITCOIN_SUPPLY) {
                         auto& blockNotify = BlockNotify::getInstance();
-                        taskEpdContent = parseBitcoinSupply(blockNotify.getBlockHeight(), preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR));
+                        taskEpdContent = parseBitcoinSupply(blockNotify.getBlockHeight(), preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR), preferences.getBool("supplyPercent", DEFAULT_SUPPLY_PERCENT));
                     } else if (currentScreenValue == SCREEN_HALVING_COUNTDOWN) {
                         auto& blockNotify = BlockNotify::getInstance();
                         taskEpdContent = parseHalvingCountdown(blockNotify.getBlockHeight(), preferences.getBool("useBlkCountdown", DEFAULT_USE_BLOCK_COUNTDOWN));

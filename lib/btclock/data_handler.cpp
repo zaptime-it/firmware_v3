@@ -283,12 +283,34 @@ std::array<std::string, NUM_SCREENS> parseHalvingCountdown(std::uint32_t blockHe
     return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseBitcoinSupply(std::uint32_t blockHeight, bool bigChars)
+std::array<std::string, NUM_SCREENS> parseBitcoinSupply(std::uint32_t blockHeight, bool bigChars, bool showPercentage)
 {
     std::array<std::string, NUM_SCREENS> ret;
 
     ret[0] = "BTC/SUPPLY";
 
+
+    if (showPercentage)
+    {
+        double supplyPercentage = round((getSupplyAtBlock(blockHeight) / 20999999.9769) * 10000) / 100.0;
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2) << supplyPercentage << "%";
+        std::string supplyPercentageString = oss.str();
+        if (supplyPercentageString.length() < NUM_SCREENS) {
+            supplyPercentageString.insert(supplyPercentageString.begin(),
+               NUM_SCREENS - supplyPercentageString.length(), ' ');
+        }
+        
+        for (std::uint32_t i = 1; i < NUM_SCREENS; i++)
+        {
+            ret[i] = supplyPercentageString[i];
+        }
+
+        ret[NUM_SCREENS - 1] = " % ";
+
+        return ret;
+    }
+    
     if (bigChars)
     {
         std::string supplyString = formatNumberWithSuffix(getSupplyAtBlock(blockHeight), (NUM_SCREENS - 2));
@@ -415,9 +437,9 @@ emscripten::val parseMarketCapArray(std::uint32_t blockHeight, std::uint32_t pri
     return arrayToStringArray(parseMarketCap(blockHeight, price, currencySymbol[0], bigChars));
 }
 
-emscripten::val parseBitcoinSupplyArray(std::uint32_t blockHeight, bool bigChars)
+emscripten::val parseBitcoinSupplyArray(std::uint32_t blockHeight, bool bigChars, bool showPercentage)
 {
-    return arrayToStringArray(parseBitcoinSupply(blockHeight, bigChars));
+    return arrayToStringArray(parseBitcoinSupply(blockHeight, bigChars, showPercentage));
 }
 
 emscripten::val parseBlockFeesArray(float blockFees)
