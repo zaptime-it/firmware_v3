@@ -79,6 +79,10 @@ void ButtonHandler::handleButtonRelease(int buttonIndex) {
 }
 
 void ButtonHandler::handleSingleClick(int buttonIndex) {
+    if (preferences.getBool("inverseButtons", DEFAULT_INVERSE_BUTTONS)) {
+        buttonIndex = 3 - buttonIndex;
+    }
+
     switch (buttonIndex) {
         case 0:
             toggleTimerActive();

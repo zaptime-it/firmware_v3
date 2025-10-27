@@ -91,6 +91,7 @@
 #define DEFAULT_BLOCK_FLASH_COLOR 0xE04300
 #define DEFAULT_SUPPLY_PERCENT false
 #define DEFAULT_REFRESH_ON_SCREEN_CHANGE false
+#define DEFAULT_INVERSE_BUTTONS false
 
 // Define data source types
 enum DataSourceType {
