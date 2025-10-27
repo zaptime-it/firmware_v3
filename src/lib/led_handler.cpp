@@ -657,7 +657,7 @@ void LedHandler::initializeFrontlight() {
         Serial.println(F("FL driver error"));
         return;
     }
-    flArray.setFrequency(200);
+    flArray.setFrequency(1200, 4);
     Serial.println(F("FL driver active"));
 
     if (!preferences.isKey("flMaxBrightness"))
