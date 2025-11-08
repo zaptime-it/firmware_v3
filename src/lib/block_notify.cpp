@@ -195,6 +195,13 @@ void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
         return;
     }
 
+    if (newBlockHeight - currentBlockHeight > 100)
+    {
+        // Old block height is too far behind, update it but don't notify
+        setBlockHeight(newBlockHeight);
+        return;
+    }
+
     currentBlockHeight = newBlockHeight;
     lastBlockUpdate = esp_timer_get_time() / 1000000;
 
@@ -207,6 +214,12 @@ void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
     if (ScreenHandler::getCurrentScreen() != SCREEN_BLOCK_HEIGHT &&
         preferences.getBool("stealFocus", DEFAULT_STEAL_FOCUS))
     {
+        if (ScreenHandler::getCurrentScreen() == SCREEN_CUSTOM)
+        {
+            // Don't steal focus from custom screen
+            return;
+        }
+
         uint64_t timerPeriod = 0;
         if (isTimerActive())
         {
