@@ -50,9 +50,13 @@ namespace V2Notify
         switch (type)
         {
         case WStype_DISCONNECTED:
-            Serial.printf("[WSc] Disconnected! (%d)\n", disconnectCount);
-            getLedHandler().queueEffect(LED_DATA_BLOCK_ERROR);
             disconnectCount++;
+
+            Serial.printf("[WSc] Disconnected! (%d)\n", disconnectCount);
+            if (disconnectCount > 1)
+            {
+                getLedHandler().queueEffect(LED_DATA_BLOCK_ERROR);
+            }
 
             if (disconnectCount > 20) 
             {
