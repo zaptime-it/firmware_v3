@@ -14,6 +14,7 @@ namespace V2Notify {
     void setupV2NotifyTask();
     void taskV2Notify(void *pvParameters);
 
+    void restartV2Notify();
     void setupV2Notify();
     void onWebsocketV2Event(WStype_t type, uint8_t * payload, size_t length);
     void handleV2Message(JsonDocument doc);

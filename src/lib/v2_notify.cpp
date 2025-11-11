@@ -11,6 +11,7 @@ namespace V2Notify
     String currentHostname;
 
     bool blockFeeDecimals = DEFAULT_BLOCK_FEE_DECIMALS;
+    uint disconnectCount = 0;
 
     void setupV2Notify()
     {
@@ -49,7 +50,17 @@ namespace V2Notify
         switch (type)
         {
         case WStype_DISCONNECTED:
-            Serial.print(F("[WSc] Disconnected!\n"));
+            Serial.printf("[WSc] Disconnected! (%d)\n", disconnectCount);
+            getLedHandler().queueEffect(LED_DATA_BLOCK_ERROR);
+            disconnectCount++;
+
+            if (disconnectCount > 20) 
+            {
+                Serial.println(F("Disconnected too many times, rebooting device"));
+                noInterrupts();
+                esp_restart();
+                interrupts();
+            }
             break;
         case WStype_CONNECTED:
         {
@@ -58,6 +69,7 @@ namespace V2Notify
             Serial.print(F(": "));
             Serial.println((char *)payload);
 
+            disconnectCount = 0;
             JsonDocument response;
 
             response["type"] = "subscribe";
@@ -180,8 +192,19 @@ namespace V2Notify
         }
     }
 
+    void restartV2Notify()
+    {
+        webSocket.disconnect();
+        setupV2NotifyTask();
+    }
+
     void setupV2NotifyTask()
     {
+        if (V2Notify::v2NotifyTaskHandle != NULL)
+        {
+            vTaskDelete(V2Notify::v2NotifyTaskHandle);
+            V2Notify::v2NotifyTaskHandle = NULL;
+        }
         xTaskCreate(V2Notify::taskV2Notify, "v2Notify", (6 * 1024), NULL, tskIDLE_PRIORITY,
                     &V2Notify::v2NotifyTaskHandle);
     }

@@ -939,8 +939,15 @@ void onApiRestartDataSources(AsyncWebServerRequest *request)
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
 
-  restartPriceNotify();
-  BlockNotify::getInstance().restart();
+  if (getDataSource() == BTCLOCK_SOURCE || getDataSource() == CUSTOM_SOURCE)
+  {
+    V2Notify::restartV2Notify();
+  }
+  else if (getDataSource() == THIRD_PARTY_SOURCE)
+  {
+    BlockNotify::getInstance().restart();
+    restartPriceNotify();
+  }
 
   request->send(response);
 }
