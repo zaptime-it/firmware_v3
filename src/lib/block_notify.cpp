@@ -195,20 +195,21 @@ void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
         return;
     }
 
-    if (newBlockHeight - currentBlockHeight > 100)
-    {
-        // Old block height is too far behind, update it but don't notify
-        setBlockHeight(newBlockHeight);
-        return;
-    }
-
-    currentBlockHeight = newBlockHeight;
     lastBlockUpdate = esp_timer_get_time() / 1000000;
+    uint32_t oldBlockHeight = currentBlockHeight;
+    currentBlockHeight = newBlockHeight;
 
     if (workQueue != nullptr)
     {
         WorkItem blockUpdate = {TASK_BLOCK_UPDATE, 0};
         xQueueSend(workQueue, &blockUpdate, portMAX_DELAY);
+    }
+
+    if (newBlockHeight - oldBlockHeight > 100)
+    {
+        // Old block height is too far behind, update it but don't steal focus or flash LED
+        preferences.putUInt("blockHeight", newBlockHeight);
+        return;
     }
 
     if (ScreenHandler::getCurrentScreen() != SCREEN_BLOCK_HEIGHT &&
@@ -234,6 +235,8 @@ void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
         }
         vTaskDelay(pdMS_TO_TICKS(315*NUM_SCREENS)); // Extra delay because of screen switching
     }
+
+    
 
     if (preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD))
     {
