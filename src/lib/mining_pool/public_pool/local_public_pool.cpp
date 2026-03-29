@@ -3,7 +3,7 @@
 #include "lib/defaults.hpp"
 
 std::string LocalPublicPool::getEndpoint() const {
-    return preferences.getString("localPoolEndpoint", DEFAULT_LOCAL_POOL_ENDPOINT).c_str();
+    return preferences.getString("localPoolHost", DEFAULT_LOCAL_POOL_ENDPOINT).c_str();
 }
 
 std::string LocalPublicPool::getApiUrl() const {

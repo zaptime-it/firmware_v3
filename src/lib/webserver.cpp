@@ -5,7 +5,7 @@
 static const char* JSON_CONTENT = "application/json";
 
 static const char *const PROGMEM strSettings[] = {
-    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName", "localPoolEndpoint", "tzString"};
+    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName", "localPoolHost", "tzString"};
 
 static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout", "blockFlashColor"};
 
@@ -19,7 +19,7 @@ static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOn
                                                    "miningPoolStats", "verticalDesc",
                                                    "nostrZapNotify", "httpAuthEnabled",
                                                    "enableDebugLog", "ceDisableSSL", "dndEnabled", 
-                                                   "dndTimeBasedEnabled", "scrnRestoreZap", "blockFeeDec",
+                                                   "dndTimeEnabled", "scrnRestoreZap", "blockFeeDec",
                                                    "supplyPercent", "refrScrnChange", "inverseButtons"};
 
 AsyncWebServer server(80);
@@ -274,7 +274,7 @@ JsonDocument getStatusObject()
 
   // Add DND status
   root["dnd"]["enabled"] = ledHandler.isDNDEnabled();
-  root["dnd"]["timeBasedEnabled"] = ledHandler.isDNDTimeBasedEnabled();
+  root["dnd"]["dndTimeEnabled"] = ledHandler.isDNDTimeBasedEnabled();
   root["dnd"]["startTime"] = String(ledHandler.getDNDStartHour()) + ":" + 
                            (ledHandler.getDNDStartMinute() < 10 ? "0" : "") + String(ledHandler.getDNDStartMinute());
   root["dnd"]["endTime"] = String(ledHandler.getDNDEndHour()) + ":" + 
@@ -619,19 +619,13 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     settingsChanged = true;
   }
 
-  if (settings["customEndpointDisableSSL"].is<bool>()) {
-    preferences.putBool("customEndpointDisableSSL", settings["customEndpointDisableSSL"].as<bool>());
-    Serial.printf("Setting customEndpointDisableSSL to %d\r\n", settings["customEndpointDisableSSL"].as<bool>());
-    settingsChanged = true;
-  }
-
   // Handle DND settings
   if (settings["dnd"].is<JsonObject>()) {
     JsonObject dndObj = settings["dnd"];
     auto& ledHandler = getLedHandler();
     
-    if (dndObj["timeBasedEnabled"].is<bool>()) {
-      ledHandler.setDNDTimeBasedEnabled(dndObj["timeBasedEnabled"].as<bool>());
+    if (dndObj["dndTimeEnabled"].is<bool>()) {
+      ledHandler.setDNDTimeBasedEnabled(dndObj["dndTimeEnabled"].as<bool>());
     }
     if (dndObj["startHour"].is<uint8_t>() && dndObj["startMinute"].is<uint8_t>() &&
         dndObj["endHour"].is<uint8_t>() && dndObj["endMinute"].is<uint8_t>()) {
@@ -711,7 +705,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["mempoolSecure"] = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE);
   
   // Local pool settings
-  root["localPoolEndpoint"] = preferences.getString("localPoolEndpoint", DEFAULT_LOCAL_POOL_ENDPOINT);
+  root["localPoolHost"] = preferences.getString("localPoolHost", DEFAULT_LOCAL_POOL_ENDPOINT);
   
   // Nostr settings (used for NOSTR_SOURCE or when zapNotify is enabled)
   root["nostrPubKey"] = preferences.getString("nostrPubKey", DEFAULT_NOSTR_NPUB);
@@ -724,7 +718,6 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["availableFonts"] = FontNames::getAvailableFonts();
   // Custom endpoint settings (only used for CUSTOM_SOURCE)
   root["customEndpoint"] = preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
-  root["customEndpointDisableSSL"] = preferences.getBool("customEndpointDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
 
   root["ledTestOnPower"] = preferences.getBool("ledTestOnPower", DEFAULT_LED_TEST_ON_POWER);
   root["ledFlashOnUpd"] = preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD);
@@ -818,7 +811,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   // Add DND settings
   auto& ledHandler = getLedHandler();
   root["dnd"]["enabled"] = ledHandler.isDNDEnabled();
-  root["dnd"]["timeBasedEnabled"] = ledHandler.isDNDTimeBasedEnabled();
+  root["dnd"]["dndTimeEnabled"] = ledHandler.isDNDTimeBasedEnabled();
   root["dnd"]["startHour"] = ledHandler.getDNDStartHour();
   root["dnd"]["startMinute"] = ledHandler.getDNDStartMinute();
   root["dnd"]["endHour"] = ledHandler.getDNDEndHour();
@@ -1199,7 +1192,7 @@ void onApiDNDStatus(AsyncWebServerRequest *request) {
   auto& ledHandler = getLedHandler();
   JsonDocument doc;
   doc["enabled"] = ledHandler.isDNDEnabled();
-  doc["timeBasedEnabled"] = ledHandler.isDNDTimeBasedEnabled();
+  doc["dndTimeEnabled"] = ledHandler.isDNDTimeBasedEnabled();
   doc["startTime"] = String(ledHandler.getDNDStartHour()) + ":" + 
                      (ledHandler.getDNDStartMinute() < 10 ? "0" : "") + String(ledHandler.getDNDStartMinute());
   doc["endTime"] = String(ledHandler.getDNDEndHour()) + ":" + 

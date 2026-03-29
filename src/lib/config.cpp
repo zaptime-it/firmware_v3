@@ -307,8 +307,8 @@ void setupPreferences()
     preferences.putString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
   }
 
-  if (!preferences.isKey("customEndpointDisableSSL")) {
-    preferences.putBool("customEndpointDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
+  if (!preferences.isKey("ceDisableSSL")) {
+    preferences.putBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
   }
 
   // Set currency based on data source
