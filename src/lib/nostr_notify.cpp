@@ -1,5 +1,6 @@
 #include "nostr_notify.hpp"
 #include "led_handler.hpp"
+#include "lib/config.hpp"
 
 std::vector<nostr::NostrPool *> pools;
 nostr::Transport *transport;
@@ -9,6 +10,21 @@ boolean nostrIsSubscribed = false;
 boolean nostrIsSubscribing = true;
 
 String subIdZap;
+
+/** nostr::ConnectionStatus is CONNECTED=0, DISCONNECTED=1, ERROR=2 — do not index a string array by raw int. */
+static const char *nostrConnectionStatusName(nostr::ConnectionStatus status)
+{
+    switch (status) {
+    case nostr::ConnectionStatus::CONNECTED:
+        return "CONNECTED";
+    case nostr::ConnectionStatus::DISCONNECTED:
+        return "DISCONNECTED";
+    case nostr::ConnectionStatus::ERROR:
+        return "ERROR";
+    default:
+        return "UNKNOWN";
+    }
+}
 
 void screenRestoreAfterZapCallback(TimerHandle_t xTimer)
 {
@@ -59,20 +75,27 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
                 );
 
             Serial.println(F("[ Nostr ] Subscribing to Nostr Data Feed"));
+            if (debugLogEnabled())
+            {
+                Serial.printf("[ Nostr ] debug: data subscription subId=%s relay=%s kinds=12203 since=%s author=%s\n",
+                              subId.c_str(), relay.c_str(), String(getMinutesAgo(60)).c_str(), pubKey.c_str());
+            }
         }
 
-        for (nostr::NostrRelay *relay : *relays)
+        for (nostr::NostrRelay *r : *relays)
         {
-            Serial.println("[ Nostr ] Registering to connection events of: " + relay->getUrl());
-            relay->getConnection()->addConnectionStatusListener([](const nostr::ConnectionStatus &status)
-            { 
-                static const char* STATUS_STRINGS[] = {"UNKNOWN", "CONNECTED", "DISCONNECTED", "ERROR"};
-                int statusIndex = static_cast<int>(status);
-                
+            Serial.println("[ Nostr ] Registering to connection events of: " + r->getUrl());
+            r->getConnection()->addConnectionStatusListener([r](const nostr::ConnectionStatus &status)
+            {
                 nostrIsConnected = (status == nostr::ConnectionStatus::CONNECTED);
                 if (!nostrIsConnected) {
                     nostrIsSubscribed = false;
-                }                
+                }
+                if (debugLogEnabled())
+                {
+                    Serial.printf("[ Nostr ] debug: relay %s connection status=%s\n",
+                                  r->getUrl().c_str(), nostrConnectionStatusName(status));
+                }
             });
         }
 
@@ -100,7 +123,10 @@ void nostrTask(void *pvParameters)
             // pending messages
             pool->loop();
             if (!nostrIsSubscribed && !nostrIsSubscribing) {
-                Serial.println(F("Not subscribed"));
+                if (debugLogEnabled())
+                {
+                    Serial.println(F("[ Nostr ] debug: zap subscription lost, resubscribing"));
+                }
                 subscribeZaps(pool, preferences.getString("nostrRelay"), 1);
             }
         }
@@ -123,6 +149,10 @@ void onNostrSubscriptionClosed(const String &subId, const String &reason)
     // This is the callback that will be called when the subscription is
     // closed
     Serial.println("[ Nostr ] Subscription closed: " + reason);
+    if (debugLogEnabled())
+    {
+        Serial.printf("[ Nostr ] debug: subscription closed subId=%s reason=%s\n", subId.c_str(), reason.c_str());
+    }
 }
 
 void onNostrSubscriptionEose(const String &subId)
@@ -212,6 +242,10 @@ time_t getMinutesAgo(int min) {
 
 void subscribeZaps(nostr::NostrPool *pool, const String &relay, int minutesAgo) {
     if (subIdZap) {
+        if (debugLogEnabled())
+        {
+            Serial.printf("[ Nostr ] debug: closing zap subscription subId=%s before resubscribe\n", subIdZap.c_str());
+        }
         pool->closeSubscription(subIdZap);
     }
     nostrIsSubscribing = true;
@@ -250,6 +284,12 @@ void subscribeZaps(nostr::NostrPool *pool, const String &relay, int minutesAgo) 
         onNostrSubscriptionClosed,
         onNostrSubscriptionEose);
     Serial.println("[ Nostr ] Subscribing to Zap Notifications since " + String(getMinutesAgo(minutesAgo)));
+    if (debugLogEnabled())
+    {
+        String zapPubkey = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
+        Serial.printf("[ Nostr ] debug: zap subscription subId=%s relay=%s kinds=9735 since=%s #p=%s\n",
+                      subIdZap.c_str(), relay.c_str(), String(getMinutesAgo(minutesAgo)).c_str(), zapPubkey.c_str());
+    }
 }
 
 void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event) {
