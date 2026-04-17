@@ -12,18 +12,14 @@ std::string OceanPool::getApiUrl() const
 
 PoolStats OceanPool::parseResponse(const JsonDocument &doc) const
 {
-    try
-    {
-        return PoolStats{
-            .hashrate = doc["result"]["hashrate_300s"].as<std::string>(),
-            .dailyEarnings = static_cast<int64_t>(
-                doc["result"]["estimated_earn_next_block"].as<float>() * 100000000)};
-    }
-    catch (const std::exception &e)
-    {
-        Serial.printf("Error parsing %s response: %s\n", getPoolName().c_str(), e.what());
+    if (doc["result"].isNull()) {
         return PoolStats{
             .hashrate = "0",
             .dailyEarnings = std::nullopt};
     }
+
+    return PoolStats{
+        .hashrate = doc["result"]["hashrate_300s"].as<std::string>(),
+        .dailyEarnings = static_cast<int64_t>(
+            doc["result"]["estimated_earn_next_block"].as<float>() * 100000000)};
 }

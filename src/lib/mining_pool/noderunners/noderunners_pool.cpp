@@ -1,6 +1,8 @@
 // src/noderunners/noderunners_pool.cpp
 #include "noderunners_pool.hpp"
 
+#include <cstdlib>
+
 void NoderunnersPool::prepareRequest(HTTPClient &http) const
 {
     // Empty as Noderunners doesn't need special headers
@@ -13,36 +15,29 @@ std::string NoderunnersPool::getApiUrl() const
 
 PoolStats NoderunnersPool::parseResponse(const JsonDocument &doc) const
 {
-    try
-    {
-        std::string hashrateStr = doc["hashrate1m"].as<std::string>();
-        
-        // Special case for "0"
-        if (hashrateStr == "0") {
-            return PoolStats{
-                .hashrate = "0",
-                .dailyEarnings = std::nullopt
-            };
-        }
+    const PoolStats fallback{"0", std::nullopt};
 
-        char unit = hashrateStr.back();
-        std::string value = hashrateStr.substr(0, hashrateStr.size() - 1);
-
-        int multiplier = getHashrateMultiplier(unit);
-        double hashrate = std::stod(value) * std::pow(10, multiplier);
-
-        char buffer[32];
-        snprintf(buffer, sizeof(buffer), "%.0f", hashrate);
-
-        return PoolStats{
-            .hashrate = buffer,
-            .dailyEarnings = std::nullopt};
+    std::string hashrateStr = doc["hashrate1m"].as<std::string>();
+    if (hashrateStr.empty() || hashrateStr == "0") {
+        return fallback;
     }
-    catch (const std::exception &e)
-    {
-        Serial.printf("Error parsing %s response: %s\n", getPoolName().c_str(), e.what());
-        return PoolStats{
-            .hashrate = "0",
-            .dailyEarnings = std::nullopt};
+
+    char unit = hashrateStr.back();
+    std::string value = hashrateStr.substr(0, hashrateStr.size() - 1);
+
+    char *endp = nullptr;
+    double parsed = std::strtod(value.c_str(), &endp);
+    if (endp == value.c_str()) {
+        return fallback;
     }
+
+    int multiplier = getHashrateMultiplier(unit);
+    double hashrate = parsed * std::pow(10, multiplier);
+
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%.0f", hashrate);
+
+    return PoolStats{
+        .hashrate = buffer,
+        .dailyEarnings = std::nullopt};
 }

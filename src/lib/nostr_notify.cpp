@@ -2,6 +2,8 @@
 #include "led_handler.hpp"
 #include "lib/config.hpp"
 
+#include <new>
+
 std::vector<nostr::NostrPool *> pools;
 nostr::Transport *transport;
 TaskHandle_t nostrTaskHandle = NULL;
@@ -43,62 +45,64 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
     // time_t utcNow = mktime(utcTimeInfo);
     // time_t timestamp60MinutesAgo = utcNow - 3600;
 
-    try
+    transport = nostr::esp32::ESP32Platform::getTransport();
+    if (transport == nullptr) {
+        return;
+    }
+    nostr::NostrPool *pool = new (std::nothrow) nostr::NostrPool(transport);
+    if (pool == nullptr) {
+        return;
+    }
+    String relay = preferences.getString("nostrRelay");
+    String pubKey = preferences.getString("nostrPubKey");
+    pools.push_back(pool);
+
+    std::vector<nostr::NostrRelay *> *relays = pool->getConnectedRelays();
+
+    if (zapNotify)
     {
-        transport = nostr::esp32::ESP32Platform::getTransport();
-        nostr::NostrPool *pool = new nostr::NostrPool(transport);
-        String relay = preferences.getString("nostrRelay");
-        String pubKey = preferences.getString("nostrPubKey");
-        pools.push_back(pool);
+        subscribeZaps(pool, relay, 60);
+    }
 
-        std::vector<nostr::NostrRelay *> *relays = pool->getConnectedRelays();
-       
-        if (zapNotify)
+    if (asDatasource)
+    {
+        String subId = pool->subscribeMany(
+            {relay},
+            {// First filter
+             {
+                 {"kinds", {"12203"}},
+                 {"since", {String(getMinutesAgo(60))}},
+                 {"authors", {pubKey}},
+             }},
+            handleNostrEventCallback,
+            onNostrSubscriptionClosed,
+            onNostrSubscriptionEose);
+
+        if (debugLogEnabled())
         {
-            subscribeZaps(pool, relay, 60);
+            Serial.printf("[ Nostr ] debug: data subscription subId=%s relay=%s kinds=12203 since=%s author=%s\n",
+                          subId.c_str(), relay.c_str(), String(getMinutesAgo(60)).c_str(), pubKey.c_str());
         }
+    }
 
-        if (asDatasource)
+    if (relays == nullptr) {
+        return;
+    }
+
+    for (nostr::NostrRelay *r : *relays)
+    {
+        r->getConnection()->addConnectionStatusListener([r](const nostr::ConnectionStatus &status)
         {
-            String subId = pool->subscribeMany(
-                {relay},
-                {// First filter
-                 {
-                     {"kinds", {"12203"}},
-                     {"since", {String(getMinutesAgo(60))}},
-                     {"authors", {pubKey}},
-                 }},
-                handleNostrEventCallback,
-                onNostrSubscriptionClosed,
-                onNostrSubscriptionEose
-                );
-
+            nostrIsConnected = (status == nostr::ConnectionStatus::CONNECTED);
+            if (!nostrIsConnected) {
+                nostrIsSubscribed = false;
+            }
             if (debugLogEnabled())
             {
-                Serial.printf("[ Nostr ] debug: data subscription subId=%s relay=%s kinds=12203 since=%s author=%s\n",
-                              subId.c_str(), relay.c_str(), String(getMinutesAgo(60)).c_str(), pubKey.c_str());
+                Serial.printf("[ Nostr ] debug: relay %s connection status=%s\n",
+                              r->getUrl().c_str(), nostrConnectionStatusName(status));
             }
-        }
-
-        for (nostr::NostrRelay *r : *relays)
-        {
-            r->getConnection()->addConnectionStatusListener([r](const nostr::ConnectionStatus &status)
-            {
-                nostrIsConnected = (status == nostr::ConnectionStatus::CONNECTED);
-                if (!nostrIsConnected) {
-                    nostrIsSubscribed = false;
-                }
-                if (debugLogEnabled())
-                {
-                    Serial.printf("[ Nostr ] debug: relay %s connection status=%s\n",
-                                  r->getUrl().c_str(), nostrConnectionStatusName(status));
-                }
-            });
-        }
-
-    }
-    catch (const std::exception &e)
-    {
+        });
     }
 }
 

@@ -10,19 +10,10 @@ PoolStats PublicPool::parseResponse(const JsonDocument &doc) const
 {
     uint64_t totalHashrate = 0;
 
-    try
+    JsonArrayConst workers = doc["workers"].as<JsonArrayConst>();
+    for (JsonVariantConst worker : workers)
     {
-        for (JsonVariantConst worker : doc["workers"].as<JsonArrayConst>())
-        {
-            totalHashrate += static_cast<uint64_t>(std::llround(worker["hashRate"].as<double>()));
-        }
-    }
-    catch (const std::exception &e)
-    {
-        Serial.printf("Error parsing %s response: %s\n", getPoolName().c_str(), e.what());
-        return PoolStats{
-            .hashrate = "0",
-            .dailyEarnings = std::nullopt};
+        totalHashrate += static_cast<uint64_t>(std::llround(worker["hashRate"].as<double>()));
     }
 
     return PoolStats{
