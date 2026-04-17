@@ -1,5 +1,7 @@
 #include "led_handler.hpp"
 
+#include <dnd_window.hpp>
+
 // Singleton instance
 LedHandler& LedHandler::getInstance() {
     static LedHandler instance;
@@ -482,15 +484,14 @@ void LedHandler::setDNDTimeRange(uint8_t startHour, uint8_t startMinute, uint8_t
 }
 
 bool LedHandler::isTimeInDNDRange(uint8_t hour, uint8_t minute) const {
-    uint16_t currentTime = hour * 60 + minute;
-    uint16_t startTime = dndTimeRange.startHour * 60 + dndTimeRange.startMinute;
-    uint16_t endTime = dndTimeRange.endHour * 60 + dndTimeRange.endMinute;
-    
-    if (startTime <= endTime) {
-        return currentTime >= startTime && currentTime < endTime;
-    } else {
-        return currentTime >= startTime || currentTime < endTime;
-    }
+    // Delegates to the pure helper in lib/btclock/dnd_window.hpp so the
+    // same algebra is exercised by the native unit tests (which can't
+    // link the whole LedHandler because of its Arduino/NeoPixel deps).
+    return btclock::isTimeInDNDRange(hour, minute,
+                                     dndTimeRange.startHour,
+                                     dndTimeRange.startMinute,
+                                     dndTimeRange.endHour,
+                                     dndTimeRange.endMinute);
 }
 
 bool LedHandler::isDNDActive() const {

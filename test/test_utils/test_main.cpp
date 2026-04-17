@@ -48,6 +48,48 @@ void test_FormatNumberWithSuffix_Billion(void)
     TEST_ASSERT_EQUAL_STRING_MESSAGE("1.5B", out.c_str(), out.c_str());
 }
 
+void test_FormatNumberWithSuffix_Trillion(void)
+{
+    // 2.5T -> 4-char output.
+    std::string out = formatNumberWithSuffix(2500000000000ULL, 4, false);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("2.5T", out.c_str(), out.c_str());
+}
+
+void test_FormatNumberWithSuffix_Quadrillion(void)
+{
+    // 3Q at the numCharacters=2 cap -> no decimals fit.
+    std::string out = formatNumberWithSuffix(3000000000000000ULL, 2, false);
+    TEST_ASSERT_EQUAL_STRING_MESSAGE("3Q", out.c_str(), out.c_str());
+}
+
+void test_FormatNumberWithSuffix_MowMode_SubThousand(void)
+{
+    // mowMode forces million-scale even for small numbers.
+    std::string out = formatNumberWithSuffix(500, 4, true);
+    TEST_ASSERT_FALSE_MESSAGE(out.empty(), out.c_str());
+    TEST_ASSERT_MESSAGE(out.back() == 'M', out.c_str());
+}
+
+void test_FormatNumberWithSuffix_MowMode_OverThousand(void)
+{
+    // 5 000 -> 0.005M in mowMode at 6 chars.
+    std::string out = formatNumberWithSuffix(5000, 6, true);
+    TEST_ASSERT_FALSE_MESSAGE(out.empty(), out.c_str());
+    TEST_ASSERT_MESSAGE(out.back() == 'M', out.c_str());
+}
+
+void test_FormatNumberWithSuffix_ThreadSafeBuffer_NoAliasing(void)
+{
+    // Regression: the implementation used to return a std::string that
+    // aliased a function-local static char[]; calling it twice produced two
+    // std::strings that both pointed at the same buffer, so whichever call
+    // came second silently clobbered the first one's contents.
+    std::string a = formatNumberWithSuffix(1500000ULL, 4, false);  // "1.5M"
+    std::string b = formatNumberWithSuffix(2500000000ULL, 4, false);  // "2.5B"
+    TEST_ASSERT_EQUAL_STRING("1.5M", a.c_str());
+    TEST_ASSERT_EQUAL_STRING("2.5B", b.c_str());
+}
+
 // ---------------------------------------------------------------------------
 // getHashrateMultiplier / getDifficultyMultiplier
 // ---------------------------------------------------------------------------
@@ -150,6 +192,31 @@ void test_GetAmountInSatoshis_Invalid(void)
     TEST_ASSERT_EQUAL_INT64(-1, getAmountInSatoshis("no-digits-here"));
 }
 
+void test_GetAmountInSatoshis_Micro(void)
+{
+    // 1u BTC = 0.000001 BTC = 100 sats
+    TEST_ASSERT_EQUAL_INT64(100, getAmountInSatoshis("lnbc1u..."));
+}
+
+void test_GetAmountInSatoshis_Nano(void)
+{
+    // 100n BTC -> 100 / 10 = 10 sats under the parser's integer maths.
+    TEST_ASSERT_EQUAL_INT64(10, getAmountInSatoshis("lnbc100n..."));
+}
+
+void test_GetAmountInSatoshis_Pico(void)
+{
+    // 10000p BTC -> 10000 / 10000 = 1 sat.
+    TEST_ASSERT_EQUAL_INT64(1, getAmountInSatoshis("lnbc10000p..."));
+}
+
+void test_GetAmountInSatoshis_UnknownSuffix(void)
+{
+    // "x" is not a BOLT-11 multiplier; must fall back to -1 instead of
+    // silently miscounting as sats.
+    TEST_ASSERT_EQUAL_INT64(-1, getAmountInSatoshis("lnbc100x..."));
+}
+
 // ---------------------------------------------------------------------------
 // getSupplyAtBlock
 // ---------------------------------------------------------------------------
@@ -176,6 +243,11 @@ int runUnityTests(void)
     RUN_TEST(test_FormatNumberWithSuffix_Thousand);
     RUN_TEST(test_FormatNumberWithSuffix_Million);
     RUN_TEST(test_FormatNumberWithSuffix_Billion);
+    RUN_TEST(test_FormatNumberWithSuffix_Trillion);
+    RUN_TEST(test_FormatNumberWithSuffix_Quadrillion);
+    RUN_TEST(test_FormatNumberWithSuffix_MowMode_SubThousand);
+    RUN_TEST(test_FormatNumberWithSuffix_MowMode_OverThousand);
+    RUN_TEST(test_FormatNumberWithSuffix_ThreadSafeBuffer_NoAliasing);
     RUN_TEST(test_GetHashrateMultiplier_Known);
     RUN_TEST(test_GetHashrateMultiplier_Unknown);
     RUN_TEST(test_GetDifficultyMultiplier_Known);
@@ -186,6 +258,10 @@ int runUnityTests(void)
     RUN_TEST(test_ParseHashrateString_Huge);
     RUN_TEST(test_GetAmountInSatoshis_Milli);
     RUN_TEST(test_GetAmountInSatoshis_Invalid);
+    RUN_TEST(test_GetAmountInSatoshis_Micro);
+    RUN_TEST(test_GetAmountInSatoshis_Nano);
+    RUN_TEST(test_GetAmountInSatoshis_Pico);
+    RUN_TEST(test_GetAmountInSatoshis_UnknownSuffix);
     RUN_TEST(test_GetSupplyAtBlock_Genesis);
     RUN_TEST(test_GetSupplyAtBlock_Cap);
     return UNITY_END();
