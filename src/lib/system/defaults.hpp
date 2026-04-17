@@ -60,6 +60,7 @@
 #define DEFAULT_BITAXE_HOSTNAME "bitaxe1"
 
 #define DEFAULT_MINING_POOL_STATS_ENABLED false
+#define DEFAULT_POOL_GLOBAL_STATS false
 #define DEFAULT_MINING_POOL_NAME "ocean"
 #define DEFAULT_MINING_POOL_USER "38Qkkei3SuF1Eo45BaYmRHUneRD54yyTFy"  // Random actual Ocean hasher
 #define DEFAULT_LOCAL_POOL_ENDPOINT "umbrel.local:2019"

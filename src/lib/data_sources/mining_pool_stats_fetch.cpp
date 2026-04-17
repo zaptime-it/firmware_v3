@@ -49,7 +49,12 @@ void MiningPoolStatsFetch::task() {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
         poolInterface->setPoolUser(poolUser);
-        std::string apiUrl = poolInterface->getApiUrl();
+
+        const bool useGlobal =
+            preferences.getBool("poolGlobalStats", DEFAULT_POOL_GLOBAL_STATS) &&
+            poolInterface->supportsGlobalStats();
+        std::string apiUrl = useGlobal ? poolInterface->getGlobalStatsUrl()
+                                       : poolInterface->getApiUrl();
 
         auto http = HttpHelper::beginScoped(apiUrl.c_str());
         if (!http) continue;

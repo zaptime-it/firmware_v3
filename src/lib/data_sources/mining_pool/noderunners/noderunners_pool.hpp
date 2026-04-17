@@ -11,6 +11,8 @@ public:
     void prepareRequest(HTTPClient& http) const override;
     std::string getApiUrl() const override;
     PoolStats parseResponse(const JsonDocument& doc) const override;
+    bool supportsGlobalStats() const override { return true; }
+    std::string getGlobalStatsUrl() const override;
     bool supportsDailyEarnings() const override { return false; }
     std::string getDailyEarningsLabel() const override { return ""; }
     bool hasLogo() const override { return true; }

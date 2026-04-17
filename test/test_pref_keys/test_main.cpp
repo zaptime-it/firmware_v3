@@ -105,6 +105,7 @@ constexpr PrefKeyEntry kAllKeys[] = {
     PK(NostrZapPubkeys_Legacy),
     PK(OtaEnabled),
     PK(OtaPass),
+    PK(PoolGlobalStats),
     PK(PoolLogosUrl),
     PK(RefrScrnChange),
     PK(ScrnRestoreZap),
@@ -137,7 +138,7 @@ static constexpr size_t kNvsMaxKeyLen = 15;
 // If the header grows and the test table doesn't keep pace, or vice versa,
 // we want a loud failure rather than a silently-incomplete test. Bump this
 // number when intentionally adding a new key to both places.
-static constexpr size_t kExpectedNumKeys = 80;
+static constexpr size_t kExpectedNumKeys = 81;
 
 void test_KeyTableMatchesHeader(void)
 {

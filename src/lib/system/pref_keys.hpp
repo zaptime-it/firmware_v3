@@ -90,6 +90,7 @@ inline constexpr const char* NostrZapPubkey     = "nostrZapPubkey";
 inline constexpr const char* NostrZapPubkeys_Legacy = "nostrZapPubkeys";
 inline constexpr const char* OtaEnabled         = "otaEnabled";
 inline constexpr const char* OtaPass            = "otaPass";
+inline constexpr const char* PoolGlobalStats    = "poolGlobalStats";
 inline constexpr const char* PoolLogosUrl       = "poolLogosUrl";
 inline constexpr const char* RefrScrnChange     = "refrScrnChange";
 inline constexpr const char* ScrnRestoreZap     = "scrnRestoreZap";

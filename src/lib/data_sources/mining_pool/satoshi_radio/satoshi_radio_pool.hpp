@@ -9,6 +9,7 @@
 class SatoshiRadioPool : public NoderunnersPool {
 public:
     std::string getApiUrl() const override;
+    std::string getGlobalStatsUrl() const override;
     bool hasLogo() const override { return false; }
     std::string getDisplayLabel() const override { return "SATOSHI/RADIO"; } // Fallback if needed
     // Without this override the pool inherits "noderunners" from the parent

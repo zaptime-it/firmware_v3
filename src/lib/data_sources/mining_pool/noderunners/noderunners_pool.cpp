@@ -13,6 +13,11 @@ std::string NoderunnersPool::getApiUrl() const
     return "https://pool.noderunners.network/api/v1/users/" + poolUser;
 }
 
+std::string NoderunnersPool::getGlobalStatsUrl() const
+{
+    return "https://pool.noderunners.network/api/v1/pool";
+}
+
 PoolStats NoderunnersPool::parseResponse(const JsonDocument &doc) const
 {
     const PoolStats fallback{"0", std::nullopt};

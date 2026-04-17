@@ -32,7 +32,8 @@ static const char *const PROGMEM boolSettings[] = {
     PrefKeys::HttpAuthEnabled, PrefKeys::EnableDebugLog, PrefKeys::CeDisableSSL,
     PrefKeys::DndEnabled, PrefKeys::DndTimeEnabled, PrefKeys::ScrnRestoreZap,
     PrefKeys::BlockFeeDec, PrefKeys::SupplyPercent, PrefKeys::RefrScrnChange,
-    PrefKeys::InverseButtons, PrefKeys::UseMscwTime};
+    PrefKeys::InverseButtons, PrefKeys::UseMscwTime,
+    PrefKeys::PoolGlobalStats};
 
 static void onApiSettingsGet(AsyncWebServerRequest *request)
 {
@@ -99,9 +100,10 @@ static void onApiSettingsGet(AsyncWebServerRequest *request)
   root["bitaxeEnabled"]  = preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED);
   root["bitaxeHostname"] = preferences.getString("bitaxeHostname", DEFAULT_BITAXE_HOSTNAME);
 
-  root["miningPoolStats"] = preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED);
-  root["miningPoolName"]  = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME);
-  root["miningPoolUser"]  = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
+  root["miningPoolStats"]  = preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED);
+  root["miningPoolName"]   = preferences.getString("miningPoolName", DEFAULT_MINING_POOL_NAME);
+  root["miningPoolUser"]   = preferences.getString("miningPoolUser", DEFAULT_MINING_POOL_USER);
+  root["poolGlobalStats"]  = preferences.getBool("poolGlobalStats", DEFAULT_POOL_GLOBAL_STATS);
   root["availablePools"]  = PoolFactory::getAvailablePools();
   root["httpAuthEnabled"] = preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED);
   root["httpAuthUser"]    = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);

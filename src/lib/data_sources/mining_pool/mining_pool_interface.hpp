@@ -22,6 +22,13 @@ public:
     virtual std::string getPoolName() const = 0;
     virtual int getLogoWidth() const { return 0; }
     virtual int getLogoHeight() const { return 0; }
+
+    // Some ckpool-family pools expose a /api/v1/pool endpoint whose JSON
+    // has the same hashrate1m shape as the per-user endpoint. Pools that
+    // implement this can opt in by overriding both methods; the fetch
+    // task will pick the URL based on the poolGlobalStats preference.
+    virtual bool supportsGlobalStats() const { return false; }
+    virtual std::string getGlobalStatsUrl() const { return ""; }
     std::string getLogoUrl() const {
         if (!hasLogo() || getLogoFilename().empty()) {
             return "";
