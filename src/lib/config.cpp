@@ -270,7 +270,6 @@ void syncTime()
     configTime(0, 0,
                NTP_SERVER);
     delay(500);
-    Serial.println(F("Retry set time"));
   }
 
   setTimezone(get_timezone_value_string(timezone_data::find_timezone_value(preferences.getString("tzString", DEFAULT_TZ_STRING))));
@@ -279,7 +278,6 @@ void syncTime()
 }
 
 void setTimezone(String timezone) {
-  Serial.printf("  Setting Timezone to %s\n",timezone.c_str());
   setenv("TZ",timezone.c_str(),1);  //  Now adjust the TZ.  Clock settings are adjusted to show the new local time
   tzset();
 }
@@ -454,16 +452,13 @@ void setupHardware()
 {
   if (!LittleFS.begin(true))
   {
-    Serial.println(F("An Error has occurred while mounting LittleFS"));
   }
 
   if (HW_REV == "REV_B_EPD_2_13" && !isWhiteVersion()) {
-    Serial.println(F("Black Rev B"));
   }
 
   if (!LittleFS.open("/index.html.gz", "r"))
   {
-    Serial.println(F("Error loading WebUI"));
   }
 
   // Initialize LED handler
@@ -473,7 +468,6 @@ void setupHardware()
   WiFi.setHostname(getMyHostname().c_str());
   if (!psramInit())
   {
-    Serial.println(F("PSRAM not available"));
   }
 
   setupMcp();
@@ -481,29 +475,24 @@ void setupHardware()
   Wire.begin(I2C_SDA_PIN, I2C_SCK_PIN, 400000);
 
   if (!mcp1.begin()) {
-    Serial.println(F("Error MCP23017 1"));
   } else {
     pinMode(MCP_INT_PIN, INPUT_PULLUP);
     
     // Enable mirrored interrupts (both INTA and INTB pins signal any interrupt)
     if (!mcp1.mirrorInterrupts(true)) {
-        Serial.println(F("Error setting up mirrored interrupts"));
     }
 
     // Configure all 4 button pins as inputs with pullups and interrupts
     for (int i = 0; i < 4; i++) {
         if (!mcp1.pinMode1(i, INPUT_PULLUP)) {
-            Serial.printf("Error setting pin %d to input pull up\n", i);
         }
         // Enable interrupt on CHANGE for each pin
         if (!mcp1.enableInterrupt(i, CHANGE)) {
-            Serial.printf("Error enabling interrupt for pin %d\n", i);
         }
     }
 
     // Set interrupt pins as open drain with active-low polarity
     if (!mcp1.setInterruptPolarity(2)) { // 2 = Open drain
-        Serial.println(F("Error setting interrupt polarity"));
     }
 
     // Clear any pending interrupts
@@ -518,7 +507,6 @@ void setupHardware()
 #ifdef IS_BTCLOCK_V8
   if (!mcp2.begin())
   {
-    Serial.println(F("Error MCP23017 2"));
 
     // while (1)
     //         ;
@@ -534,13 +522,11 @@ void setupHardware()
 
   if (error == 0)
   {
-    Serial.println(F("Found BH1750"));
     hasLuxSensor = true;
     bh1750.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x5C);
   }
   else
   {
-    Serial.println(F("BH1750 Not found"));
     hasLuxSensor = false;
   }
 #endif
@@ -567,8 +553,6 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
   }
   case ARDUINO_EVENT_WIFI_STA_GOT_IP:
   {
-    Serial.print(F("IP: "));
-    Serial.println(WiFi.localIP());
     if (!first_connect)
       ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_SUCCESS);
     first_connect = false;
@@ -646,7 +630,6 @@ String getFsRev()
   File fsHash = LittleFS.open("/fs_hash.txt", "r");
   if (!fsHash)
   {
-    Serial.println(F("Error loading WebUI"));
   }
 
   String ret = fsHash.readString();

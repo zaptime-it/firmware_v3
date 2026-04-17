@@ -28,7 +28,6 @@ static const char *nostrConnectionStatusName(nostr::ConnectionStatus status)
 
 void screenRestoreAfterZapCallback(TimerHandle_t xTimer)
 {
-    Serial.println("Restoring screen after zap");
     int screenBeforeZap = (int)(uintptr_t)pvTimerGetTimerID(xTimer);
     ScreenHandler::setCurrentScreen(screenBeforeZap);
     xTimerDelete(xTimer, 0);
@@ -74,7 +73,6 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
                 onNostrSubscriptionEose
                 );
 
-            Serial.println(F("[ Nostr ] Subscribing to Nostr Data Feed"));
             if (debugLogEnabled())
             {
                 Serial.printf("[ Nostr ] debug: data subscription subId=%s relay=%s kinds=12203 since=%s author=%s\n",
@@ -84,7 +82,6 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
 
         for (nostr::NostrRelay *r : *relays)
         {
-            Serial.println("[ Nostr ] Registering to connection events of: " + r->getUrl());
             r->getConnection()->addConnectionStatusListener([r](const nostr::ConnectionStatus &status)
             {
                 nostrIsConnected = (status == nostr::ConnectionStatus::CONNECTED);
@@ -102,7 +99,6 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
     }
     catch (const std::exception &e)
     {
-        Serial.println("[ Nostr ] Error: " + String(e.what()));
     }
 }
 
@@ -125,7 +121,6 @@ void nostrTask(void *pvParameters)
             if (!nostrIsSubscribed && !nostrIsSubscribing) {
                 if (debugLogEnabled())
                 {
-                    Serial.println(F("[ Nostr ] debug: zap subscription lost, resubscribing"));
                 }
                 subscribeZaps(pool, preferences.getString("nostrRelay"), 1);
             }
@@ -148,10 +143,8 @@ void onNostrSubscriptionClosed(const String &subId, const String &reason)
 {
     // This is the callback that will be called when the subscription is
     // closed
-    Serial.println("[ Nostr ] Subscription closed: " + reason);
     if (debugLogEnabled())
     {
-        Serial.printf("[ Nostr ] debug: subscription closed subId=%s reason=%s\n", subId.c_str(), reason.c_str());
     }
 }
 
@@ -159,7 +152,6 @@ void onNostrSubscriptionEose(const String &subId)
 {
     // This is the callback that will be called when the subscription is
     // EOSE
-    Serial.println("[ Nostr ] Subscription EOSE: " + subId);
     nostrIsSubscribing = false;
     nostrIsSubscribed = true;
 }
@@ -244,7 +236,6 @@ void subscribeZaps(nostr::NostrPool *pool, const String &relay, int minutesAgo) 
     if (subIdZap) {
         if (debugLogEnabled())
         {
-            Serial.printf("[ Nostr ] debug: closing zap subscription subId=%s before resubscribe\n", subIdZap.c_str());
         }
         pool->closeSubscription(subIdZap);
     }
@@ -283,7 +274,6 @@ void subscribeZaps(nostr::NostrPool *pool, const String &relay, int minutesAgo) 
         handleNostrZapCallback,
         onNostrSubscriptionClosed,
         onNostrSubscriptionEose);
-    Serial.println("[ Nostr ] Subscribing to Zap Notifications since " + String(getMinutesAgo(minutesAgo)));
     if (debugLogEnabled())
     {
         String zapPubkey = preferences.getString("nostrZapPubkey", DEFAULT_ZAP_NOTIFY_PUBKEY);
@@ -332,7 +322,6 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
 
     if (debugLogEnabled())  
     {
-        Serial.printf("Got a zap of %llu sats for %s\n", zapAmount, zapPubkey.c_str());
     }
 
     uint64_t timerPeriod = 0;
@@ -363,15 +352,12 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
             (void*)(uintptr_t)screenBeforeZap,
             screenRestoreAfterZapCallback);
         if (screenRestoreAfterZapTimer == nullptr) {
-            Serial.println(F("screenRestore: xTimerCreate failed"));
             return;
         }
-        Serial.println("Starting screen restore after zap");
         if (xTimerStart(screenRestoreAfterZapTimer, 0) != pdPASS) {
             // Tear down the timer on start failure to avoid leaking it; the
             // callback normally deletes itself but we never reached it.
             xTimerDelete(screenRestoreAfterZapTimer, 0);
-            Serial.println(F("screenRestore: xTimerStart failed"));
         }
     }
 }

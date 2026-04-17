@@ -180,7 +180,6 @@ void setupWebserver()
     }
     else
     {
-      Serial.println(F("MDNS begin failed"));
     }
   }
 
@@ -225,7 +224,6 @@ void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, siz
 {
   if (!index)
   {
-    Serial.printf("Update Start: %s\n", filename.c_str());
 
     if (command == U_FLASH)
     {
@@ -261,7 +259,6 @@ void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, siz
   {
     if (Update.end(true))
     {
-      Serial.printf("Update Success: %uB\n", index + len);
       onApiRestart(request);
     }
     else
@@ -548,7 +545,6 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
       EPDManager::getInstance().setForegroundColor(GxEPD_BLACK);
       EPDManager::getInstance().setBackgroundColor(GxEPD_WHITE);
     }
-    Serial.printf("set invertedColor=%d\r\n", inverted);
     settingsChanged = true;
   }
 
@@ -582,7 +578,6 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
   {
     int gmtOffset = settings["tzOffset"].as<int>() * 60;
     preferences.putInt("gmtOffset", gmtOffset);
-    Serial.printf("set gmtOffset=%d\r\n", gmtOffset);
   }
 
   for (String setting : boolSettings)
@@ -622,7 +617,6 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
 
     preferences.putString("actCurrencies", actCurrencies.c_str());
-    Serial.printf("set actCurrencies=%s\r\n", actCurrencies.c_str());
   }
 
   if (settings["txPower"].is<int>())
@@ -645,7 +639,6 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
       if (WiFi.setTxPower(static_cast<wifi_power_t>(txPower)))
       {
-        Serial.printf("set txPower=%d\r\n", txPower);
         preferences.putInt("txPower", txPower);
         settingsChanged = true;
       }
@@ -657,7 +650,6 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     uint8_t dataSource = settings["dataSource"].as<uint8_t>();
     if (dataSource <= CUSTOM_SOURCE) { // Validate including custom source
       preferences.putUChar("dataSource", dataSource);
-      Serial.printf("set dataSource=%u\r\n", dataSource);
       settingsChanged = true;
     }
   }
@@ -943,7 +935,6 @@ void onApiSetWifiTxPower(AsyncWebServerRequest *request)
               static_cast<std::underlying_type_t<wifi_power_t>>(txPower))
               .c_str();
 
-      Serial.printf("set txPower=%s\r\n", txPowerName);
 
       if (WiFi.setTxPower(static_cast<wifi_power_t>(txPower)))
       {
@@ -1064,7 +1055,6 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
       return onApiLightsOff(request);
     }
 
-    Serial.printf("LED bad size %d\r\n", lights.size());
     request->send(HTTP_BAD_REQUEST);
     return;
   }
@@ -1085,14 +1075,12 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
       if (sscanf(lights[i]["hex"].as<String>().c_str(), "#%02X%02X%02X", &red,
                  &green, &blue) != 3)
       {
-        Serial.printf("LED bad hex %d\r\n", i);
         request->send(HTTP_BAD_REQUEST);
         return;
       }
     }
     else
     {
-      Serial.printf("LED no color %d\r\n", i);
       request->send(HTTP_BAD_REQUEST);
       return;
     }

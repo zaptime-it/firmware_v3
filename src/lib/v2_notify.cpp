@@ -20,7 +20,6 @@ namespace V2Notify
 
         if (getDataSource() == CUSTOM_SOURCE)
         {
-            Serial.println(F("Connecting to custom source"));
             hostname = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
             bool useSSL = !preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
             
@@ -32,7 +31,6 @@ namespace V2Notify
         }
         else
         {
-            Serial.println(F("Connecting to V2 source"));
             webSocket.beginSSL(hostname, 443, "/api/v2/ws");
         }
 
@@ -52,7 +50,6 @@ namespace V2Notify
         case WStype_DISCONNECTED:
             disconnectCount++;
 
-            Serial.printf("[WSc] Disconnected! (%d)\n", disconnectCount);
             if (disconnectCount > 1)
             {
                 getLedHandler().queueEffect(LED_DATA_BLOCK_ERROR);
@@ -63,7 +60,6 @@ namespace V2Notify
                 // Back off before rebooting to avoid a tight reboot loop when
                 // the upstream is unreachable (otherwise we'd brick the device
                 // in a crash-restart cycle that only worsens connectivity).
-                Serial.println(F("v2: disconnect reboot backoff"));
                 vTaskDelay(pdMS_TO_TICKS(30 * 1000));
                 noInterrupts();
                 esp_restart();
@@ -72,10 +68,6 @@ namespace V2Notify
             break;
         case WStype_CONNECTED:
         {
-            Serial.print(F("[WSc] Connected to "));
-            Serial.print(currentHostname);
-            Serial.print(F(": "));
-            Serial.println((char *)payload);
 
             disconnectCount = 0;
 
@@ -113,8 +105,6 @@ namespace V2Notify
             break;
         }
         case WStype_TEXT:
-            Serial.print(F("[WSc] get text: "));
-            Serial.println((char *)payload);
 
             // send message to server
             // webSocket.sendTXT("message here");
@@ -125,7 +115,6 @@ namespace V2Notify
             DeserializationError error = deserializeMsgPack(doc, payload, length);
 
             if (error) {
-                Serial.println(F("Error deserializing message"));
                 break;
             }
 
@@ -155,8 +144,6 @@ namespace V2Notify
             }
 
             if (debugLogEnabled()) {
-                Serial.print(F("processNewBlock "));
-                Serial.println(newBlockHeight);
             }
             BlockNotify::getInstance().processNewBlock(newBlockHeight);
         }
@@ -165,8 +152,6 @@ namespace V2Notify
             float medianFee = blockFeeDecimals ? doc["blockfee2"].as<float>() : doc["blockfee"].as<float>();
 
             if (debugLogEnabled()) {
-                Serial.print(F("processNewBlockFee "));
-                Serial.println(String(medianFee, 2));
             }
 
             BlockNotify::getInstance().processNewBlockFee(medianFee);
