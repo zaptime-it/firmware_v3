@@ -245,7 +245,7 @@ void EPDManager::setupDisplay(uint dispNum, const GFXfont* font) {
     displays[dispNum].fillScreen(bgColor);
 }
 
-void EPDManager::splitText(uint dispNum, const String& top, const String& bottom, bool partial) {
+void EPDManager::splitText(uint dispNum, const String& top, const String& bottom) {
     if (preferences.getBool("verticalDesc", DEFAULT_VERTICAL_DESC) && dispNum == 0) {
         displays[dispNum].setRotation(1);
     } else {
@@ -283,7 +283,7 @@ void EPDManager::splitText(uint dispNum, const String& top, const String& bottom
     displays[dispNum].print(bottom);
 }
 
-void EPDManager::showDigit(uint dispNum, char chr, bool partial, const GFXfont* font) {
+void EPDManager::showDigit(uint dispNum, char chr, const GFXfont* font) {
     String str(chr);
     if (chr == '.') {
         str = "!";
@@ -307,7 +307,7 @@ void EPDManager::showDigit(uint dispNum, char chr, bool partial, const GFXfont* 
     }
 }
 
-void EPDManager::showChars(uint dispNum, const String& chars, bool partial, const GFXfont* font) {
+void EPDManager::showChars(uint dispNum, const String& chars, const GFXfont* font) {
     setupDisplay(dispNum, font);
 
     int16_t tbx, tby;
@@ -352,7 +352,7 @@ void EPDManager::showChars(uint dispNum, const String& chars, bool partial, cons
     }
 }
 
-bool EPDManager::renderIcon(uint dispNum, const String& text, bool partial) {
+bool EPDManager::renderIcon(uint dispNum, const String& text) {
     displays[dispNum].setRotation(2);
     displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
                                    displays[dispNum].height());
@@ -392,12 +392,17 @@ bool EPDManager::renderIcon(uint dispNum, const String& text, bool partial) {
     return true;
 }
 
-void EPDManager::renderText(uint dispNum, const String& text, bool partial) {
+void EPDManager::renderText(uint dispNum, const String& text) {
     displays[dispNum].setRotation(2);
     displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
                                    displays[dispNum].height());
-    displays[dispNum].fillScreen(GxEPD_WHITE);
-    displays[dispNum].setTextColor(GxEPD_BLACK);
+    // Previously hard-coded to GxEPD_WHITE/GxEPD_BLACK, which inverted on
+    // devices with invertedColor enabled because the rest of the drawing
+    // path correctly uses bgColor/fgColor. Use the theme colors here too so
+    // renderText respects the "inverted" preference like every other
+    // rendering method.
+    displays[dispNum].fillScreen(bgColor);
+    displays[dispNum].setTextColor(fgColor);
     displays[dispNum].setCursor(0, 50);
 
     std::stringstream ss;
@@ -415,9 +420,8 @@ void EPDManager::renderText(uint dispNum, const String& text, bool partial) {
     }
 }
 
-void EPDManager::renderQr(uint dispNum, const String& text, bool partial) {
+void EPDManager::renderQr(uint dispNum, const String& text) {
 #ifdef USE_QR
-    // Dynamically allocate QR buffer
     uint8_t* qrcode = (uint8_t*)malloc(qrcodegen_BUFFER_LEN_MAX);
     if (!qrcode) {
         log_e("Failed to allocate QR buffer");
@@ -430,22 +434,32 @@ void EPDManager::renderQr(uint dispNum, const String& text, bool partial) {
         qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
 
     if (ok) {
+        constexpr int moduleScale = 4;
         const int size = qrcodegen_getSize(qrcode);
-        const int padding = floor(float(displays[dispNum].width() - (size * 4)) / 2);
-        const int paddingY = floor(float(displays[dispNum].height() - (size * 4)) / 2);
-        
+        const int padding = floor(
+            float(displays[dispNum].width() - (size * moduleScale)) / 2);
+        const int paddingY = floor(
+            float(displays[dispNum].height() - (size * moduleScale)) / 2);
+
         displays[dispNum].setRotation(2);
         displays[dispNum].setPartialWindow(0, 0, displays[dispNum].width(),
                                        displays[dispNum].height());
-        displays[dispNum].fillScreen(GxEPD_WHITE);
+        displays[dispNum].fillScreen(bgColor);
 
-        for (int y = 0; y < size * 4; y++) {
-            for (int x = 0; x < size * 4; x++) {
-                displays[dispNum].drawPixel(
-                    padding + x, paddingY + y,
-                    qrcodegen_getModule(qrcode, floor(float(x) / 4), floor(float(y) / 4))
-                        ? GxEPD_BLACK
-                        : GxEPD_WHITE);
+        // Draw one filled rectangle per QR module instead of one pixel per
+        // scaled pixel. For a typical v3-v4 QR (size ~29-33) the old loop
+        // issued (size*4)*(size*4) = ~14000-17000 drawPixel() calls; this
+        // version issues at most size*size fillRect() calls and only for
+        // the *dark* modules. The paged-display backing store sees far
+        // less churn per drawing pass as a result. Light modules are
+        // already correct from the preceding fillScreen(bgColor).
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                if (!qrcodegen_getModule(qrcode, x, y)) continue;
+                displays[dispNum].fillRect(
+                    padding + x * moduleScale,
+                    paddingY + y * moduleScale,
+                    moduleScale, moduleScale, fgColor);
             }
         }
     }
@@ -511,39 +525,37 @@ void EPDManager::prepareDisplayUpdateTask(void* pvParameters) {
             uint epdIndex = receivedItem.dispNum;
             std::lock_guard<std::mutex> lock(instance.displayMutexes[epdIndex]);
 
-            bool updatePartial = true;
-
-            if (instance.content[epdIndex].length() > 1 && 
+            if (instance.content[epdIndex].length() > 1 &&
                 strstr(instance.content[epdIndex].c_str(), "/") != nullptr) {
                 String top = instance.content[epdIndex].substring(
                     0, instance.content[epdIndex].indexOf("/"));
                 String bottom = instance.content[epdIndex].substring(
                     instance.content[epdIndex].indexOf("/") + 1);
-                instance.splitText(epdIndex, top, bottom, updatePartial);
+                instance.splitText(epdIndex, top, bottom);
             } else if (instance.content[epdIndex].startsWith(F("qr"))) {
-                instance.renderQr(epdIndex, instance.content[epdIndex], updatePartial);
+                instance.renderQr(epdIndex, instance.content[epdIndex]);
             } else if (instance.content[epdIndex].startsWith(F("mdi"))) {
                 // Even if renderIcon returns false (e.g. no pool logo yet),
                 // still notify the display-update task. The previous
                 // `continue` skipped xTaskNotifyGive() at the bottom of the
                 // loop, leaving the update task blocked forever.
-                instance.renderIcon(epdIndex, instance.content[epdIndex], updatePartial);
+                instance.renderIcon(epdIndex, instance.content[epdIndex]);
             } else if (instance.content[epdIndex].length() > 5) {
-                instance.renderText(epdIndex, instance.content[epdIndex], updatePartial);
+                instance.renderText(epdIndex, instance.content[epdIndex]);
             } else {
                 if (instance.content[epdIndex].length() == 2) {
-                    instance.showChars(epdIndex, instance.content[epdIndex], updatePartial, instance.fontBig);
-                } else if (instance.content[epdIndex].length() > 1 && 
+                    instance.showChars(epdIndex, instance.content[epdIndex], instance.fontBig);
+                } else if (instance.content[epdIndex].length() > 1 &&
                          instance.content[epdIndex].indexOf(".") == -1) {
                     if (instance.content[epdIndex].equals("STS")) {
-                        instance.showDigit(epdIndex, 'S', updatePartial, instance.fontSatsymbol);
+                        instance.showDigit(epdIndex, 'S', instance.fontSatsymbol);
                     } else {
-                        instance.showChars(epdIndex, instance.content[epdIndex], updatePartial,
+                        instance.showChars(epdIndex, instance.content[epdIndex],
                                        instance.fontMedium);
                     }
                 } else {
-                    instance.showDigit(epdIndex, instance.content[epdIndex].c_str()[0], 
-                                   updatePartial, instance.fontBig);
+                    instance.showDigit(epdIndex, instance.content[epdIndex].c_str()[0],
+                                   instance.fontBig);
                 }
             }
 

@@ -69,13 +69,18 @@ private:
     EPDManager();  // Private constructor for singleton
     ~EPDManager(); // Private destructor
 
+    // The bool partial parameter that used to decorate every render/show
+    // function was never actually consumed inside these bodies; the partial
+    // vs full refresh decision happens in updateDisplayTask() via
+    // displayWithReturn(updatePartial). Dropping the parameter removes one
+    // source of "what does passing true here mean?" confusion.
     void setupDisplay(uint dispNum, const GFXfont* font);
-    void splitText(uint dispNum, const String& top, const String& bottom, bool partial);
-    void showDigit(uint dispNum, char chr, bool partial, const GFXfont* font);
-    void showChars(uint dispNum, const String& chars, bool partial, const GFXfont* font);
-    bool renderIcon(uint dispNum, const String& text, bool partial);
-    void renderText(uint dispNum, const String& text, bool partial);
-    void renderQr(uint dispNum, const String& text, bool partial);
+    void splitText(uint dispNum, const String& top, const String& bottom);
+    void showDigit(uint dispNum, char chr, const GFXfont* font);
+    void showChars(uint dispNum, const String& chars, const GFXfont* font);
+    bool renderIcon(uint dispNum, const String& text);
+    void renderText(uint dispNum, const String& text);
+    void renderQr(uint dispNum, const String& text);
 
     static void updateDisplayTask(void* pvParameters) noexcept;
     static void prepareDisplayUpdateTask(void* pvParameters);

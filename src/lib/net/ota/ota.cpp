@@ -1,6 +1,8 @@
 #include "ota.hpp"
 #include "lib/drivers/leds/led_handler.hpp"
 
+#include <algorithm>
+
 TaskHandle_t taskOtaHandle = NULL;
 bool isOtaUpdating = false;
 QueueHandle_t otaQueue;
@@ -121,68 +123,47 @@ void handleOTATask(void *parameter)
 ReleaseInfo getLatestRelease(const String &fileToDownload)
 {
   String releaseUrl = preferences.getString("gitReleaseUrl");
-  WiFiClientSecure client;
-//  client.setCACert(isrg_root_x1cert);
-  client.setCACertBundle(rootca_crt_bundle_start);
-
-
-  HTTPClient http;
-  http.begin(client, releaseUrl);
-  http.setUserAgent(USER_AGENT);
-
-  int httpCode = http.GET();
-
   ReleaseInfo info = {"", ""};
 
-  if (httpCode == HTTP_CODE_OK)
+  auto http = HttpHelper::beginScoped(releaseUrl);
+  if (!http) return info;
+
+  int httpCode = http->GET();
+  if (httpCode != HTTP_CODE_OK) return info;
+
+  JsonDocument doc;
+  if (deserializeJson(doc, http->getString()) != DeserializationError::Ok) return info;
+
+  for (JsonObject asset : doc["assets"].as<JsonArray>())
   {
-    JsonDocument doc;
-    if (deserializeJson(doc, http.getString()) == DeserializationError::Ok)
+    String assetName = asset["name"].as<String>();
+    if (assetName == fileToDownload)
     {
-      for (JsonObject asset : doc["assets"].as<JsonArray>())
-      {
-        String assetName = asset["name"].as<String>();
-        if (assetName == fileToDownload)
-        {
-          info.fileUrl = asset["browser_download_url"].as<String>();
-        }
-        else if (assetName == fileToDownload + ".sha256")
-        {
-          info.checksumUrl = asset["browser_download_url"].as<String>();
-        }
-        if (!info.fileUrl.isEmpty() && !info.checksumUrl.isEmpty())
-          break;
-      }
+      info.fileUrl = asset["browser_download_url"].as<String>();
     }
+    else if (assetName == fileToDownload + ".sha256")
+    {
+      info.checksumUrl = asset["browser_download_url"].as<String>();
+    }
+    if (!info.fileUrl.isEmpty() && !info.checksumUrl.isEmpty())
+      break;
   }
-  else
-  {
-  }
-  http.end();
+
   return info;
 }
 
 int downloadUpdateHandler(char updateType)
 {
-  WiFiClientSecure client;
-  client.setCACertBundle(rootca_crt_bundle_start);
-  HTTPClient http;
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-
   ReleaseInfo latestRelease;
 
   switch (updateType)
   {
   case UPDATE_FIRMWARE:
-  {
     latestRelease = getLatestRelease(getFirmwareFilename());
-  }
-  break;
+    break;
   case UPDATE_WEBUI:
-  {
     latestRelease = getLatestRelease(getWebUiFilename());
-  }
-  break;
+    break;
   }
 
   if (latestRelease.fileUrl.isEmpty() || latestRelease.checksumUrl.isEmpty())
@@ -195,96 +176,72 @@ int downloadUpdateHandler(char updateType)
   {
     return 503;
   }
+  expectedSHA256.toLowerCase();
 
-  http.begin(client, latestRelease.fileUrl);
-  http.setUserAgent(USER_AGENT);
+  auto http = HttpHelper::beginScoped(latestRelease.fileUrl);
+  if (!http) return 503;
+  http->setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK)
+  int httpCode = http->GET();
+  if (httpCode != HTTP_CODE_OK) return 503;
+
+  int contentLength = http->getSize();
+  if (contentLength <= 0) return 503;
+
+  // Stream the payload through both mbedtls (for SHA256) and Update.write()
+  // at the same time. The previous implementation malloc'd the entire
+  // firmware into RAM first (up to ~1.5 MB), calculated the hash, then
+  // handed the buffer to Update. That doubled the peak heap use and
+  // reliably OOM'd on 4 MB parts. Since Update validates on Update.end()
+  // and we call Update.abort() on hash mismatch, the partition won't be
+  // activated if verification fails.
+  mbedtls_md_context_t shaCtx;
+  mbedtls_md_init(&shaCtx);
+  mbedtls_md_setup(&shaCtx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 0);
+  mbedtls_md_starts(&shaCtx);
+
+  Update.onProgress(onOTAProgress);
+  if (!Update.begin(contentLength, updateType))
   {
-    int contentLength = http.getSize();
-    if (contentLength > 0)
-    {
-      // Allocate memory to store the firmware
-      uint8_t *firmware = (uint8_t *)malloc(contentLength);
-      if (!firmware)
-      {
-        return 503;
-      }
-
-      WiFiClient *stream = http.getStreamPtr();
-      size_t bytesRead = 0;
-      while (bytesRead < contentLength)
-      {
-        size_t available = stream->available();
-        if (available)
-        {
-          size_t readBytes = stream->readBytes(firmware + bytesRead, available);
-          bytesRead += readBytes;
-        }
-        yield(); // Allow background tasks to run
-      }
-
-      if (bytesRead != contentLength)
-      {
-        free(firmware);
-        return 503;
-      }
-
-      // Calculate SHA256
-      String calculated_sha256 = calculateSHA256(firmware, contentLength);
-
-      if (calculated_sha256 != expectedSHA256)
-      {
-        free(firmware);
-        return 503;
-      }
-      
-      Update.onProgress(onOTAProgress);
-
-      if (Update.begin(contentLength, updateType))
-      {
-        onOTAStart();
-        size_t written = Update.write(firmware, contentLength);
-
-        // Free the download buffer immediately after Update.write(); Update's
-        // internal copy has taken ownership of the bytes that matter. NULL the
-        // pointer so subsequent error branches don't double-free.
-        free(firmware);
-        firmware = nullptr;
-
-        if (written != contentLength)
-        {
-          Update.abort();
-          return 503;
-        }
-        if (!Update.end())
-        {
-          return 503;
-        }
-        if (!Update.isFinished())
-        {
-          return 503;
-        }
-      }
-      else
-      {
-        free(firmware);
-        firmware = nullptr;
-        return 503;
-      }
-    }
-    else
-    {
-      return 503;
-    }
-  }
-  else
-  {
+    mbedtls_md_free(&shaCtx);
     return 503;
   }
-  http.end();
+  onOTAStart();
 
+  WiFiClient *stream = http->getStreamPtr();
+  uint8_t buf[1024];
+  int bytesRead = 0;
+  while (bytesRead < contentLength)
+  {
+    int toRead = std::min((int)sizeof(buf), contentLength - bytesRead);
+    int r = stream->readBytes(buf, toRead);
+    if (r <= 0) {
+      yield();
+      continue;
+    }
+    mbedtls_md_update(&shaCtx, buf, r);
+    if (Update.write(buf, r) != (size_t)r) {
+      mbedtls_md_free(&shaCtx);
+      Update.abort();
+      return 503;
+    }
+    bytesRead += r;
+    yield();
+  }
+
+  uint8_t shaResult[32];
+  mbedtls_md_finish(&shaCtx, shaResult);
+  mbedtls_md_free(&shaCtx);
+
+  char shaStr[65];
+  for (int i = 0; i < 32; i++) sprintf(shaStr + (i * 2), "%02x", shaResult[i]);
+  shaStr[64] = 0;
+  if (expectedSHA256 != String(shaStr)) {
+    Update.abort();
+    return 503;
+  }
+
+  if (!Update.end() || !Update.isFinished()) return 503;
   return 0;
 }
 
@@ -318,27 +275,16 @@ bool getIsOTAUpdating()
 
 String downloadSHA256(const String &sha256Url)
 {
-  if (sha256Url.isEmpty())
-  {
-    return "";
-  }
+  if (sha256Url.isEmpty()) return "";
 
-  WiFiClientSecure client;
-  client.setCACertBundle(rootca_crt_bundle_start);
-  HTTPClient http;
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  http.begin(client, sha256Url);
-  http.setUserAgent(USER_AGENT);
+  auto http = HttpHelper::beginScoped(sha256Url);
+  if (!http) return "";
+  http->setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK)
-  {
-    String sha256 = http.getString();
-    sha256.trim(); // Remove any whitespace or newline characters
-    return sha256;
-  }
-  else
-  {
-    return "";
-  }
+  int httpCode = http->GET();
+  if (httpCode != HTTP_CODE_OK) return "";
+
+  String sha256 = http->getString();
+  sha256.trim();
+  return sha256;
 }

@@ -35,7 +35,11 @@ std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters)
 
 std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters, bool mowMode)
 {
-    static char result[20]; // Adjust size as needed
+    // Previously declared `static char result[20]`, which would silently
+    // corrupt the returned std::string if this function was called
+    // concurrently from multiple FreeRTOS tasks (e.g. the screen task and
+    // a data-fetch task updating hashrate). Use a per-call local buffer.
+    char result[24];
     const long long quadrillion = 1000000000000000LL;
     const long long trillion = 1000000000000LL;
     const long long billion = 1000000000;

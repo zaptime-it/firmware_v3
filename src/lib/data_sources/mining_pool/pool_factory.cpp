@@ -68,25 +68,21 @@ void PoolFactory::downloadPoolLogo(const std::string& poolName, const MiningPool
         if (!logoUrl.empty()) {
             for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 Serial.printf("Downloading pool logo (attempt %d of %d)...\n", attempt, MAX_RETRIES);
-                
-                HTTPClient http;
-                http.setUserAgent(USER_AGENT);
-                http.begin(logoUrl.c_str());
-                int httpCode = http.GET();
-                
-                if (httpCode == 200) {
+
+                auto http = HttpHelper::beginScoped(logoUrl.c_str());
+                if (!http) break;
+                int httpCode = http->GET();
+
+                if (httpCode == HTTP_CODE_OK) {
                     File file = LittleFS.open(logoPath, "w");
                     if (file) {
-                        http.writeToStream(&file);
+                        http->writeToStream(&file);
                         file.close();
                         Serial.println(F("Logo downloaded successfully"));
-                        http.end();
-                        return;  // Success!
+                        return;
                     }
                 }
-                
-                http.end();
-                
+
                 if (attempt < MAX_RETRIES) {
                     Serial.printf("Failed to download logo, HTTP code: %d. Retrying...\n", httpCode);
                     vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));

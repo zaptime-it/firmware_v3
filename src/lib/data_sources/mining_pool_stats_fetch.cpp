@@ -48,38 +48,36 @@ void MiningPoolStatsFetch::task() {
     for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        HTTPClient http;
-        http.setUserAgent(USER_AGENT);
-        
         poolInterface->setPoolUser(poolUser);
         std::string apiUrl = poolInterface->getApiUrl();
-        http.begin(apiUrl.c_str());
-        poolInterface->prepareRequest(http);
-        int httpCode = http.GET();
-        if (httpCode == 200) {
-            String payload = http.getString();
-            JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, payload);
-            if (err) {
-                Serial.printf("Mining pool bad JSON: %s\r\n", err.c_str());
-                http.end();
-                continue;
-            }
 
-            PoolStats stats = poolInterface->parseResponse(doc);
-            hashrate = stats.hashrate;
-            dailyEarnings = stats.dailyEarnings ? *stats.dailyEarnings : 0;
+        auto http = HttpHelper::beginScoped(apiUrl.c_str());
+        if (!http) continue;
+        poolInterface->prepareRequest(*http);
 
-            if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || 
-                ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS)) {
-                WorkItem priceUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
-                xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
-            }
-        } else {
+        int httpCode = http->GET();
+        if (httpCode != HTTP_CODE_OK) {
             Serial.print(F("Error retrieving mining pool data. HTTP status code: "));
             Serial.println(httpCode);
+            continue;
         }
-        http.end();
+
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, http->getString());
+        if (err) {
+            Serial.printf("Mining pool bad JSON: %s\r\n", err.c_str());
+            continue;
+        }
+
+        PoolStats stats = poolInterface->parseResponse(doc);
+        hashrate = stats.hashrate;
+        dailyEarnings = stats.dailyEarnings ? *stats.dailyEarnings : 0;
+
+        if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE ||
+            ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_EARNINGS)) {
+            WorkItem priceUpdate = {TASK_MINING_POOL_STATS_UPDATE, 0};
+            xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
+        }
     }
 }
 
