@@ -157,7 +157,6 @@ ReleaseInfo getLatestRelease(const String &fileToDownload)
   }
   else
   {
-    Serial.printf("getLatestRelease http=%d\r\n", httpCode);
   }
   http.end();
   return info;
@@ -190,14 +189,12 @@ int downloadUpdateHandler(char updateType)
 
   if (latestRelease.fileUrl.isEmpty() || latestRelease.checksumUrl.isEmpty())
   {
-    Serial.println(F("OTA: no artifacts"));
     return 503;
   }
 
   String expectedSHA256 = downloadSHA256(latestRelease.checksumUrl);
   if (expectedSHA256.isEmpty())
   {
-    Serial.println(F("OTA: no SHA256"));
     return 503;
   }
 
@@ -214,7 +211,6 @@ int downloadUpdateHandler(char updateType)
       uint8_t *firmware = (uint8_t *)malloc(contentLength);
       if (!firmware)
       {
-        Serial.println(F("OOM firmware"));
         return 503;
       }
 
@@ -233,7 +229,6 @@ int downloadUpdateHandler(char updateType)
 
       if (bytesRead != contentLength)
       {
-        Serial.println(F("OTA truncated"));
         free(firmware);
         return 503;
       }
@@ -243,8 +238,6 @@ int downloadUpdateHandler(char updateType)
 
       if (calculated_sha256 != expectedSHA256)
       {
-        Serial.printf("SHA256 mismatch: got %s expected %s\r\n",
-                      calculated_sha256.c_str(), expectedSHA256.c_str());
         free(firmware);
         return 503;
       }
@@ -264,24 +257,20 @@ int downloadUpdateHandler(char updateType)
 
         if (written != contentLength)
         {
-          Serial.printf("OTA: wrote %u/%u\r\n", (unsigned)written, (unsigned)contentLength);
           Update.abort();
           return 503;
         }
         if (!Update.end())
         {
-          Serial.printf("OTA: Update.end err=%u\r\n", Update.getError());
           return 503;
         }
         if (!Update.isFinished())
         {
-          Serial.println(F("OTA: not finished"));
           return 503;
         }
       }
       else
       {
-        Serial.println(F("Not enough space"));
         free(firmware);
         firmware = nullptr;
         return 503;
@@ -289,13 +278,11 @@ int downloadUpdateHandler(char updateType)
     }
     else
     {
-      Serial.println(F("Bad content length"));
       return 503;
     }
   }
   else
   {
-    Serial.printf("OTA http=%d\r\n", httpCode);
     return 503;
   }
   http.end();
@@ -343,50 +330,40 @@ void updateWebUi(String latestRelease, int command)
               Update.write(buffer, contentLength);
               if (Update.end())
               {
-                Serial.println(F("OTA done, rebooting"));
                 ESP.restart();
               }
               else
               {
-                Serial.printf("OTA err=%u\r\n", Update.getError());
               }
             }
             else
             {
-              Serial.println(F("Not enough space"));
             }
           }
           else
           {
-            Serial.printf("SHA256 mismatch: %s vs %s\r\n",
-                          calculated_sha256.c_str(), expectedSHA256.c_str());
           }
         }
         else
         {
-          Serial.println(F("Download truncated"));
         }
         free(buffer);
       }
       else
       {
-        Serial.println(F("OOM buffer"));
       }
     }
     else
     {
-      Serial.println(F("Bad content length"));
     }
   }
   else
   {
-    Serial.printf("OTA http err=%d\r\n", httpCode);
   }
 }
 
 void onOTAError(ota_error_t error)
 {
-  Serial.println(F("OTA error, restart"));
   Wire.end();
   SPI.end();
   isOtaUpdating = false;
@@ -396,7 +373,6 @@ void onOTAError(ota_error_t error)
 
 void onOTAComplete()
 {
-  Serial.println(F("OTA done"));
   Wire.end();
   SPI.end();
   delay(1000);
@@ -431,7 +407,6 @@ String downloadSHA256(const String &sha256Url)
   }
   else
   {
-    Serial.printf("SHA256 http=%d\r\n", httpCode);
     return "";
   }
 }
