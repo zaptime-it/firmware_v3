@@ -546,7 +546,9 @@ void LedHandler::frontlightSetBrightness(uint brightness) {
         return;
     }
     
-    for (int ledPin = 0; ledPin <= NUM_SCREENS; ledPin++) {
+    // PCA channels 1..NUM_SCREENS match the fade loops; the old <= bound
+    // wrote one channel past the array.
+    for (int ledPin = 0; ledPin < NUM_SCREENS; ledPin++) {
         flArray.setPWM(ledPin + 1, 0, brightness);
     }
 }

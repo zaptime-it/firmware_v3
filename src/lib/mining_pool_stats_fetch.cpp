@@ -1,5 +1,7 @@
 #include "mining_pool_stats_fetch.hpp"
 
+#include "lib/timers.hpp"
+
 void MiningPoolStatsFetch::taskWrapper(void* pvParameters) {
     MiningPoolStatsFetch::getInstance().task();
 }
@@ -112,4 +114,6 @@ void MiningPoolStatsFetch::setup() {
                 NULL, 
                 tskIDLE_PRIORITY,
                 &taskHandle);
+
+    setMiningPoolTaskHandleForIsr(taskHandle);
 }

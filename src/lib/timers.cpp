@@ -4,6 +4,14 @@
 esp_timer_handle_t screenRotateTimer;
 esp_timer_handle_t minuteTimer;
 
+// Cached for use from minuteTimerISR. Accessing singleton instance methods
+// from an IRAM_ATTR ISR is unsafe because the flash cache may be disabled.
+static volatile TaskHandle_t s_bitaxeIsrHandle = nullptr;
+static volatile TaskHandle_t s_miningPoolIsrHandle = nullptr;
+
+void setBitaxeTaskHandleForIsr(TaskHandle_t handle) { s_bitaxeIsrHandle = handle; }
+void setMiningPoolTaskHandleForIsr(TaskHandle_t handle) { s_miningPoolIsrHandle = handle; }
+
 void setupTimeUpdateTimer(void *pvParameters) {
   const esp_timer_create_args_t minuteTimerConfig = {
       .callback = &minuteTimerISR, .name = "minute_timer"};
@@ -44,6 +52,11 @@ void setupScreenRotateTimer(void *pvParameters) {
 
 uint getTimerSeconds() { return preferences.getUInt("timerSeconds", DEFAULT_TIMER_SECONDS); }
 
+// Hardware esp_timer state is the source of truth; the NVS `timerActive`
+// flag is only the persisted last-user-intent consulted on boot by
+// setupScreenRotateTimer(). Runtime writers (setTimerActive) update both
+// so the two never drift outside the transient stealFocus stop/restart
+// window in BlockNotify.
 bool isTimerActive() { return esp_timer_is_active(screenRotateTimer); }
 
 void setTimerActive(bool status) {
@@ -65,16 +78,15 @@ void toggleTimerActive() { setTimerActive(!isTimerActive()); }
 
 void IRAM_ATTR minuteTimerISR(void *arg) {
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-  //    vTaskNotifyGiveFromISR(timeUpdateTaskHandle, &xHigherPriorityTaskWoken);
   WorkItem timeUpdate = {TASK_TIME_UPDATE, 0};
   xQueueSendFromISR(workQueue, &timeUpdate, &xHigherPriorityTaskWoken);
 
-  TaskHandle_t bitaxeHandle = BitaxeFetch::getInstance().getTaskHandle();
+  TaskHandle_t bitaxeHandle = s_bitaxeIsrHandle;
   if (bitaxeHandle != NULL) {
     vTaskNotifyGiveFromISR(bitaxeHandle, &xHigherPriorityTaskWoken);
   }
 
-  TaskHandle_t miningPoolHandle = MiningPoolStatsFetch::getInstance().getTaskHandle();
+  TaskHandle_t miningPoolHandle = s_miningPoolIsrHandle;
   if (miningPoolHandle != NULL) {
     vTaskNotifyGiveFromISR(miningPoolHandle, &xHigherPriorityTaskWoken);
   }
@@ -86,7 +98,10 @@ void IRAM_ATTR minuteTimerISR(void *arg) {
 
 void IRAM_ATTR screenRotateTimerISR(void *arg) {
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-  vTaskNotifyGiveFromISR(taskScreenRotateTaskHandle, &xHigherPriorityTaskWoken);
+  TaskHandle_t handle = taskScreenRotateTaskHandle;
+  if (handle != NULL) {
+    vTaskNotifyGiveFromISR(handle, &xHigherPriorityTaskWoken);
+  }
   if (xHigherPriorityTaskWoken == pdTRUE) {
     portYIELD_FROM_ISR();
   }

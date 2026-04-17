@@ -1,6 +1,6 @@
 #include "nostrdisplay_handler.hpp"
 
-std::array<std::string, NUM_SCREENS> parseZapNotify(std::uint16_t amount, bool withSatsSymbol)
+std::array<std::string, NUM_SCREENS> parseZapNotify(std::uint64_t amount, bool withSatsSymbol)
 {
     // Initialize defensively so it works for any NUM_SCREENS value (previously
     // a fixed 7-element initializer assumed NUM_SCREENS == 7).

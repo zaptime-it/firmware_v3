@@ -104,6 +104,7 @@ void BlockNotify::onWebsocketEvent(void *handler_args, esp_event_base_t base, in
             break;
 
         case WEBSOCKET_EVENT_DISCONNECTED:
+            notifyInit = false;
             Serial.println(F("Mempool.space WS Connection Closed"));
             break;
 
@@ -312,6 +313,8 @@ bool BlockNotify::isInitialized() const
 
 void BlockNotify::stop()
 {
+    notifyInit = false;
+
     if (wsClient == NULL)
         return;
 

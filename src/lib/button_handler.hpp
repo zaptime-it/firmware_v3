@@ -6,32 +6,25 @@
 #include "lib/shared.hpp"
 #include "lib/timers.hpp"
 
-// Track timing for each button
+// Track timing for each button. Only single-click is implemented; the
+// double-click / long-press state that used to live here was never wired
+// to a handler and has been removed.
 struct ButtonState {
     TickType_t lastPressTime = 0;
-    TickType_t pressStartTime = 0;
     bool isPressed = false;
-    uint8_t clickCount = 0;
-    bool longPressHandled = false;
 };
 
 class ButtonHandler {
 private:
     static const TickType_t debounceDelay = pdMS_TO_TICKS(50);
-    static const TickType_t doubleClickDelay = pdMS_TO_TICKS(1000);  // Maximum time between clicks for double click
-    static const TickType_t longPressDelay = pdMS_TO_TICKS(1500);   // Time to hold for long press
 
     static ButtonState buttonStates[4];
     static TaskHandle_t buttonTaskHandle;
 
-    // Button handlers
     static void handleButtonPress(int buttonIndex);
     static void handleButtonRelease(int buttonIndex);
     static void handleSingleClick(int buttonIndex);
-    static void handleDoubleClick(int buttonIndex);
-    static void handleLongPress(int buttonIndex);
 
-    // Task function
     static void buttonTask(void *pvParameters);
 
 public:

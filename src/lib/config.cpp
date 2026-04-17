@@ -630,6 +630,7 @@ String getFsRev()
   File fsHash = LittleFS.open("/fs_hash.txt", "r");
   if (!fsHash)
   {
+    return String();
   }
 
   String ret = fsHash.readString();

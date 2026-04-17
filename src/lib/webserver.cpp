@@ -88,9 +88,13 @@ void setupWebserver()
 
   if (preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED))
   {
-    staticHandler.setAuthentication(
-        preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME),
-        preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD));
+    String authUser = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);
+    String authPass = preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD);
+    staticHandler.setAuthentication(authUser, authPass);
+    // EventSource / SSE is just a long-lived GET; when HTTP auth is on,
+    // the stream leaks live device status to unauthenticated clients
+    // unless we lock it too.
+    events.setAuthentication(authUser.c_str(), authPass.c_str());
   }
   //  server.on("/", HTTP_GET, onIndex);
   server.on("/api/status", HTTP_GET, onApiStatus);
@@ -466,6 +470,7 @@ void eventSourceUpdate() {
  */
 void onApiStatus(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
 
@@ -790,6 +795,7 @@ void onApiRestart(AsyncWebServerRequest *request)
 
 void onApiIdentify(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.queueEffect(LED_FLASH_IDENTIFY);
 
@@ -983,6 +989,7 @@ bool processEpdColorSettings(AsyncWebServerRequest *request)
 
 void onApiSystemStatus(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
 
@@ -1037,6 +1044,7 @@ void onApiSetWifiTxPower(AsyncWebServerRequest *request)
 
 void onApiLightsStatus(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
 
@@ -1194,20 +1202,18 @@ void onIndex(AsyncWebServerRequest *request)
 
 void onNotFound(AsyncWebServerRequest *request)
 {
-   // Access-Control-Request-Method == POST might be better
-
-  if (request->method() == HTTP_OPTIONS ||
-      request->hasHeader("Sec-Fetch-Mode"))
+  // CORS preflight: 200 with the default CORS headers is enough for the
+  // browser to then make the real request.
+  if (request->method() == HTTP_OPTIONS)
   {
-    // Serial.printf("NotFound, Return[%d]\n", 200);
-
     request->send(HTTP_OK);
+    return;
   }
-  else
-  {
-    // Serial.printf("NotFound, Return[%d]\n", 404);
-    request->send(404);
-  }
+
+  // Anything else really is 404. The old Sec-Fetch-Mode heuristic returned
+  // 200 for fetch/XHR requests, which masked unknown endpoints and made the
+  // API look like it was succeeding.
+  request->send(404);
 };
 
 void eventSourceTask(void *pvParameters)
@@ -1258,6 +1264,7 @@ void onApiFrontlightOn(AsyncWebServerRequest *request)
 
 void onApiFrontlightStatus(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
@@ -1347,6 +1354,7 @@ void onApiDNDSetTimeRange(AsyncWebServerRequest *request) {
 }
 
 void onApiDNDStatus(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   JsonDocument doc;
   doc["enabled"] = ledHandler.isDNDEnabled();

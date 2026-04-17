@@ -27,10 +27,12 @@ void setupPriceNotify()
 void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
     switch(type) {
         case WStype_DISCONNECTED:
+            priceNotifyInit = false;
             Serial.println(F("Price WS Connection Closed"));
             break;
         case WStype_CONNECTED:
         {
+            priceNotifyInit = true;
             Serial.println("Connected to " + String(wsServerPrice));
 
             JsonDocument doc;

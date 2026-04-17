@@ -1,5 +1,7 @@
 #include "bitaxe_fetch.hpp"
 
+#include "lib/timers.hpp"
+
 void BitaxeFetch::taskWrapper(void* pvParameters) {
     BitaxeFetch::getInstance().task();
 }
@@ -78,5 +80,6 @@ void BitaxeFetch::task() {
 
 void BitaxeFetch::setup() {
     xTaskCreate(taskWrapper, "bitaxeFetch", (3 * 1024), NULL, tskIDLE_PRIORITY, &taskHandle);
+    setBitaxeTaskHandleForIsr(taskHandle);
     xTaskNotifyGive(taskHandle);
 }

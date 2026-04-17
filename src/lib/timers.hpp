@@ -20,3 +20,10 @@ uint getTimerSeconds();
 bool isTimerActive();
 void setTimerActive(bool status);
 void toggleTimerActive();
+
+// ISR-safe task-handle registration. The minute timer ISR runs from IRAM
+// and must not reach into flash-resident singleton accessors, so the
+// relevant task handles are cached in module-level volatile statics set
+// once at task creation time.
+void setBitaxeTaskHandleForIsr(TaskHandle_t handle);
+void setMiningPoolTaskHandleForIsr(TaskHandle_t handle);
