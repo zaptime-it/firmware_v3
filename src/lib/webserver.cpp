@@ -1,6 +1,7 @@
 #include "webserver.hpp"
 #include "lib/led_handler.hpp"
 #include "lib/shared.hpp"
+#include "esp_partition.h"
 
 static const char* JSON_CONTENT = "application/json";
 
@@ -28,6 +29,28 @@ TaskHandle_t eventSourceTaskHandle;
 
 #define HTTP_OK 200
 #define HTTP_BAD_REQUEST 400
+
+// Reboot from a dedicated task. Calling esp_restart() directly from an
+// AsyncTCP callback (e.g. request->onDisconnect) used to be paired with
+// noInterrupts(), which masked the scheduler tick; esp_wifi_stop() inside
+// esp_restart() then blocked on a semaphore until the interrupt WDT fired and
+// the device panicked. Running the delay + restart on a separate task keeps
+// interrupts enabled and lets the AsyncTCP task finish cleanly before reboot.
+static void scheduleDelayedRestart(uint32_t delayMs = 500)
+{
+  static volatile bool s_restartScheduled = false;
+  if (s_restartScheduled) return;
+  s_restartScheduled = true;
+
+  xTaskCreate(
+      [](void *arg) {
+        uint32_t ms = (uint32_t)(uintptr_t)arg;
+        vTaskDelay(pdMS_TO_TICKS(ms));
+        esp_restart();
+      },
+      "restart", 2048, (void *)(uintptr_t)delayMs, tskIDLE_PRIORITY + 1,
+      nullptr);
+}
 
 // Centralised HTTP auth gate used by sensitive endpoints. Returns true and
 // has already sent a 401/auth prompt if the caller is not authenticated.
@@ -203,12 +226,10 @@ void onFirmwareUpdate(AsyncWebServerRequest *request)
   const bool shouldReboot = !Update.hasError();
   if (shouldReboot)
   {
-    // Reboot after the response is flushed to the client.
-    request->onDisconnect([]() {
-      delay(500);
-      noInterrupts();
-      esp_restart();
-    });
+    // Reboot after the response is flushed to the client. Schedule via a
+    // dedicated task so we don't stall the AsyncTCP callback (which previously
+    // called noInterrupts()+esp_restart() and deadlocked esp_wifi_stop()).
+    request->onDisconnect([]() { scheduleDelayedRestart(500); });
 
     if (events.count())
       events.send("closing");
@@ -242,6 +263,16 @@ void asyncWebuiUpdateHandler(AsyncWebServerRequest *request, String filename, si
 
 void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final, int command)
 {
+  // The LittleFS partition size on some boards (e.g. lolin_s3_mini: 0x66C00)
+  // is not a multiple of SPI_FLASH_SEC_SIZE. Update.begin() accepts a smaller
+  // size, but Update.write() aborts with "Not Enough Space" the moment the
+  // cumulative byte count exceeds that size. We therefore track the capped
+  // size per upload and only hand the library bytes it will accept; the
+  // remaining trailing bytes are always 0xFF padding in the generated image
+  // and are ignored.
+  static size_t s_fsCapSize = 0;
+  static size_t s_fsWritten = 0;
+
   if (!index)
   {
 
@@ -260,8 +291,29 @@ void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, siz
     }
     else if (command == U_SPIFFS)
     {
-      size_t fsSize = UPDATE_SIZE_UNKNOWN; // or specify the size of your filesystem partition
-      if (!Update.begin(fsSize, U_SPIFFS)) // or U_FS for LittleFS
+      // Unmount LittleFS so the flash driver has exclusive access to the
+      // partition for the OTA erase/write cycle.
+      LittleFS.end();
+
+      // The Arduino Update library asks esp_partition_erase_range() to erase
+      // a full SPI_FLASH_SEC_SIZE (4KB) sector at the tail of the partition.
+      // If partition->size is not a multiple of 4KB (e.g. 0x66C00 on the
+      // lolin_s3_mini 4MB partition table), that erase overruns the partition
+      // and IDF returns ESP_ERR_INVALID_SIZE; Update then aborts the whole
+      // upload with "Flash Erase Failed" (boards with 4KB-aligned sizes such
+      // as btclock_rev_b/0xCD000 or btclock_v8/0x200000 are unaffected).
+      // The last sub-sector of the littlefs image is always 0xFF padding, so
+      // rounding the update size down to the sector boundary is safe.
+      size_t fsSize = UPDATE_SIZE_UNKNOWN;
+      const esp_partition_t *fsPart = esp_partition_find_first(
+          ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, NULL);
+      if (fsPart) {
+        fsSize = fsPart->size & ~(SPI_FLASH_SEC_SIZE - 1);
+      }
+      s_fsCapSize = fsSize;
+      s_fsWritten = 0;
+
+      if (!Update.begin(fsSize, U_SPIFFS))
       {
         Update.printError(Serial);
         return;
@@ -270,7 +322,17 @@ void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, siz
   }
   if (!Update.hasError())
   {
-    if (Update.write(data, len) != len)
+    size_t toWrite = len;
+    if (command == U_SPIFFS && s_fsCapSize > 0)
+    {
+      // Only hand Update.write() bytes that still fit in the capped size;
+      // the remaining trailing bytes (0xFF padding in the image) are
+      // silently discarded so we don't trip UPDATE_ERROR_SPACE.
+      size_t remaining = (s_fsWritten >= s_fsCapSize) ? 0 : (s_fsCapSize - s_fsWritten);
+      if (toWrite > remaining) toWrite = remaining;
+      s_fsWritten += len;
+    }
+    if (toWrite > 0 && Update.write(data, toWrite) != toWrite)
     {
       Update.printError(Serial);
     }
@@ -716,12 +778,9 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 void onApiRestart(AsyncWebServerRequest *request)
 {
   if (requireHttpAuth(request)) return;
-  request->onDisconnect([]() {
-    delay(500);
-
-    noInterrupts();
-    esp_restart();
-  });
+  // Restart from a dedicated task so the AsyncTCP callback returns and the
+  // response can be flushed before esp_restart() tears down wifi.
+  request->onDisconnect([]() { scheduleDelayedRestart(500); });
 
   request->send(HTTP_OK);
 
