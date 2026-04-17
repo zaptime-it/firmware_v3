@@ -5,6 +5,7 @@
 #include <HTTPClient.h>
 #include <WebSocketsClient.h>
 #include <esp_timer.h>
+#include <atomic>
 #include <cstring>
 #include <string>
 
@@ -34,7 +35,7 @@ public:
 
     // LiveService identity + watchdog policy
     const char* name() const override { return "BlockNotify"; }
-    unsigned long lastUpdateSeconds() const override { return lastBlockUpdate; }
+    unsigned long lastUpdateSeconds() const override { return lastBlockUpdate.load(std::memory_order_relaxed); }
     // No new block in 45 minutes means something is wrong upstream. Aligns
     // with the ad-hoc "checkMissedBlocks" threshold from main.cpp.
     unsigned long staleAfterSeconds() const override { return 45UL * 60UL; }
@@ -64,10 +65,19 @@ private:
     static void taskBlockNotify(void *pvParameters);
 
     static WebSocketsClient wsClient;
-    static uint32_t currentBlockHeight;
-    static float blockMedianFee;
-    static bool notifyInit;
-    static bool wsConnected;
-    static unsigned long int lastBlockUpdate;
+    // These are written from the mempool.space WebSocket callback (block
+    // notify pump task) and read from the webserver/SSE/display tasks.
+    // std::atomic gives us a defined memory model for the cross-task reads
+    // without adding a mutex per getter.
+    static std::atomic<uint32_t> currentBlockHeight;
+    static std::atomic<float> blockMedianFee;
+    static std::atomic<bool> notifyInit;
+    static std::atomic<bool> wsConnected;
+    static std::atomic<unsigned long> lastBlockUpdate;
+    // Set by stop() to ask the pump task to exit cleanly rather than being
+    // torn down mid-wsClient.loop() via vTaskDelete, which can leave the
+    // WebSocket client's internal state inconsistent for subsequent
+    // beginSSL() calls. The task clears this flag and deletes itself.
+    static std::atomic<bool> shouldStop;
     static TaskHandle_t taskHandle;
 };

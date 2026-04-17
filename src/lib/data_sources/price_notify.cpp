@@ -1,5 +1,7 @@
 #include "price_notify.hpp"
 
+#include <mutex>
+
 const char *wsServerPrice = "wss://ws.kraken.com/v2";
 
 WebSocketsClient webSocket;
@@ -8,6 +10,11 @@ unsigned long int lastPriceUpdate;
 bool priceNotifyInit = false;
 std::map<char, std::uint64_t> currencyMap;
 std::map<char, unsigned long int> lastUpdateMap;
+// currencyMap and lastUpdateMap are written from the Kraken WS callback
+// (priceNotify task) and read from the webserver/SSE/display tasks.
+// std::map is not thread-safe and concurrent read/write during tree
+// rebalancing can crash. Protect both maps with one mutex.
+static std::mutex priceMapMutex;
 TaskHandle_t priceNotifyTaskHandle;
 
 void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length);
@@ -88,40 +95,53 @@ void processNewPrice(uint newPrice, char currency)
       "minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE);
   uint currentTime = esp_timer_get_time() / 1000000;
 
-  if (lastUpdateMap.find(currency) == lastUpdateMap.end() ||
-      (currentTime - lastUpdateMap[currency]) > minSecPriceUpd)
+  bool wroteToPreferences = false;
+  bool shouldQueueWork = false;
   {
-    currencyMap[currency] = newPrice;
-    
-    // Store price in preferences if enough time has passed
-    if (lastUpdateMap[currency] == 0 || (currentTime - lastUpdateMap[currency]) > 120)
-    {
-      String prefKey = String("lastPrice_") + getCurrencyCode(currency).c_str();
-      preferences.putUInt(prefKey.c_str(), newPrice);
+    std::lock_guard<std::mutex> lock(priceMapMutex);
+    auto it = lastUpdateMap.find(currency);
+    if (it != lastUpdateMap.end() && (currentTime - it->second) <= minSecPriceUpd) {
+      return;
     }
-    
-    lastUpdateMap[currency] = currentTime;
 
-    if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BTC_TICKER ||
-        ScreenHandler::getCurrentScreen() == SCREEN_SATS_PER_CURRENCY ||
-        ScreenHandler::getCurrentScreen() == SCREEN_MARKET_CAP))
+    currencyMap[currency] = newPrice;
+
+    // Store price in preferences if enough time has passed
+    if (it == lastUpdateMap.end() || it->second == 0 ||
+        (currentTime - it->second) > 120)
     {
-      WorkItem priceUpdate = {TASK_PRICE_UPDATE, currency};
-      xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
+      wroteToPreferences = true;
     }
+
+    lastUpdateMap[currency] = currentTime;
+    shouldQueueWork = true;
+  }
+
+  if (wroteToPreferences)
+  {
+    String prefKey = String("lastPrice_") + getCurrencyCode(currency).c_str();
+    preferences.putUInt(prefKey.c_str(), newPrice);
+  }
+
+  if (shouldQueueWork && workQueue != nullptr &&
+      (ScreenHandler::getCurrentScreen() == SCREEN_BTC_TICKER ||
+       ScreenHandler::getCurrentScreen() == SCREEN_SATS_PER_CURRENCY ||
+       ScreenHandler::getCurrentScreen() == SCREEN_MARKET_CAP))
+  {
+    WorkItem priceUpdate = {TASK_PRICE_UPDATE, currency};
+    xQueueSend(workQueue, &priceUpdate, portMAX_DELAY);
   }
 }
 
 void loadStoredPrices()
 {
-  // Load prices for all supported currencies
   std::vector<std::string> currencies = getAvailableCurrencies();
-  
+
+  std::lock_guard<std::mutex> lock(priceMapMutex);
   for (const std::string &currency : currencies) {
-    // Get first character as the currency identifier
     String prefKey = String("lastPrice_") + currency.c_str();
     uint storedPrice = preferences.getUInt(prefKey.c_str(), 0);
-    
+
     if (storedPrice > 0) {
       currencyMap[getCurrencyChar(currency)] = storedPrice;
       // Initialize lastUpdateMap to 0 so next update will store immediately
@@ -132,25 +152,21 @@ void loadStoredPrices()
 
 uint getLastPriceUpdate(char currency)
 {
-  if (lastUpdateMap.find(currency) == lastUpdateMap.end())
-  {
-    return 0;
-  }
-
-  return lastUpdateMap[currency];
+  std::lock_guard<std::mutex> lock(priceMapMutex);
+  auto it = lastUpdateMap.find(currency);
+  return (it == lastUpdateMap.end()) ? 0 : it->second;
 }
 
 uint getPrice(char currency)
 {
-  if (currencyMap.find(currency) == currencyMap.end())
-  {
-    return 0;
-  }
-  return currencyMap[currency];
+  std::lock_guard<std::mutex> lock(priceMapMutex);
+  auto it = currencyMap.find(currency);
+  return (it == currencyMap.end()) ? 0 : static_cast<uint>(it->second);
 }
 
 void setPrice(uint newPrice, char currency)
 {
+  std::lock_guard<std::mutex> lock(priceMapMutex);
   currencyMap[currency] = newPrice;
 }
 

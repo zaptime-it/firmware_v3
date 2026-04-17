@@ -4,11 +4,12 @@
 
 // Initialize static members
 WebSocketsClient BlockNotify::wsClient;
-uint32_t BlockNotify::currentBlockHeight = INITIAL_BLOCK_HEIGHT;
-float BlockNotify::blockMedianFee = 1;
-bool BlockNotify::notifyInit = false;
-bool BlockNotify::wsConnected = false;
-unsigned long int BlockNotify::lastBlockUpdate = 0;
+std::atomic<uint32_t> BlockNotify::currentBlockHeight{INITIAL_BLOCK_HEIGHT};
+std::atomic<float> BlockNotify::blockMedianFee{1.0f};
+std::atomic<bool> BlockNotify::notifyInit{false};
+std::atomic<bool> BlockNotify::wsConnected{false};
+std::atomic<unsigned long> BlockNotify::lastBlockUpdate{0};
+std::atomic<bool> BlockNotify::shouldStop{false};
 TaskHandle_t BlockNotify::taskHandle = nullptr;
 
 namespace {
@@ -37,8 +38,8 @@ void BlockNotify::onWebsocketEvent(WStype_t type, uint8_t *payload, size_t lengt
 
     switch (type) {
         case WStype_CONNECTED: {
-            notifyInit = true;
-            wsConnected = true;
+            notifyInit.store(true, std::memory_order_relaxed);
+            wsConnected.store(true, std::memory_order_relaxed);
             Serial.print(F("Connected to "));
             Serial.println(preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE));
 
@@ -58,8 +59,8 @@ void BlockNotify::onWebsocketEvent(WStype_t type, uint8_t *payload, size_t lengt
             break;
 
         case WStype_DISCONNECTED:
-            notifyInit = false;
-            wsConnected = false;
+            notifyInit.store(false, std::memory_order_relaxed);
+            wsConnected.store(false, std::memory_order_relaxed);
             Serial.println(F("Mempool.space WS Connection Closed"));
             break;
 
@@ -97,7 +98,7 @@ void BlockNotify::onWebsocketMessage(uint8_t *payload, size_t length) {
 
     if (doc["block"].is<JsonObject>()) {
         JsonObject block = doc["block"];
-        if (block["height"].as<uint>() != currentBlockHeight) {
+        if (block["height"].as<uint>() != currentBlockHeight.load(std::memory_order_relaxed)) {
             processNewBlock(block["height"].as<uint>());
         }
     }
@@ -135,10 +136,10 @@ void BlockNotify::setup() {
 
     // Get current block height through regular API
     int blockFetch = fetchLatestBlock();
-    if (blockFetch > currentBlockHeight)
-        currentBlockHeight = blockFetch;
-    if (currentBlockHeight != -1) {
-        lastBlockUpdate = esp_timer_get_time() / 1000000;
+    if (blockFetch > static_cast<int>(currentBlockHeight.load(std::memory_order_relaxed)))
+        currentBlockHeight.store(static_cast<uint32_t>(blockFetch), std::memory_order_relaxed);
+    if (currentBlockHeight.load(std::memory_order_relaxed) != 0) {
+        lastBlockUpdate.store(esp_timer_get_time() / 1000000, std::memory_order_relaxed);
     }
     if (workQueue != nullptr) {
         WorkItem blockUpdate = {TASK_BLOCK_UPDATE, 0};
@@ -171,6 +172,12 @@ void BlockNotify::setup() {
 
 void BlockNotify::taskBlockNotify(void *pvParameters) {
     for (;;) {
+        if (shouldStop.load(std::memory_order_relaxed)) {
+            shouldStop.store(false, std::memory_order_relaxed);
+            taskHandle = nullptr;
+            vTaskDelete(nullptr);
+            return;
+        }
         wsClient.loop();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -179,14 +186,14 @@ void BlockNotify::taskBlockNotify(void *pvParameters) {
 
 
 void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
-    if (newBlockHeight <= currentBlockHeight)
+    uint32_t oldBlockHeight = currentBlockHeight.load(std::memory_order_relaxed);
+    if (newBlockHeight <= oldBlockHeight)
     {
         return;
     }
 
-    lastBlockUpdate = esp_timer_get_time() / 1000000;
-    uint32_t oldBlockHeight = currentBlockHeight;
-    currentBlockHeight = newBlockHeight;
+    lastBlockUpdate.store(esp_timer_get_time() / 1000000, std::memory_order_relaxed);
+    currentBlockHeight.store(newBlockHeight, std::memory_order_relaxed);
 
     if (workQueue != nullptr)
     {
@@ -235,12 +242,12 @@ void BlockNotify::processNewBlock(uint32_t newBlockHeight) {
 }
 
 void BlockNotify::processNewBlockFee(float newBlockFee) {
-    if (blockMedianFee == newBlockFee)
+    if (blockMedianFee.load(std::memory_order_relaxed) == newBlockFee)
     {
         return;
     }
 
-    blockMedianFee = newBlockFee;
+    blockMedianFee.store(newBlockFee, std::memory_order_relaxed);
 
     if (workQueue != nullptr)
     {
@@ -249,48 +256,58 @@ void BlockNotify::processNewBlockFee(float newBlockFee) {
     }
 }
 
-uint32_t BlockNotify::getBlockHeight() const { 
-    return currentBlockHeight; 
+uint32_t BlockNotify::getBlockHeight() const {
+    return currentBlockHeight.load(std::memory_order_relaxed);
 }
 
 void BlockNotify::setBlockHeight(uint32_t newBlockHeight)
 {
-    currentBlockHeight = newBlockHeight;
+    currentBlockHeight.store(newBlockHeight, std::memory_order_relaxed);
 
     if (newBlockHeight % 100 == 0) {
         preferences.putUInt("blockHeight", newBlockHeight);
     }
 }
 
-float BlockNotify::getBlockMedianFee() const { 
-    return blockMedianFee; 
+float BlockNotify::getBlockMedianFee() const {
+    return blockMedianFee.load(std::memory_order_relaxed);
 }
 
 void BlockNotify::setBlockMedianFee(float newBlockMedianFee)
 {
-    blockMedianFee = newBlockMedianFee;
+    blockMedianFee.store(newBlockMedianFee, std::memory_order_relaxed);
 }
 
 bool BlockNotify::isConnected() const
 {
-    return wsConnected;
+    return wsConnected.load(std::memory_order_relaxed);
 }
 
 bool BlockNotify::isInitialized() const
 {
-    return notifyInit;
+    return notifyInit.load(std::memory_order_relaxed);
 }
 
 void BlockNotify::stop()
 {
-    notifyInit = false;
-    wsConnected = false;
+    notifyInit.store(false, std::memory_order_relaxed);
+    wsConnected.store(false, std::memory_order_relaxed);
     wsClient.disconnect();
 
     TaskHandle_t caller = xTaskGetCurrentTaskHandle();
     if (taskHandle != nullptr && taskHandle != caller) {
-        vTaskDelete(taskHandle);
-        taskHandle = nullptr;
+        // Ask the pump task to exit at the top of its next loop iteration
+        // instead of vTaskDelete()ing it from under a running
+        // wsClient.loop() call. Wait up to ~250 ms for it to acknowledge.
+        shouldStop.store(true, std::memory_order_relaxed);
+        for (int i = 0; i < 25 && taskHandle != nullptr; i++) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        if (taskHandle != nullptr) {
+            // Fallback if the task didn't observe the flag in time.
+            vTaskDelete(taskHandle);
+            taskHandle = nullptr;
+        }
     }
 }
 
@@ -320,10 +337,10 @@ int BlockNotify::fetchLatestBlock() {
 
 uint BlockNotify::getLastBlockUpdate() const
 {
-    return lastBlockUpdate;
+    return static_cast<uint>(lastBlockUpdate.load(std::memory_order_relaxed));
 }
 
 void BlockNotify::setLastBlockUpdate(uint lastUpdate)
 {
-    lastBlockUpdate = lastUpdate;
+    lastBlockUpdate.store(lastUpdate, std::memory_order_relaxed);
 }
