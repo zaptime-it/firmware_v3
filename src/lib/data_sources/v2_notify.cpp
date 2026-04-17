@@ -1,5 +1,9 @@
 #include "v2_notify.hpp"
 
+#include <WiFi.h>
+
+#include "data_source_policy.hpp"
+
 using namespace V2Notify;
 
 namespace V2Notify
@@ -56,7 +60,7 @@ namespace V2Notify
             v2NotifyInit = false;
             disconnectCount++;
 
-            if (disconnectCount > 1)
+            if (data_source_policy::shouldFlashDataSourceError(disconnectCount, WiFi.isConnected()))
             {
                 getLedHandler().queueEffect(LED_DATA_BLOCK_ERROR);
             }
