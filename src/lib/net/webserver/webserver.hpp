@@ -1,6 +1,14 @@
 #pragma once
 
-// Keep order of includes because of conflicts
+// Public surface of the split webserver module. Everything below is what
+// the rest of the firmware (src/main.cpp, lib/system/config.cpp,
+// lib/drivers/epd, lib/drivers/leds, lib/system/timers, lib/ui, lib/net/ota)
+// reaches into; the internal wiring lives in net/webserver/internal.hpp and
+// the per-concern cpp files.
+//
+// NOTE: include order here matters. WebServer.h must come before
+// ESPAsyncWebServer.h, otherwise the latter pulls in the wrong symbols and
+// the build breaks with "redefinition of 'class WebServer'".
 #include "WebServer.h"
 #include "ESPAsyncWebServer.h"
 #include <ArduinoJson.h>
@@ -10,72 +18,16 @@
 #include <iostream>
 
 #include "lib/data_sources/block_notify.hpp"
-#include "lib/drivers/leds/led_handler.hpp"
 #include "lib/data_sources/price_notify.hpp"
 #include "lib/ui/screen_handler.hpp"
 #include "OneParamRewrite.hpp"
 #include "lib/data_sources/mining_pool/pool_factory.hpp"
 
+// FreeRTOS task that fans the /api/status JSON out over SSE whenever any
+// state-changing component calls xTaskNotifyGive(eventSourceTaskHandle).
+// Kept global so the EPD/LED/timer/OTA code can notify without having to
+// go through a heavier callback layer.
 extern TaskHandle_t eventSourceTaskHandle;
 
-void stopWebServer();
 void setupWebserver();
-bool processEpdColorSettings(AsyncWebServerRequest *request);
-
-
-
-void onApiStatus(AsyncWebServerRequest *request);
-void onApiSystemStatus(AsyncWebServerRequest *request);
-void onApiSetWifiTxPower(AsyncWebServerRequest *request);
-
-void onApiScreenControl(AsyncWebServerRequest *request);
-
-void onApiShowScreen(AsyncWebServerRequest *request);
-void onApiShowCurrency(AsyncWebServerRequest *request);
-
-void onApiShowText(AsyncWebServerRequest *request);
-void onApiIdentify(AsyncWebServerRequest *request);
-
-void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json);
-
-void onApiActionPause(AsyncWebServerRequest *request);
-void onApiActionTimerRestart(AsyncWebServerRequest *request);
-void onApiSettingsGet(AsyncWebServerRequest *request);
-void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json);
-void onApiFullRefresh(AsyncWebServerRequest *request);
-
-void onApiLightsStatus(AsyncWebServerRequest *request);
-void onApiLightsOff(AsyncWebServerRequest *request);
-void onApiLightsSetColor(AsyncWebServerRequest *request);
-void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json);
-
-void onApiRestart(AsyncWebServerRequest *request);
-void onFirmwareUpdate(AsyncWebServerRequest *request);
-void asyncFirmwareUpdateHandler(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
-void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final, int command);
-void asyncWebuiUpdateHandler(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final);
-void onAutoUpdateFirmware(AsyncWebServerRequest *request);
-
-void onIndex(AsyncWebServerRequest *request);
-void onNotFound(AsyncWebServerRequest *request);
-
-JsonDocument getLedStatusObject();
-JsonDocument getStatusObject();
-void eventSourceUpdate();
-void eventSourceTask(void *pvParameters);
-
-void onApiStopDataSources(AsyncWebServerRequest *request);
-void onApiRestartDataSources(AsyncWebServerRequest *request);
-
-void onApiDNDStatus(AsyncWebServerRequest *request);
-void onApiDNDEnable(AsyncWebServerRequest *request);
-void onApiDNDDisable(AsyncWebServerRequest *request);
-
-#ifdef HAS_FRONTLIGHT
-void onApiFrontlightOn(AsyncWebServerRequest *request);
-void onApiFrontlightFlash(AsyncWebServerRequest *request);
-void onApiFrontlightSetBrightness(AsyncWebServerRequest *request);
-
-void onApiFrontlightStatus(AsyncWebServerRequest *request);
-void onApiFrontlightOff(AsyncWebServerRequest *request);
-#endif
+void stopWebServer();

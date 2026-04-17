@@ -33,6 +33,5 @@ ReleaseInfo getLatestRelease(const String& fileToDownload);
 
 bool getIsOTAUpdating();
 
-void updateWebUi(String latestRelease, int command);
 String downloadSHA256(const String& filename);
 

@@ -181,8 +181,6 @@ int downloadUpdateHandler(char updateType)
   case UPDATE_WEBUI:
   {
     latestRelease = getLatestRelease(getWebUiFilename());
-    // updateWebUi(latestRelease.fileUrl, U_SPIFFS);
-    // return 0;
   }
   break;
   }
@@ -290,77 +288,11 @@ int downloadUpdateHandler(char updateType)
   return 0;
 }
 
-void updateWebUi(String latestRelease, int command)
-{
-  WiFiClientSecure client;
-  client.setCACertBundle(rootca_crt_bundle_start);
-  HTTPClient http;
-  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  http.begin(client, latestRelease);
-  http.setUserAgent(USER_AGENT);
-
-  int httpCode = http.GET();
-  if (httpCode == HTTP_CODE_OK)
-  {
-    int contentLength = http.getSize();
-    if (contentLength > 0)
-    {
-      uint8_t *buffer = (uint8_t *)malloc(contentLength);
-      if (buffer)
-      {
-        WiFiClient *stream = http.getStreamPtr();
-        size_t written = stream->readBytes(buffer, contentLength);
-
-        if (written == contentLength)
-        {
-          String expectedSHA256 = "";
-          if (command == U_FLASH)
-          {
-            expectedSHA256 = downloadSHA256(getFirmwareFilename());
-          }
-
-          String calculated_sha256 = calculateSHA256(buffer, contentLength);
-          if ((command == U_FLASH && expectedSHA256.equals(calculated_sha256)) || command == U_SPIFFS)
-          {
-            Update.onProgress(onOTAProgress);
-
-            if (Update.begin(contentLength, command))
-            {
-              onOTAStart();
-              Update.write(buffer, contentLength);
-              if (Update.end())
-              {
-                ESP.restart();
-              }
-              else
-              {
-              }
-            }
-            else
-            {
-            }
-          }
-          else
-          {
-          }
-        }
-        else
-        {
-        }
-        free(buffer);
-      }
-      else
-      {
-      }
-    }
-    else
-    {
-    }
-  }
-  else
-  {
-  }
-}
+// NOTE: an older updateWebUi() lived here. It was never wired into any code
+// path (the only caller was commented out in runUpdate() above) and
+// duplicated the checksum/download/Update.begin() logic already used by
+// runUpdate(). Removed as part of the Phase 4 webserver split so there is
+// exactly one OTA code path.
 
 void onOTAError(ota_error_t error)
 {

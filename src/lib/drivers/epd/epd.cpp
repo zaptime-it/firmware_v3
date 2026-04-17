@@ -454,18 +454,6 @@ void EPDManager::renderQr(uint dispNum, const String& text, bool partial) {
 #endif
 }
 
-int16_t EPDManager::calculateDescent(const GFXfont* font) {
-    int16_t maxDescent = 0;
-    for (uint16_t i = font->first; i <= font->last; i++) {
-        GFXglyph* glyph = &font->glyph[i - font->first];
-        int16_t descent = glyph->yOffset;
-        if (descent > maxDescent) {
-            maxDescent = descent;
-        }
-    }
-    return maxDescent;
-}
-
 void EPDManager::updateDisplayTask(void* pvParameters) noexcept {
     auto& instance = EPDManager::getInstance();
     const int epdIndex = *(int*)pvParameters;

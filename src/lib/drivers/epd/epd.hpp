@@ -76,7 +76,6 @@ private:
     bool renderIcon(uint dispNum, const String& text, bool partial);
     void renderText(uint dispNum, const String& text, bool partial);
     void renderQr(uint dispNum, const String& text, bool partial);
-    int16_t calculateDescent(const GFXfont* font);
 
     static void updateDisplayTask(void* pvParameters) noexcept;
     static void prepareDisplayUpdateTask(void* pvParameters);
