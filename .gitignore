@@ -12,3 +12,33 @@ node_modules
 .DS_Store
 *.bin
 ci/cache
+
+# PlatformIO drops per-env sdkconfig.* checkpoints at the repo root, which
+# pollute `git status`. Keep the shared sdkconfig.defaults but exclude the
+# env-specific generated ones.
+sdkconfig.*
+!sdkconfig.defaults
+
+# Font/asset conversion byproducts that used to end up at the repo root
+# while experimenting with tools/ helpers. The real source files live
+# under data/ or src/fonts/; nothing at the root needs to be tracked.
+/*.c
+/*.c.gz
+/*.bin.gz
+/*.new.gz
+
+# Scratch notes / dumps developers tend to leave lying around.
+events_to_delete*.txt
+new.txt
+new[0-9].txt
+settings.csv
+/get_fs.sh
+/convert.sh
+/convert-os.sh
+/compress_icons.py
+/process_timezone_data.py
+/verify_timezone_data.py
+
+# tools/ is a scratch area for local asset/font/timezone helpers that
+# are not part of the build. The real build-time scripts live under scripts/.
+/tools/
