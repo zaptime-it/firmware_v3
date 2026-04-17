@@ -21,13 +21,13 @@ New features:
 
 "Steal focus on new block" means that when a new block is mined, the display will switch to the block height screen if it's not on it already.
 
-See the [docs](https://git.btclock.dev/btclock/docs) repo for more information and building instructions.
+See the [docs](https://git.btclock.dev/btclock/docs) repo for user-facing information and flashing instructions. Developer docs (architecture, build envs, API reference, testing, preferences) live in [`docs/`](docs/README.md) in this repo.
 
-**NOTE**: The software assumes that the hardware is run in a controlled private network. ~~The Web UI and the OTA update mechanism are not password protected and accessible to anyone in the network. Also, since the device only fetches numbers through WebSockets it will skip server certificate verification to save resources.~~ Since 3.2.0 the WebUI is password protectable and all certificates are verified. OTA update mechanism is not password-protected. 
+**NOTE**: The software assumes that the hardware is run in a controlled private network. ~~The Web UI and the OTA update mechanism are not password protected and accessible to anyone in the network. Also, since the device only fetches numbers through WebSockets it will skip server certificate verification to save resources.~~ Since 3.2.0 the WebUI is password protectable and all certificates are verified. Since 3.4.0 the ArduinoOTA push-update mechanism is password protectable too.
 
 ## Building
 
-Use PlatformIO to build it yourself. Make sure you fetch the [WebUI](https://git.btclock.dev/btclock/webui) submodule.
+Use PlatformIO to build it yourself. Make sure you fetch the [WebUI](https://git.btclock.dev/btclock/webui) submodule. Full build instructions are in [`docs/BUILD.md`](docs/BUILD.md).
 
 
 ## Mining pool stats
