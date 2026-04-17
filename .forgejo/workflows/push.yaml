@@ -34,11 +34,10 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
+            ~/data/node_modules
+            .pio
             data/node_modules
-          # Never cache the build output directory (.pio). Restoring it across
-          # commits can cause PlatformIO to reuse stale artifacts and skip
-          # rebuilds, leading to incorrect checkprogsize results.
-          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini', 'partition.csv', 'src/**', 'lib/**', 'include/**', 'scripts/**') }}
+          key: ${{ runner.os }}-pio
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
@@ -55,23 +54,10 @@ jobs:
         run: mkdir -p junit-reports && pio test -e native_test_only --junit-output-path junit-reports/
       - name: Build BTClock firmware
         shell: bash
-        run: |
-          pio run -t clean
-          pio run 2>&1 | tee pio-run.log
+        run: pio run
       - name: Build BTClock filesystem
         shell: bash
-        run: pio run --target buildfs 2>&1 | tee pio-buildfs.log
-      - name: Upload build logs
-        if: always()
-        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
-        with:
-          include-hidden-files: true
-          retention-days: 1
-          name: build-logs
-          path: |
-            pio-run.log
-            pio-buildfs.log
-
+        run: pio run --target buildfs
       - name: Copy bootloader to output folder
         run: cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin .pio
       - name: Upload artifacts
