@@ -308,13 +308,9 @@ void setupPreferences()
     preferences.putUChar("dataSource", DEFAULT_DATA_SOURCE);
   }
 
-  // "ceEndpoint" is the canonical key used by the web UI. Migrate any value
-  // previously stored under the shortlived "customEndpoint" key.
   if (!preferences.isKey("ceEndpoint")) {
-    preferences.putString("ceEndpoint",
-        preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT));
+    preferences.putString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
   }
-  preferences.remove("customEndpoint");
 
   if (!preferences.isKey("ceDisableSSL")) {
     preferences.putBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);

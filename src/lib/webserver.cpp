@@ -1,27 +1,40 @@
 #include "webserver.hpp"
 #include "lib/led_handler.hpp"
+#include "lib/pref_keys.hpp"
 #include "lib/shared.hpp"
 #include "esp_partition.h"
 
 static const char* JSON_CONTENT = "application/json";
 
+// The three arrays below drive the generic branch of onApiSettingsPatch and
+// the schema exposed by onApiSettingsGet. Routing keys through PrefKeys
+// guarantees the identifier matches the backing NVS slot and makes it easy
+// to see every PATCH-accepted setting in one place.
 static const char *const PROGMEM strSettings[] = {
-    "hostnamePrefix", "mempoolInstance", "nostrPubKey", "nostrRelay", "bitaxeHostname", "miningPoolName", "miningPoolUser", "nostrZapPubkey", "httpAuthUser", "httpAuthPass", "gitReleaseUrl", "poolLogosUrl", "ceEndpoint", "fontName", "localPoolHost", "tzString"};
+    PrefKeys::HostnamePrefix, PrefKeys::MempoolInstance, PrefKeys::NostrPubKey,
+    PrefKeys::NostrRelay, PrefKeys::BitaxeHostname, PrefKeys::MiningPoolName,
+    PrefKeys::MiningPoolUser, PrefKeys::NostrZapPubkey, PrefKeys::HttpAuthUser,
+    PrefKeys::HttpAuthPass, PrefKeys::GitReleaseUrl, PrefKeys::PoolLogosUrl,
+    PrefKeys::CeEndpoint, PrefKeys::FontName, PrefKeys::LocalPoolHost,
+    PrefKeys::TzString};
 
-static const char *const PROGMEM uintSettings[] = {"minSecPriceUpd", "fullRefreshMin", "ledBrightness", "flMaxBrightness", "flEffectDelay", "luxLightToggle", "wpTimeout", "blockFlashColor"};
+static const char *const PROGMEM uintSettings[] = {
+    PrefKeys::MinSecPriceUpd, PrefKeys::FullRefreshMin, PrefKeys::LedBrightness,
+    PrefKeys::FlMaxBrightness, PrefKeys::FlEffectDelay, PrefKeys::LuxLightToggle,
+    PrefKeys::WpTimeout, PrefKeys::BlockFlashColor};
 
-static const char *const PROGMEM boolSettings[] = {"ledTestOnPower", "ledFlashOnUpd",
-                                                   "mdnsEnabled", "otaEnabled", "stealFocus",
-                                                   "mcapBigChar", "useSatsSymbol", "useBlkCountdown",
-                                                   "suffixPrice", "disableLeds", 
-                                                   "mowMode", "suffixShareDot", "flOffWhenDark",
-                                                   "flAlwaysOn", "flDisable", "flFlashOnUpd",
-                                                   "mempoolSecure", "bitaxeEnabled",
-                                                   "miningPoolStats", "verticalDesc",
-                                                   "nostrZapNotify", "httpAuthEnabled",
-                                                   "enableDebugLog", "ceDisableSSL", "dndEnabled", 
-                                                   "dndTimeEnabled", "scrnRestoreZap", "blockFeeDec",
-                                                   "supplyPercent", "refrScrnChange", "inverseButtons"};
+static const char *const PROGMEM boolSettings[] = {
+    PrefKeys::LedTestOnPower, PrefKeys::LedFlashOnUpd, PrefKeys::MdnsEnabled,
+    PrefKeys::OtaEnabled, PrefKeys::StealFocus, PrefKeys::McapBigChar,
+    PrefKeys::UseSatsSymbol, PrefKeys::UseBlkCountdown, PrefKeys::SuffixPrice,
+    PrefKeys::DisableLeds, PrefKeys::MowMode, PrefKeys::SuffixShareDot,
+    PrefKeys::FlOffWhenDark, PrefKeys::FlAlwaysOn, PrefKeys::FlDisable,
+    PrefKeys::FlFlashOnUpd, PrefKeys::MempoolSecure, PrefKeys::BitaxeEnabled,
+    PrefKeys::MiningPoolStats, PrefKeys::VerticalDesc, PrefKeys::NostrZapNotify,
+    PrefKeys::HttpAuthEnabled, PrefKeys::EnableDebugLog, PrefKeys::CeDisableSSL,
+    PrefKeys::DndEnabled, PrefKeys::DndTimeEnabled, PrefKeys::ScrnRestoreZap,
+    PrefKeys::BlockFeeDec, PrefKeys::SupplyPercent, PrefKeys::RefrScrnChange,
+    PrefKeys::InverseButtons};
 
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
