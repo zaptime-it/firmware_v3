@@ -47,6 +47,7 @@ public:
     static bool isCurrencySpecific(uint screen);
     static bool handleCurrencyRotation(bool forward);
     static int findNextVisibleScreen(int currentScreen, bool forward);
+    static void resetCurrencyForScreen(uint targetScreen, bool forward);
 };
 
 // Keep as free functions since they deal with FreeRTOS tasks

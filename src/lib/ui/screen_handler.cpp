@@ -1,5 +1,7 @@
 #include "screen_handler.hpp"
 
+#include "screen_nav.hpp"
+
 TaskHandle_t taskScreenRotateTaskHandle;
 TaskHandle_t workerTaskHandle;
 QueueHandle_t workQueue = NULL;
@@ -169,42 +171,33 @@ int ScreenHandler::findNextVisibleScreen(int currentScreen, bool forward) {
 
 void ScreenHandler::nextScreen() {
     if (handleCurrencyRotation(true)) return;
-    
+
     int currentIndex = findScreenIndexByValue(getCurrentScreen());
     int nextScreen = findNextVisibleScreen(currentIndex, true);
-    
-    // If moving from a currency-specific screen to another currency-specific screen
-    // reset to first currency 
-    // also if moving from a currency-specific screen to a non-currency-specific screen
-    if (
-        isCurrencySpecific(getCurrentScreen())
-    ) {
-        std::vector<std::string> ac = getActiveCurrencies();
-        if (!ac.empty()) {
-            setCurrentCurrency(getCurrencyChar(ac.front()));
-        }
-    }
-    
+
+    resetCurrencyForScreen(nextScreen, true);
+
     setCurrentScreen(nextScreen);
 }
 
 void ScreenHandler::previousScreen() {
     if (handleCurrencyRotation(false)) return;
-    
+
     int currentIndex = findScreenIndexByValue(getCurrentScreen());
     int prevScreen = findNextVisibleScreen(currentIndex, false);
-    
-    // If moving from a currency-specific screen to another currency-specific screen
-    // reset to last currency
-    // also if moving from a non-currency-specific screen to a currency-specific screen
-    if (isCurrencySpecific(getCurrentScreen())) {
-        std::vector<std::string> ac = getActiveCurrencies();
-        if (!ac.empty()) {
-            setCurrentCurrency(getCurrencyChar(ac.back()));
-        }
-    }
-    
+
+    resetCurrencyForScreen(prevScreen, false);
+
     setCurrentScreen(prevScreen);
+}
+
+void ScreenHandler::resetCurrencyForScreen(uint targetScreen, bool forward) {
+    std::vector<std::string> ac = getActiveCurrencies();
+    int idx = btclock::nextCurrencyIndex(isCurrencySpecific(targetScreen),
+                                         forward,
+                                         static_cast<int>(ac.size()));
+    if (idx < 0) return;
+    setCurrentCurrency(getCurrencyChar(ac.at(idx)));
 }
 
 void ScreenHandler::showSystemStatusScreen() {
