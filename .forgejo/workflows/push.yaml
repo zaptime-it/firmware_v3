@@ -34,10 +34,11 @@ jobs:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
-            ~/data/node_modules
-            .pio
             data/node_modules
-          key: ${{ runner.os }}-pio
+          # Never cache the build output directory (.pio). Restoring it across
+          # commits can cause PlatformIO to reuse stale artifacts and skip
+          # rebuilds, leading to incorrect checkprogsize results.
+          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini', 'partition.csv', 'src/**', 'lib/**', 'include/**', 'scripts/**') }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
