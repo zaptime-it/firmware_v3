@@ -3,17 +3,18 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
+#include <WebSocketsClient.h>
 #include <esp_timer.h>
-#include <esp_websocket_client.h>
 #include <cstring>
 #include <string>
 
 #include "lib/led_handler.hpp"
+#include "lib/live_service.hpp"
 #include "lib/screen_handler.hpp"
 #include "lib/timers.hpp"
 #include "lib/shared.hpp"
 
-class BlockNotify {
+class BlockNotify : public LiveService {
 public:
     static BlockNotify& getInstance() {
         static BlockNotify instance;
@@ -27,9 +28,16 @@ public:
     // Block notification setup and control
     void setup();
     void stop();
-    void restart();
-    bool isConnected() const;
-    bool isInitialized() const;
+    void restart() override;
+    bool isConnected() const override;
+    bool isInitialized() const override;
+
+    // LiveService identity + watchdog policy
+    const char* name() const override { return "BlockNotify"; }
+    unsigned long lastUpdateSeconds() const override { return lastBlockUpdate; }
+    // No new block in 45 minutes means something is wrong upstream. Aligns
+    // with the ad-hoc "checkMissedBlocks" threshold from main.cpp.
+    unsigned long staleAfterSeconds() const override { return 45UL * 60UL; }
 
     // Block height management
     void setBlockHeight(uint32_t newBlockHeight);
@@ -50,16 +58,16 @@ public:
 
 private:
     BlockNotify() = default;  // Private constructor for singleton
-    
-    void setupTask();
-    static void onWebsocketEvent(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
-    void onWebsocketMessage(esp_websocket_event_data_t *data);
 
-    static const char* mempoolWsCert;
-    static esp_websocket_client_handle_t wsClient;
+    static void onWebsocketEvent(WStype_t type, uint8_t *payload, size_t length);
+    void onWebsocketMessage(uint8_t *payload, size_t length);
+    static void taskBlockNotify(void *pvParameters);
+
+    static WebSocketsClient wsClient;
     static uint32_t currentBlockHeight;
     static float blockMedianFee;
     static bool notifyInit;
+    static bool wsConnected;
     static unsigned long int lastBlockUpdate;
     static TaskHandle_t taskHandle;
 };

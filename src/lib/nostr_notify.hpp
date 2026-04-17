@@ -12,14 +12,35 @@
 
 #include "price_notify.hpp"
 #include "block_notify.hpp"
+#include "lib/live_service.hpp"
 #include "lib/timers.hpp"
 
 void setupNostrNotify(bool asDatasource, bool zapNotify);
+void stopNostrNotify();
+void restartNostrNotify();
 
 void nostrTask(void *pvParameters);
 void setupNostrTask();
 
 boolean nostrConnected();
+bool nostrIsInitialized();
+unsigned long getLastNostrUpdate();
+
+// Adapter exposing NostrNotify (as a data source) through LiveService.
+class NostrNotifyService : public LiveService {
+public:
+    static NostrNotifyService& getInstance() {
+        static NostrNotifyService instance;
+        return instance;
+    }
+    const char* name() const override { return "NostrNotify"; }
+    bool isInitialized() const override { return nostrIsInitialized(); }
+    bool isConnected() const override { return nostrConnected(); }
+    unsigned long lastUpdateSeconds() const override { return getLastNostrUpdate(); }
+    // Nostr relays can be quiet for a while; stay tolerant. 15 minute window.
+    unsigned long staleAfterSeconds() const override { return 15UL * 60UL; }
+    void restart() override { restartNostrNotify(); }
+};
 void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *event);
 void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event);
 

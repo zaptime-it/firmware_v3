@@ -20,41 +20,13 @@
 #include "lib/config.hpp"
 #include "lib/led_handler.hpp"
 #include "lib/block_notify.hpp"
+#include "lib/live_service.hpp"
 
 uint wifiLostConnection;
-uint priceNotifyLostConnection = 0;
-uint blockNotifyLostConnection = 0;
 
 int64_t getUptime() {
     return esp_timer_get_time() / 1000000;
 }
-
-void handlePriceNotifyDisconnection() {
-    if (priceNotifyLostConnection == 0) {
-        priceNotifyLostConnection = getUptime();
-        Serial.println(F("Lost price notification connection, trying to reconnect..."));
-    }
-    
-    if ((getUptime() - priceNotifyLostConnection) > 300) { // 5 minutes timeout
-        Serial.println(F("Price notification connection lost for 5 minutes, restarting handler..."));
-        restartPriceNotify();
-        priceNotifyLostConnection = 0;
-    }
-}
-
-void handleBlockNotifyDisconnection() {
-    if (blockNotifyLostConnection == 0) {
-        blockNotifyLostConnection = getUptime();
-        Serial.println(F("Lost block notification connection, trying to reconnect..."));
-    }
-    
-    if ((getUptime() - blockNotifyLostConnection) > 300) { // 5 minutes timeout
-        Serial.println(F("Block notification connection lost for 5 minutes, restarting handler..."));
-        auto& blockNotify = BlockNotify::getInstance();
-        blockNotify.restart();
-        blockNotifyLostConnection = 0;
-    }
-} 
 
 void handleFrontlight() {
 #ifdef HAS_FRONTLIGHT
@@ -106,38 +78,21 @@ void checkMissedBlocks() {
 }
 
 void monitorDataConnections() {
-  // Price notification monitoring
-  if (getPriceNotifyInit() && !preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE) && !isPriceNotifyConnected()) {
-    handlePriceNotifyDisconnection();
-  } else if (priceNotifyLostConnection > 0 && isPriceNotifyConnected()) {
-    priceNotifyLostConnection = 0;
-  }
+  // Delegate generic disconnect/staleness watchdogs to the registry.
+  // Each LiveService declares its own staleAfterSeconds() policy, so
+  // the bespoke "5 missed price updates" + "45 min no block" timers
+  // are now expressed declaratively by PriceNotifyService and
+  // BlockNotify respectively.
+  LiveServiceRegistry::instance().monitor();
 
-  // Block notification monitoring
+  // BlockNotify still gets a special-case REST probe on long silences,
+  // because a live WebSocket can appear healthy while the upstream has
+  // silently dropped new-block events.
   auto& blockNotify = BlockNotify::getInstance();
-  if (blockNotify.isInitialized() && !blockNotify.isConnected()) {
-    handleBlockNotifyDisconnection();
-  } else if (blockNotifyLostConnection > 0 && blockNotify.isConnected()) {
-    blockNotifyLostConnection = 0;
-  }
-
-  // Check for missed price updates.
-  // Previously the subtraction was inverted: lastUpdate - uptime on unsigned
-  // time wraps to a huge value whenever uptime > lastUpdate (i.e. always
-  // after the first update), which made the condition fire constantly.
   int64_t uptimeNow = getUptime();
-  int64_t lastUsdUpdate = static_cast<int64_t>(getLastPriceUpdate(CURRENCY_USD));
-  int64_t priceStaleThreshold = static_cast<int64_t>(preferences.getUInt("minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE)) * 5;
-  if (lastUsdUpdate != 0 && uptimeNow > lastUsdUpdate &&
-      (uptimeNow - lastUsdUpdate) > priceStaleThreshold) {
-    Serial.println(F("Detected 5 missed price updates... restarting price handler."));
-    restartPriceNotify();
-    priceNotifyLostConnection = 0;
-  }
-
-  // Check for missed blocks (45 minute staleness threshold).
   int64_t lastBlockUpdate = static_cast<int64_t>(blockNotify.getLastBlockUpdate());
-  if (lastBlockUpdate != 0 && uptimeNow > lastBlockUpdate &&
+  if (blockNotify.isInitialized() && lastBlockUpdate != 0 &&
+      uptimeNow > lastBlockUpdate &&
       (uptimeNow - lastBlockUpdate) > (45LL * 60LL)) {
     checkMissedBlocks();
   }
@@ -148,8 +103,6 @@ extern "C" void app_main() {
   Serial.begin(115200);
   setup();
 
-  bool thirdPartySource = getDataSource() == THIRD_PARTY_SOURCE;
-
   while (true) {
     if (eventSourceTaskHandle != NULL) {
       xTaskNotifyGive(eventSourceTaskHandle);
@@ -159,9 +112,10 @@ extern "C" void app_main() {
       handleFrontlight();
       checkWiFiConnection();
 
-      if (thirdPartySource) {
-        monitorDataConnections();
-      }
+      // monitorDataConnections() now iterates the LiveServiceRegistry
+      // so every active data source (BTCLOCK/CUSTOM V2, Mempool/Kraken,
+      // Nostr) gets the same disconnect + staleness watchdog treatment.
+      monitorDataConnections();
 
       if (getUptime() - getLastTimeSync() > 24 * 60 * 60) {
         Serial.println(F("Last time update is longer than 24 hours ago, sync again"));

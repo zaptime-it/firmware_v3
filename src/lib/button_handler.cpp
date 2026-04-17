@@ -4,18 +4,6 @@
 TaskHandle_t ButtonHandler::buttonTaskHandle = NULL;
 ButtonState ButtonHandler::buttonStates[4] = {};
 
-#ifdef IS_BTCLOCK_V8
-#define BTN_1 256
-#define BTN_2 512
-#define BTN_3 1024
-#define BTN_4 2048
-#else
-#define BTN_1 2048
-#define BTN_2 1024
-#define BTN_3 512
-#define BTN_4 256
-#endif
-
 void ButtonHandler::buttonTask(void *parameter) {
     while (1) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);

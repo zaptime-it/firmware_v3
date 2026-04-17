@@ -12,6 +12,11 @@ namespace V2Notify
 
     bool blockFeeDecimals = DEFAULT_BLOCK_FEE_DECIMALS;
     uint disconnectCount = 0;
+    bool v2NotifyInit = false;
+    unsigned long lastV2Update = 0;
+
+    bool isV2NotifyInitialized() { return v2NotifyInit; }
+    unsigned long getLastV2Update() { return lastV2Update; }
 
     void setupV2Notify()
     {
@@ -48,6 +53,7 @@ namespace V2Notify
         switch (type)
         {
         case WStype_DISCONNECTED:
+            v2NotifyInit = false;
             disconnectCount++;
 
             if (disconnectCount > 1)
@@ -68,7 +74,7 @@ namespace V2Notify
             break;
         case WStype_CONNECTED:
         {
-
+            v2NotifyInit = true;
             disconnectCount = 0;
 
             auto sendSubscription = [](JsonDocument &doc) {
@@ -134,6 +140,7 @@ namespace V2Notify
 
     void handleV2Message(JsonDocument doc)
     {
+        lastV2Update = static_cast<unsigned long>(esp_timer_get_time() / 1000000);
         if (doc["blockheight"].is<uint>())
         {
             uint newBlockHeight = doc["blockheight"].as<uint>();
@@ -181,8 +188,21 @@ namespace V2Notify
 
     void restartV2Notify()
     {
+        v2NotifyInit = false;
         webSocket.disconnect();
         setupV2NotifyTask();
+    }
+
+    void stopV2Notify()
+    {
+        v2NotifyInit = false;
+        webSocket.disconnect();
+        TaskHandle_t caller = xTaskGetCurrentTaskHandle();
+        if (v2NotifyTaskHandle != NULL && v2NotifyTaskHandle != caller)
+        {
+            vTaskDelete(v2NotifyTaskHandle);
+            v2NotifyTaskHandle = NULL;
+        }
     }
 
     void setupV2NotifyTask()

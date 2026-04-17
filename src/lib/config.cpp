@@ -1,5 +1,6 @@
 #include "config.hpp"
 #include "led_handler.hpp"
+#include "lib/live_service.hpp"
 
 #define MAX_ATTEMPTS_WIFI_CONNECTION 20
 
@@ -30,11 +31,18 @@ void setupDataSource()
 {
   DataSourceType dataSource = getDataSource();
   bool zapNotifyEnabled = preferences.getBool("nostrZapNotify", DEFAULT_ZAP_NOTIFY_ENABLED);
-  
+
+  // Reset any previously-registered services so that switching data sources
+  // at runtime doesn't keep watchdogging a service we just tore down.
+  LiveServiceRegistry::instance().clear();
+
   // Setup Nostr if it's either the data source or zap notifications are enabled
   if (dataSource == NOSTR_SOURCE || zapNotifyEnabled) {
     setupNostrNotify(dataSource == NOSTR_SOURCE, zapNotifyEnabled);
     setupNostrTask();
+    if (dataSource == NOSTR_SOURCE) {
+      LiveServiceRegistry::instance().registerService(&NostrNotifyService::getInstance());
+    }
   }
   // Setup other data sources if Nostr is not the data source
   if (dataSource != NOSTR_SOURCE) {
@@ -385,14 +393,18 @@ void setupWebsocketClients(void *pvParameters)
 {
   DataSourceType dataSource = getDataSource();
   
+  auto& registry = LiveServiceRegistry::instance();
   if (dataSource == BTCLOCK_SOURCE || dataSource == CUSTOM_SOURCE)
   {
     V2Notify::setupV2Notify();
+    registry.registerService(&V2NotifyService::getInstance());
   }
   else if (dataSource == THIRD_PARTY_SOURCE)
   {
     BlockNotify::getInstance().setup();
     setupPriceNotify();
+    registry.registerService(&BlockNotify::getInstance());
+    registry.registerService(&PriceNotifyService::getInstance());
   }
 
   vTaskDelete(NULL);

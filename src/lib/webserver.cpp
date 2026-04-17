@@ -29,6 +29,8 @@ TaskHandle_t eventSourceTaskHandle;
 
 #define HTTP_OK 200
 #define HTTP_BAD_REQUEST 400
+#define HTTP_NOT_FOUND 404
+#define HTTP_SERVICE_UNAVAILABLE 503
 
 // Reboot from a dedicated task. Calling esp_restart() directly from an
 // AsyncTCP callback (e.g. request->onDisconnect) used to be paired with
@@ -99,66 +101,74 @@ void setupWebserver()
   //  server.on("/", HTTP_GET, onIndex);
   server.on("/api/status", HTTP_GET, onApiStatus);
   server.on("/api/system_status", HTTP_GET, onApiSystemStatus);
-  server.on("/api/wifi_set_tx_power", HTTP_GET, onApiSetWifiTxPower);
+  // State changes moved to POST so they stop showing up in browser history,
+  // bookmark warmers, and <link rel="prefetch"> runs. The old GET routes are
+  // intentionally not registered; the WebUI is being rebuilt against 3.4.0.
+  server.on("/api/wifi_set_tx_power", HTTP_POST, onApiSetWifiTxPower);
 
-  server.on("/api/full_refresh", HTTP_GET, onApiFullRefresh);
+  server.on("/api/full_refresh", HTTP_POST, onApiFullRefresh);
 
-  server.on("/api/stop_datasources", HTTP_GET, onApiStopDataSources);
-  server.on("/api/restart_datasources", HTTP_GET, onApiRestartDataSources);
+  server.on("/api/stop_datasources", HTTP_POST, onApiStopDataSources);
+  server.on("/api/restart_datasources", HTTP_POST, onApiRestartDataSources);
 
-  server.on("/api/action/pause", HTTP_GET, onApiActionPause);
-  server.on("/api/action/timer_restart", HTTP_GET, onApiActionTimerRestart);
+  server.on("/api/action/pause", HTTP_POST, onApiActionPause);
+  server.on("/api/action/timer_restart", HTTP_POST, onApiActionTimerRestart);
 
   server.on("/api/settings", HTTP_GET, onApiSettingsGet);
 
-  server.on("/api/show/screen", HTTP_GET, onApiShowScreen);
-  server.on("/api/show/currency", HTTP_GET, onApiShowCurrency);
+  server.on("/api/show/screen", HTTP_POST, onApiShowScreen);
+  server.on("/api/show/currency", HTTP_POST, onApiShowCurrency);
 
-  server.on("/api/show/text", HTTP_GET, onApiShowText);
+  server.on("/api/show/text", HTTP_POST, onApiShowText);
 
-  server.on("/api/screen/next", HTTP_GET, onApiScreenControl);
-  server.on("/api/screen/previous", HTTP_GET, onApiScreenControl);
+  server.on("/api/screen/next", HTTP_POST, onApiScreenControl);
+  server.on("/api/screen/previous", HTTP_POST, onApiScreenControl);
 
+  // PATCH /api/settings replaces the old POST-ish /api/json/settings so the
+  // settings endpoint pair (GET read / PATCH write) lives on a single URL.
   AsyncCallbackJsonWebHandler *settingsPatchHandler =
-      new AsyncCallbackJsonWebHandler("/api/json/settings", onApiSettingsPatch);
+      new AsyncCallbackJsonWebHandler("/api/settings", onApiSettingsPatch);
+  settingsPatchHandler->setMethod(HTTP_PATCH);
   server.addHandler(settingsPatchHandler);
 
   AsyncCallbackJsonWebHandler *handler = new AsyncCallbackJsonWebHandler(
       "/api/show/custom", onApiShowTextAdvanced);
+  handler->setMethod(HTTP_POST);
   server.addHandler(handler);
 
   AsyncCallbackJsonWebHandler *lightsJsonHandler =
       new AsyncCallbackJsonWebHandler("/api/lights/set", onApiLightsSetJson);
+  lightsJsonHandler->setMethod(HTTP_POST);
   server.addHandler(lightsJsonHandler);
 
-  server.on("/api/lights/off", HTTP_GET, onApiLightsOff);
-  server.on("/api/lights/color", HTTP_GET, onApiLightsSetColor);
+  server.on("/api/lights/off", HTTP_POST, onApiLightsOff);
+  server.on("/api/lights/color", HTTP_POST, onApiLightsSetColor);
   server.on("/api/lights", HTTP_GET, onApiLightsStatus);
-  server.on("/api/identify", HTTP_GET, onApiIdentify);
+  server.on("/api/identify", HTTP_POST, onApiIdentify);
 
 #ifdef HAS_FRONTLIGHT
-  server.on("/api/frontlight/on", HTTP_GET, onApiFrontlightOn);
-  server.on("/api/frontlight/flash", HTTP_GET, onApiFrontlightFlash);
+  server.on("/api/frontlight/on", HTTP_POST, onApiFrontlightOn);
+  server.on("/api/frontlight/flash", HTTP_POST, onApiFrontlightFlash);
   server.on("/api/frontlight/status", HTTP_GET, onApiFrontlightStatus);
 
-  server.on("/api/frontlight/brightness", HTTP_GET, onApiFrontlightSetBrightness);
-  server.on("/api/frontlight/off", HTTP_GET, onApiFrontlightOff);
+  server.on("/api/frontlight/brightness", HTTP_POST, onApiFrontlightSetBrightness);
+  server.on("/api/frontlight/off", HTTP_POST, onApiFrontlightOff);
 
   server.addRewrite(
       new OneParamRewrite("/api/frontlight/brightness/{b}", "/api/frontlight/brightness?b={b}"));
 #endif
 
-  // server.on("^\\/api\\/lights\\/([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", HTTP_GET,
+  // server.on("^\\/api\\/lights\\/([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$", HTTP_POST,
   // onApiLightsSetColor);
 
   if (preferences.getBool("otaEnabled", DEFAULT_OTA_ENABLED))
   {
     server.on("/upload/firmware", HTTP_POST, onFirmwareUpdate, asyncFirmwareUpdateHandler);
     server.on("/upload/webui", HTTP_POST, onFirmwareUpdate, asyncWebuiUpdateHandler);
-    server.on("/api/firmware/auto_update", HTTP_GET, onAutoUpdateFirmware);
+    server.on("/api/firmware/auto_update", HTTP_POST, onAutoUpdateFirmware);
   }
 
-  server.on("/api/restart", HTTP_GET, onApiRestart);
+  server.on("/api/restart", HTTP_POST, onApiRestart);
   server.addRewrite(
       new OneParamRewrite("/api/show/currency/{c}", "/api/show/currency?c={c}"));
   server.addRewrite(new OneParamRewrite("/api/lights/color/{color}",
@@ -251,11 +261,11 @@ void onAutoUpdateFirmware(AsyncWebServerRequest *request)
   UpdateMessage msg = {UPDATE_ALL};
   if (xQueueSend(otaQueue, &msg, 0) == pdTRUE)
   {
-    request->send(200, "application/json", "{\"msg\":\"Firmware update triggered\"}");
+    request->send(HTTP_OK, "application/json", "{\"msg\":\"Firmware update triggered\"}");
   }
   else
   {
-    request->send(503,"application/json", "{\"msg\":\"Update already in progress\"}"); 
+    request->send(HTTP_SERVICE_UNAVAILABLE, "application/json", "{\"msg\":\"Update already in progress\"}");
   }
 }
 
@@ -499,6 +509,7 @@ void onApiStatus(AsyncWebServerRequest *request)
  */
 void onApiActionPause(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   setTimerActive(false);
   request->send(HTTP_OK);
   notifyEventSourceStatus();
@@ -510,6 +521,7 @@ void onApiActionPause(AsyncWebServerRequest *request)
  */
 void onApiActionTimerRestart(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   setTimerActive(true);
   request->send(HTTP_OK);
   notifyEventSourceStatus();
@@ -611,14 +623,7 @@ void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
 
 void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 {
-  if (
-      preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED) &&
-      !request->authenticate(
-          preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME).c_str(),
-          preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD).c_str()))
-  {
-    return request->requestAuthentication();
-  }
+  if (requireHttpAuth(request)) return;
 
   JsonObject settings = json.as<JsonObject>();
 
@@ -678,9 +683,24 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
   {
     if (settings[setting].is<bool>())
     {
-      preferences.putBool(setting.c_str(), settings[setting].as<bool>());
-      Serial.printf("set %s=%d\r\n", setting.c_str(),
-                    settings[setting].as<bool>());
+      bool value = settings[setting].as<bool>();
+      // DND bools need to go through LedHandler so the in-memory state used
+      // by isDNDActive() stays in sync with NVS. The generic putBool path
+      // below only updated NVS, which left the handler running effects
+      // until the next reboot.
+      if (setting == "dndEnabled")
+      {
+        getLedHandler().setDNDEnabled(value);
+      }
+      else if (setting == "dndTimeEnabled")
+      {
+        getLedHandler().setDNDTimeBasedEnabled(value);
+      }
+      else
+      {
+        preferences.putBool(setting.c_str(), value);
+      }
+      Serial.printf("set %s=%d\r\n", setting.c_str(), value);
     }
   }
 
@@ -809,14 +829,7 @@ void onApiIdentify(AsyncWebServerRequest *request)
  */
 void onApiSettingsGet(AsyncWebServerRequest *request)
 {
-  if (
-      preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED) &&
-      !request->authenticate(
-          preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME).c_str(),
-          preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD).c_str()))
-  {
-    return request->requestAuthentication();
-  }
+  if (requireHttpAuth(request)) return;
 
   JsonDocument root;
   root["numScreens"] = NUM_SCREENS;
@@ -1213,7 +1226,7 @@ void onNotFound(AsyncWebServerRequest *request)
   // Anything else really is 404. The old Sec-Fetch-Mode heuristic returned
   // 200 for fetch/XHR requests, which masked unknown endpoints and made the
   // API look like it was succeeding.
-  request->send(404);
+  request->send(HTTP_NOT_FOUND);
 };
 
 void eventSourceTask(void *pvParameters)
@@ -1235,7 +1248,7 @@ void onApiShowCurrency(AsyncWebServerRequest *request)
 
     if (!isActiveCurrency(currency))
     {
-      request->send(404);
+      request->send(HTTP_NOT_FOUND);
       return;
     }
 
@@ -1248,7 +1261,7 @@ void onApiShowCurrency(AsyncWebServerRequest *request)
     notifyEventSourceStatus();
     return;
   }
-  request->send(404);
+  request->send(HTTP_NOT_FOUND);
 }
 
 #ifdef HAS_FRONTLIGHT
@@ -1323,7 +1336,7 @@ void onApiDNDTimeBasedEnable(AsyncWebServerRequest *request) {
   if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDTimeBasedEnabled(true);
-  request->send(200);
+  request->send(HTTP_OK);
   notifyEventSourceStatus();
 }
 
@@ -1331,7 +1344,7 @@ void onApiDNDTimeBasedDisable(AsyncWebServerRequest *request) {
   if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDTimeBasedEnabled(false);
-  request->send(200);
+  request->send(HTTP_OK);
   notifyEventSourceStatus();
 }
 
@@ -1346,10 +1359,10 @@ void onApiDNDSetTimeRange(AsyncWebServerRequest *request) {
     uint8_t endMinute = request->getParam("endMinute")->value().toInt();
     
     ledHandler.setDNDTimeRange(startHour, startMinute, endHour, endMinute);
-    request->send(200);
+    request->send(HTTP_OK);
     notifyEventSourceStatus();
   } else {
-    request->send(400);
+    request->send(HTTP_BAD_REQUEST);
   }
 }
 
@@ -1367,14 +1380,14 @@ void onApiDNDStatus(AsyncWebServerRequest *request) {
   
   String response;
   serializeJson(doc, response);
-  request->send(200, "application/json", response);
+  request->send(HTTP_OK, "application/json", response);
 }
 
 void onApiDNDEnable(AsyncWebServerRequest *request) {
   if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDEnabled(true);
-  request->send(200);
+  request->send(HTTP_OK);
   notifyEventSourceStatus();
 }
 
@@ -1382,7 +1395,7 @@ void onApiDNDDisable(AsyncWebServerRequest *request) {
   if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDEnabled(false);
-  request->send(200);
+  request->send(HTTP_OK);
   notifyEventSourceStatus();
 }
 
@@ -1405,7 +1418,7 @@ void onApiLightsGet(AsyncWebServerRequest *request)
 
   String output;
   serializeJson(doc, output);
-  request->send(200, "application/json", output);
+  request->send(HTTP_OK, "application/json", output);
 }
 
 void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
@@ -1421,14 +1434,14 @@ void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
   DeserializationError error = deserializeJson(doc, data, len);
   if (error)
   {
-    request->send(400);
+    request->send(HTTP_BAD_REQUEST);
     return;
   }
 
   JsonArray lights = doc["lights"];
   if (lights.size() != pixels.numPixels())
   {
-    request->send(400);
+    request->send(HTTP_BAD_REQUEST);
     return;
   }
 
@@ -1444,6 +1457,6 @@ void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
   }
   pixels.show();
 
-  request->send(200);
+  request->send(HTTP_OK);
   notifyEventSourceStatus();
 }

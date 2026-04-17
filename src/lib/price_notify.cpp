@@ -193,3 +193,14 @@ void setupPriceNotifyTask()
   xTaskCreate(taskPriceNotify, "priceNotify", (6 * 1024), NULL, tskIDLE_PRIORITY,
               &priceNotifyTaskHandle);
 }
+
+unsigned long PriceNotifyService::lastUpdateSeconds() const {
+    return static_cast<unsigned long>(getLastPriceUpdate(CURRENCY_USD));
+}
+
+unsigned long PriceNotifyService::staleAfterSeconds() const {
+    // Give the publisher 5 missed update windows before restarting. Matches
+    // the prior bespoke "5 missed price updates" rule in monitorDataConnections.
+    return static_cast<unsigned long>(
+        preferences.getUInt("minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE)) * 5UL;
+}

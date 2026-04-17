@@ -10,8 +10,14 @@ TaskHandle_t nostrTaskHandle = NULL;
 boolean nostrIsConnected = false;
 boolean nostrIsSubscribed = false;
 boolean nostrIsSubscribing = true;
+static bool s_nostrAsDatasource = false;
+static bool s_nostrZapNotify = false;
+static unsigned long s_lastNostrUpdate = 0;
 
 String subIdZap;
+
+bool nostrIsInitialized() { return s_nostrAsDatasource || s_nostrZapNotify; }
+unsigned long getLastNostrUpdate() { return s_lastNostrUpdate; }
 
 /** nostr::ConnectionStatus is CONNECTED=0, DISCONNECTED=1, ERROR=2 — do not index a string array by raw int. */
 static const char *nostrConnectionStatusName(nostr::ConnectionStatus status)
@@ -37,6 +43,8 @@ void screenRestoreAfterZapCallback(TimerHandle_t xTimer)
 
 void setupNostrNotify(bool asDatasource, bool zapNotify)
 {
+    s_nostrAsDatasource = asDatasource;
+    s_nostrZapNotify = zapNotify;
     nostr::esp32::ESP32Platform::initNostr(false);
     // time_t now;
     // time(&now);
@@ -138,6 +146,37 @@ void setupNostrTask()
     xTaskCreate(nostrTask, "nostrTask", 8192, NULL, 10, &nostrTaskHandle);
 }
 
+void stopNostrNotify()
+{
+    TaskHandle_t caller = xTaskGetCurrentTaskHandle();
+    if (nostrTaskHandle != NULL && nostrTaskHandle != caller)
+    {
+        vTaskDelete(nostrTaskHandle);
+        nostrTaskHandle = NULL;
+    }
+    for (nostr::NostrPool *pool : pools)
+    {
+        delete pool;
+    }
+    pools.clear();
+    nostrIsConnected = false;
+    nostrIsSubscribed = false;
+    nostrIsSubscribing = true;
+    s_nostrAsDatasource = false;
+    s_nostrZapNotify = false;
+}
+
+void restartNostrNotify()
+{
+    bool wasDatasource = s_nostrAsDatasource;
+    bool wasZap = s_nostrZapNotify;
+    stopNostrNotify();
+    if (wasDatasource || wasZap) {
+        setupNostrNotify(wasDatasource, wasZap);
+        setupNostrTask();
+    }
+}
+
 boolean nostrConnected()
 {
     return nostrIsConnected;
@@ -162,6 +201,7 @@ void onNostrSubscriptionEose(const String &subId)
 
 void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *event)
 {
+    s_lastNostrUpdate = static_cast<unsigned long>(esp_timer_get_time() / 1000000);
     JsonDocument doc;
     JsonArray arr = doc["data"].to<JsonArray>();
     event->toSendableEvent(arr);
