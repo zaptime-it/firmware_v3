@@ -363,7 +363,7 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
             (void*)(uintptr_t)screenBeforeZap,
             screenRestoreAfterZapCallback);
         if (screenRestoreAfterZapTimer == nullptr) {
-            Serial.println(F("Failed to create screen restore timer (out of timers?)"));
+            Serial.println(F("screenRestore: xTimerCreate failed"));
             return;
         }
         Serial.println("Starting screen restore after zap");
@@ -371,7 +371,7 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
             // Tear down the timer on start failure to avoid leaking it; the
             // callback normally deletes itself but we never reached it.
             xTimerDelete(screenRestoreAfterZapTimer, 0);
-            Serial.println(F("xTimerStart failed; deleted restore timer"));
+            Serial.println(F("screenRestore: xTimerStart failed"));
         }
     }
 }

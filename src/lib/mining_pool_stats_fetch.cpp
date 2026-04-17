@@ -52,9 +52,6 @@ void MiningPoolStatsFetch::task() {
         poolInterface->setPoolUser(poolUser);
         std::string apiUrl = poolInterface->getApiUrl();
         http.begin(apiUrl.c_str());
-        if (debugLogEnabled()) {
-            Serial.printf("Fetching mining pool stats from %s\r\n", apiUrl.c_str());
-        }
         poolInterface->prepareRequest(http);
         int httpCode = http.GET();
         if (httpCode == 200) {
@@ -62,22 +59,13 @@ void MiningPoolStatsFetch::task() {
             JsonDocument doc;
             DeserializationError err = deserializeJson(doc, payload);
             if (err) {
-                Serial.printf("Mining pool stats JSON parse error: %s\r\n", err.c_str());
+                Serial.printf("Mining pool bad JSON: %s\r\n", err.c_str());
                 http.end();
                 continue;
             }
 
-            if (debugLogEnabled()) {
-                Serial.printf("Mining pool stats response: %s\r\n", payload.c_str());
-            }
-
             PoolStats stats = poolInterface->parseResponse(doc);
             hashrate = stats.hashrate;
-
-            if (debugLogEnabled()) {
-                Serial.printf("Mining pool stats parsed hashrate: %s\r\n", stats.hashrate.c_str());
-            }
-
             dailyEarnings = stats.dailyEarnings ? *stats.dailyEarnings : 0;
 
             if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_MINING_POOL_STATS_HASHRATE || 

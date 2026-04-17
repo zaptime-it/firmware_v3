@@ -220,15 +220,16 @@ void parseHashrateString(const std::string& hashrate, std::string& label, std::s
         suffixLength = 0;
     }
 
-        double value = 0.0;
-        try {
-            value = std::stod(hashrate) / std::pow(10, suffixLength);
-        } catch (const std::exception&) {
-            // Malformed numeric input -> treat as zero hashrate.
+        // Use strtod so we don't depend on the exception-based std::stod,
+        // which would otherwise pull in __cxa_throw / typeinfo machinery.
+        char* endp = nullptr;
+        double value = strtod(hashrate.c_str(), &endp);
+        if (endp == hashrate.c_str()) {
             label = "H/S";
             output = "0";
             return;
         }
+        value /= std::pow(10, suffixLength);
 
         // Calculate integer part length
         int integerPartLength = std::to_string(static_cast<int>(value)).length();

@@ -26,15 +26,10 @@ void BitaxeFetch::task() {
         if (httpCode == 200) {
             String payload = http.getString();
             JsonDocument doc;
-            DeserializationError err = deserializeJson(doc, payload);
-            if (err) {
-                Serial.printf("Bitaxe JSON parse error: %s\r\n", err.c_str());
-                http.end();
-                continue;
-            }
-
-            if (!doc["hashRate"].is<float>() || !doc["bestDiff"].is<const char*>()) {
-                Serial.println(F("Bitaxe response missing expected fields"));
+            if (deserializeJson(doc, payload) ||
+                !doc["hashRate"].is<float>() ||
+                !doc["bestDiff"].is<const char*>()) {
+                Serial.println(F("Bitaxe: bad JSON"));
                 http.end();
                 continue;
             }
@@ -43,24 +38,29 @@ void BitaxeFetch::task() {
             float hashRateGH = doc["hashRate"].as<float>();
             hashrate = static_cast<uint64_t>(std::round(hashRateGH * std::pow(10, getHashrateMultiplier('G'))));
 
-            // Parse difficulty string and convert to uint64_t
+            // Parse difficulty string and convert to uint64_t. Use C parsers
+            // so we don't pull in the exception-based std::sto* machinery.
             std::string diffStr = doc["bestDiff"].as<std::string>();
             if (diffStr.empty()) {
                 http.end();
                 continue;
             }
             char diffUnit = diffStr[diffStr.length() - 1];
-            try {
-                if (std::isalpha(static_cast<unsigned char>(diffUnit))) {
-                    float diffValue = std::stof(diffStr.substr(0, diffStr.length() - 1));
-                    bestDiff = static_cast<uint64_t>(std::round(diffValue * std::pow(10, getDifficultyMultiplier(diffUnit))));
-                } else {
-                    bestDiff = std::stoull(diffStr);
+            if (std::isalpha(static_cast<unsigned char>(diffUnit))) {
+                char* end = nullptr;
+                float diffValue = strtof(diffStr.c_str(), &end);
+                if (end == diffStr.c_str()) {
+                    http.end();
+                    continue;
                 }
-            } catch (const std::exception& e) {
-                Serial.printf("Bitaxe bestDiff parse error: %s\r\n", e.what());
-                http.end();
-                continue;
+                bestDiff = static_cast<uint64_t>(std::round(diffValue * std::pow(10, getDifficultyMultiplier(diffUnit))));
+            } else {
+                char* end = nullptr;
+                bestDiff = strtoull(diffStr.c_str(), &end, 10);
+                if (end == diffStr.c_str()) {
+                    http.end();
+                    continue;
+                }
             }
 
             if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_BESTDIFF)) {

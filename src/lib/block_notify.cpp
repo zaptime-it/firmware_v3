@@ -127,7 +127,7 @@ void BlockNotify::onWebsocketMessage(esp_websocket_event_data_t *data) {
                                                (size_t)data->data_len,
                                                DeserializationOption::Filter(filter));
     if (err) {
-        Serial.printf("BlockNotify: JSON parse error: %s\r\n", err.c_str());
+        Serial.printf("BlockNotify bad JSON: %s\r\n", err.c_str());
         return;
     }
 
@@ -328,27 +328,20 @@ void BlockNotify::restart()
 }
 
 int BlockNotify::fetchLatestBlock() {
-    try {
-        String mempoolInstance = preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
-        const String protocol = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE) ? "https" : "http";
-        String url = protocol + "://" + mempoolInstance + "/api/blocks/tip/height";
+    String mempoolInstance = preferences.getString("mempoolInstance", DEFAULT_MEMPOOL_INSTANCE);
+    const String protocol = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE) ? "https" : "http";
+    String url = protocol + "://" + mempoolInstance + "/api/blocks/tip/height";
 
-        auto http = HttpHelper::beginScoped(url);
-        if (!http) {
-            Serial.println(F("fetchLatestBlock: failed to allocate HTTPClient"));
-            return 2203;
-        }
-        Serial.println("Fetching block height from " + url);
-        int httpCode = http->GET();
-
-        if (httpCode == HTTP_CODE_OK) {
-            String blockHeightStr = http->getString();
-            return blockHeightStr.toInt();
-        }
-        Serial.println("HTTP code" + String(httpCode));
-    } catch (...) {
-        Serial.println(F("An exception occurred while trying to get the latest block"));
+    auto http = HttpHelper::beginScoped(url);
+    if (!http) {
+        return 2203;
     }
+    int httpCode = http->GET();
+    if (httpCode == HTTP_CODE_OK) {
+        String blockHeightStr = http->getString();
+        return blockHeightStr.toInt();
+    }
+    Serial.printf("fetchLatestBlock http=%d\r\n", httpCode);
     return 2203; // B-T-C
 }
 

@@ -50,7 +50,7 @@ void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
             JsonDocument doc;
             DeserializationError err = deserializeJson(doc, (char *)payload, length);
             if (err) {
-                Serial.printf("Price WS JSON parse error: %s\r\n", err.c_str());
+                Serial.printf("Price WS bad JSON: %s\r\n", err.c_str());
                 break;
             }
 

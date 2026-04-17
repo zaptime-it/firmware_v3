@@ -63,7 +63,7 @@ namespace V2Notify
                 // Back off before rebooting to avoid a tight reboot loop when
                 // the upstream is unreachable (otherwise we'd brick the device
                 // in a crash-restart cycle that only worsens connectivity).
-                Serial.println(F("Disconnected too many times, rebooting device after backoff"));
+                Serial.println(F("v2: disconnect reboot backoff"));
                 vTaskDelay(pdMS_TO_TICKS(30 * 1000));
                 noInterrupts();
                 esp_restart();
@@ -81,9 +81,10 @@ namespace V2Notify
 
             auto sendSubscription = [](JsonDocument &doc) {
                 size_t responseLength = measureMsgPack(doc);
-                std::unique_ptr<uint8_t[]> buffer(new uint8_t[responseLength]);
-                serializeMsgPack(doc, buffer.get(), responseLength);
-                webSocket.sendBIN(buffer.get(), responseLength);
+                uint8_t *buffer = new uint8_t[responseLength];
+                serializeMsgPack(doc, buffer, responseLength);
+                webSocket.sendBIN(buffer, responseLength);
+                delete[] buffer;
             };
 
             {

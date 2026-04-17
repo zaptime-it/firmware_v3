@@ -168,20 +168,9 @@ void setupWebserver()
 
   if (preferences.getBool("mdnsEnabled", DEFAULT_MDNS_ENABLED))
   {
-    // Retry a few times instead of hanging the whole device forever. mDNS is
-    // a convenience; its failure must not brick the clock.
-    bool mdnsOk = false;
-    for (int attempt = 0; attempt < 3 && !mdnsOk; ++attempt)
-    {
-      if (MDNS.begin(getMyHostname()))
-      {
-        mdnsOk = true;
-        break;
-      }
-      Serial.printf("Error setting up MDNS responder (attempt %d)\r\n", attempt + 1);
-      delay(1000);
-    }
-    if (mdnsOk)
+    // Must not hang the whole device if mDNS fails to start (see prior bug);
+    // one attempt, log on failure, continue.
+    if (MDNS.begin(getMyHostname()))
     {
       MDNS.addService("http", "tcp", 80);
       MDNS.addServiceTxt("http", "tcp", "model", "BTClock");
@@ -191,7 +180,7 @@ void setupWebserver()
     }
     else
     {
-      Serial.println(F("MDNS setup failed after retries; continuing without mDNS."));
+      Serial.println(F("MDNS begin failed"));
     }
   }
 
@@ -493,22 +482,13 @@ void onApiShowText(AsyncWebServerRequest *request)
     String t = p->value();
     t.toUpperCase(); // This is needed as long as lowercase letters are glitchy
 
-    // Previous version wrote t[i] for i in [0, NUM_SCREENS), which reads past
-    // the end of the String if the caller provided fewer characters. Guard
-    // against that explicitly.
+    // Clamp to t.length() so we don't read past the String when the caller
+    // provided fewer than NUM_SCREENS characters (default-constructed Strings
+    // for the remaining slots are empty).
     std::array<String, NUM_SCREENS> textEpdContent;
     size_t tLen = t.length();
-    for (uint i = 0; i < NUM_SCREENS; i++)
-    {
-      if (i < tLen)
-      {
-        textEpdContent[i] = String(t[i]);
-      }
-      else
-      {
-        textEpdContent[i] = "";
-      }
-    }
+    if (tLen > NUM_SCREENS) tLen = NUM_SCREENS;
+    for (size_t i = 0; i < tLen; i++) textEpdContent[i] = t[i];
 
     EPDManager::getInstance().setContent(textEpdContent);
   }
@@ -568,7 +548,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
       EPDManager::getInstance().setForegroundColor(GxEPD_BLACK);
       EPDManager::getInstance().setBackgroundColor(GxEPD_WHITE);
     }
-    Serial.printf("Setting invertedColor to %d\r\n", inverted);
+    Serial.printf("set invertedColor=%d\r\n", inverted);
     settingsChanged = true;
   }
 
@@ -583,19 +563,17 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     if (settings[setting].is<String>())
     {
       preferences.putString(setting.c_str(), settings[setting].as<String>());
-      Serial.printf("Setting %s to %s\r\n", setting.c_str(),
+      Serial.printf("set %s=%s\r\n", setting.c_str(),
                     settings[setting].as<String>().c_str());
     }
   }
-
-
 
   for (String setting : uintSettings)
   {
     if (settings[setting].is<uint>())
     {
       preferences.putUInt(setting.c_str(), settings[setting].as<uint>());
-      Serial.printf("Setting %s to %d\r\n", setting.c_str(),
+      Serial.printf("set %s=%u\r\n", setting.c_str(),
                     settings[setting].as<uint>());
     }
   }
@@ -603,9 +581,8 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
   if (settings["tzOffset"].is<int>())
   {
     int gmtOffset = settings["tzOffset"].as<int>() * 60;
-    size_t written = preferences.putInt("gmtOffset", gmtOffset);
-    Serial.printf("Setting %s to %d (%d minutes, written %d)\r\n", "gmtOffset",
-                  gmtOffset, settings["tzOffset"].as<int>(), written);
+    preferences.putInt("gmtOffset", gmtOffset);
+    Serial.printf("set gmtOffset=%d\r\n", gmtOffset);
   }
 
   for (String setting : boolSettings)
@@ -613,7 +590,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     if (settings[setting].is<bool>())
     {
       preferences.putBool(setting.c_str(), settings[setting].as<bool>());
-      Serial.printf("Setting %s to %d\r\n", setting.c_str(),
+      Serial.printf("set %s=%d\r\n", setting.c_str(),
                     settings[setting].as<bool>());
     }
   }
@@ -645,7 +622,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
 
     preferences.putString("actCurrencies", actCurrencies.c_str());
-    Serial.printf("Set actCurrencies: %s\n", actCurrencies.c_str());
+    Serial.printf("set actCurrencies=%s\r\n", actCurrencies.c_str());
   }
 
   if (settings["txPower"].is<int>())
@@ -668,7 +645,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
       if (WiFi.setTxPower(static_cast<wifi_power_t>(txPower)))
       {
-        Serial.printf("Set WiFi Tx power to: %d\n", txPower);
+        Serial.printf("set txPower=%d\r\n", txPower);
         preferences.putInt("txPower", txPower);
         settingsChanged = true;
       }
@@ -680,22 +657,13 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     uint8_t dataSource = settings["dataSource"].as<uint8_t>();
     if (dataSource <= CUSTOM_SOURCE) { // Validate including custom source
       preferences.putUChar("dataSource", dataSource);
-      Serial.printf("Setting dataSource to %d\r\n", dataSource);
+      Serial.printf("set dataSource=%u\r\n", dataSource);
       settingsChanged = true;
     }
   }
 
-  // Handle custom endpoint settings. "ceEndpoint" is the canonical key used
-  // by the web UI; accept the transitional "customEndpoint" name as a
-  // fallback so older firmware payloads keep working.
   if (settings["ceEndpoint"].is<String>()) {
     preferences.putString("ceEndpoint", settings["ceEndpoint"].as<String>());
-    Serial.printf("Setting ceEndpoint to %s\r\n", settings["ceEndpoint"].as<String>().c_str());
-    settingsChanged = true;
-  } else if (settings["customEndpoint"].is<String>()) {
-    preferences.putString("ceEndpoint", settings["customEndpoint"].as<String>());
-    Serial.printf("Setting ceEndpoint (from legacy customEndpoint) to %s\r\n",
-                  settings["customEndpoint"].as<String>().c_str());
     settingsChanged = true;
   }
 
@@ -797,8 +765,6 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["scrnRestoreZap"] = preferences.getBool("scrnRestoreZap", DEFAULT_SCREEN_RESTORE_AFTER_ZAP);
   root["fontName"] = preferences.getString("fontName", DEFAULT_FONT_NAME);
   root["availableFonts"] = FontNames::getAvailableFonts();
-  // Custom endpoint settings (only used for CUSTOM_SOURCE)
-  root["ceEndpoint"] = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
 
   root["ledTestOnPower"] = preferences.getBool("ledTestOnPower", DEFAULT_LED_TEST_ON_POWER);
   root["ledFlashOnUpd"] = preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD);
@@ -889,14 +855,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   }
 
   root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
-  // "ceEndpoint" is the canonical NVS key. Emit the transitional alias
-  // "customEndpoint" as well so any client still looking for it keeps
-  // working; both PATCH names write back to "ceEndpoint".
-  {
-    const String endpoint = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
-    root["ceEndpoint"] = endpoint;
-    root["customEndpoint"] = endpoint;
-  }
+  root["ceEndpoint"] = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
   root["ceDisableSSL"] = preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
 
   // Add DND settings
@@ -984,7 +943,7 @@ void onApiSetWifiTxPower(AsyncWebServerRequest *request)
               static_cast<std::underlying_type_t<wifi_power_t>>(txPower))
               .c_str();
 
-      Serial.printf("Set WiFi Tx power to: %s\n", txPowerName);
+      Serial.printf("set txPower=%s\r\n", txPowerName);
 
       if (WiFi.setTxPower(static_cast<wifi_power_t>(txPower)))
       {
@@ -1105,7 +1064,7 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
       return onApiLightsOff(request);
     }
 
-    Serial.printf("Invalid values for LED set %d\n", lights.size());
+    Serial.printf("LED bad size %d\r\n", lights.size());
     request->send(HTTP_BAD_REQUEST);
     return;
   }
@@ -1126,14 +1085,14 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
       if (sscanf(lights[i]["hex"].as<String>().c_str(), "#%02X%02X%02X", &red,
                  &green, &blue) != 3)
       {
-        Serial.printf("Invalid hex for LED %d\n", i);
+        Serial.printf("LED bad hex %d\r\n", i);
         request->send(HTTP_BAD_REQUEST);
         return;
       }
     }
     else
     {
-      Serial.printf("No valid color for LED %d\n", i);
+      Serial.printf("LED no color %d\r\n", i);
       request->send(HTTP_BAD_REQUEST);
       return;
     }

@@ -302,20 +302,13 @@ void setupPreferences()
     preferences.putUChar("dataSource", DEFAULT_DATA_SOURCE);
   }
 
-  // Initialize custom endpoint settings if not set. The web UI uses the key
-  // "ceEndpoint" as the canonical name; migrate any value that was previously
-  // stored under "customEndpoint" (a shortlived intermediate key) back to it.
+  // "ceEndpoint" is the canonical key used by the web UI. Migrate any value
+  // previously stored under the shortlived "customEndpoint" key.
   if (!preferences.isKey("ceEndpoint")) {
-    if (preferences.isKey("customEndpoint")) {
-      preferences.putString("ceEndpoint",
-                            preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT));
-    } else {
-      preferences.putString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
-    }
+    preferences.putString("ceEndpoint",
+        preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT));
   }
-  if (preferences.isKey("customEndpoint")) {
-    preferences.remove("customEndpoint");
-  }
+  preferences.remove("customEndpoint");
 
   if (!preferences.isKey("ceDisableSSL")) {
     preferences.putBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
@@ -558,44 +551,23 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
   static bool first_connect = true;
   auto& ledHandler = getLedHandler();  // Get ledHandler reference once at the start
 
-  Serial.printf("[WiFi-event] event: %d\n", event);
-
   switch (event)
   {
-  case ARDUINO_EVENT_WIFI_READY:
-    Serial.println(F("WiFi interface ready"));
-    break;
-  case ARDUINO_EVENT_WIFI_SCAN_DONE:
-    Serial.println(F("Completed scan for access points"));
-    break;
-  case ARDUINO_EVENT_WIFI_STA_START:
-    Serial.println(F("WiFi client started"));
-    break;
-  case ARDUINO_EVENT_WIFI_STA_STOP:
-    Serial.println(F("WiFi clients stopped"));
-    break;
-  case ARDUINO_EVENT_WIFI_STA_CONNECTED:
-    Serial.println(F("Connected to access point"));
-    break;
   case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
   {
     if (!first_connect)
     {
-      Serial.println(F("Disconnected from WiFi access point"));
       ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
       uint8_t reason = info.wifi_sta_disconnected.reason;
       if (reason)
-        Serial.printf("Disconnect reason: %s, ",
+        Serial.printf("WiFi disc: %s\r\n",
                       WiFi.disconnectReasonName((wifi_err_reason_t)reason));
     }
     break;
   }
-  case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
-    Serial.println(F("Authentication mode of access point has changed"));
-    break;
   case ARDUINO_EVENT_WIFI_STA_GOT_IP:
   {
-    Serial.print("Obtained IP address: ");
+    Serial.print(F("IP: "));
     Serial.println(WiFi.localIP());
     if (!first_connect)
       ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_SUCCESS);
@@ -603,33 +575,8 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
     break;
   }
   case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-    Serial.println(F("Lost IP address and IP address is reset to 0"));
     ledHandler.queueEffect(LED_EFFECT_WIFI_CONNECT_ERROR);
     WiFi.reconnect();
-    break;
-  case ARDUINO_EVENT_WIFI_AP_START:
-    Serial.println(F("WiFi access point started"));
-    break;
-  case ARDUINO_EVENT_WIFI_AP_STOP:
-    Serial.println(F("WiFi access point  stopped"));
-    break;
-  case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-    Serial.println(F("Client connected"));
-    break;
-  case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
-    Serial.println(F("Client disconnected"));
-    break;
-  case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
-    Serial.println(F("Assigned IP address to client"));
-    break;
-  case ARDUINO_EVENT_WIFI_AP_PROBEREQRECVED:
-    Serial.println(F("Received probe request"));
-    break;
-  case ARDUINO_EVENT_WIFI_AP_GOT_IP6:
-    Serial.println(F("AP IPv6 is preferred"));
-    break;
-  case ARDUINO_EVENT_WIFI_STA_GOT_IP6:
-    Serial.println(F("STA IPv6 is preferred"));
     break;
   default:
     break;

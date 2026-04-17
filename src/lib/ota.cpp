@@ -136,48 +136,28 @@ ReleaseInfo getLatestRelease(const String &fileToDownload)
 
   if (httpCode == HTTP_CODE_OK)
   {
-    String payload = http.getString();
-
     JsonDocument doc;
-    DeserializationError err = deserializeJson(doc, payload);
-    if (err)
+    if (deserializeJson(doc, http.getString()) == DeserializationError::Ok)
     {
-      Serial.printf("getLatestRelease: JSON parse error: %s\r\n", err.c_str());
-      http.end();
-      return info;
-    }
-
-    JsonArray assets = doc["assets"];
-    if (assets.isNull())
-    {
-      Serial.println(F("getLatestRelease: no 'assets' array in response"));
-      http.end();
-      return info;
-    }
-
-    for (JsonObject asset : assets)
-    {
-      String assetName = asset["name"].as<String>();
-      if (assetName == fileToDownload)
+      for (JsonObject asset : doc["assets"].as<JsonArray>())
       {
-        info.fileUrl = asset["browser_download_url"].as<String>();
-      }
-      else if (assetName == fileToDownload + ".sha256")
-      {
-        info.checksumUrl = asset["browser_download_url"].as<String>();
-      }
-
-      if (!info.fileUrl.isEmpty() && !info.checksumUrl.isEmpty())
-      {
-        break;
+        String assetName = asset["name"].as<String>();
+        if (assetName == fileToDownload)
+        {
+          info.fileUrl = asset["browser_download_url"].as<String>();
+        }
+        else if (assetName == fileToDownload + ".sha256")
+        {
+          info.checksumUrl = asset["browser_download_url"].as<String>();
+        }
+        if (!info.fileUrl.isEmpty() && !info.checksumUrl.isEmpty())
+          break;
       }
     }
-    Serial.printf("Latest release URL: %s\r\n", info.fileUrl.c_str());
-    Serial.printf("Checksum URL: %s\r\n", info.checksumUrl.c_str());
   }
   else
   {
-    Serial.printf("getLatestRelease: HTTP error: %d\r\n", httpCode);
+    Serial.printf("getLatestRelease http=%d\r\n", httpCode);
   }
   http.end();
   return info;
@@ -208,18 +188,16 @@ int downloadUpdateHandler(char updateType)
   break;
   }
 
-  // Bail if the release metadata didn't resolve to any URLs.
   if (latestRelease.fileUrl.isEmpty() || latestRelease.checksumUrl.isEmpty())
   {
-    Serial.println(F("No release artifacts found. Aborting update."));
+    Serial.println(F("OTA: no artifacts"));
     return 503;
   }
 
-  // First, download the expected SHA256
   String expectedSHA256 = downloadSHA256(latestRelease.checksumUrl);
   if (expectedSHA256.isEmpty())
   {
-    Serial.println(F("Failed to get SHA256 checksum. Aborting update."));
+    Serial.println(F("OTA: no SHA256"));
     return 503;
   }
 
@@ -236,7 +214,7 @@ int downloadUpdateHandler(char updateType)
       uint8_t *firmware = (uint8_t *)malloc(contentLength);
       if (!firmware)
       {
-        Serial.println(F("Not enough memory to store firmware"));
+        Serial.println(F("OOM firmware"));
         return 503;
       }
 
@@ -255,7 +233,7 @@ int downloadUpdateHandler(char updateType)
 
       if (bytesRead != contentLength)
       {
-        Serial.println(F("Failed to read entire firmware"));
+        Serial.println(F("OTA truncated"));
         free(firmware);
         return 503;
       }
@@ -263,14 +241,10 @@ int downloadUpdateHandler(char updateType)
       // Calculate SHA256
       String calculated_sha256 = calculateSHA256(firmware, contentLength);
 
-      Serial.print(F("Calculated checksum: "));
-      Serial.println(calculated_sha256);
-      Serial.print(F("Expected checksum:   "));
-      Serial.println(expectedSHA256);
-
       if (calculated_sha256 != expectedSHA256)
       {
-        Serial.println(F("Checksum mismatch. Aborting update."));
+        Serial.printf("SHA256 mismatch: got %s expected %s\r\n",
+                      calculated_sha256.c_str(), expectedSHA256.c_str());
         free(firmware);
         return 503;
       }
@@ -290,35 +264,24 @@ int downloadUpdateHandler(char updateType)
 
         if (written != contentLength)
         {
-          Serial.println("Written only : " + String(written) + "/" + String(contentLength) + ". Retry?");
+          Serial.printf("OTA: wrote %u/%u\r\n", (unsigned)written, (unsigned)contentLength);
           Update.abort();
           return 503;
         }
-        Serial.println("Written : " + String(written) + " successfully");
-
-        if (Update.end())
+        if (!Update.end())
         {
-          Serial.println(F("OTA done!"));
-          if (Update.isFinished())
-          {
-            Serial.println(F("Update successfully completed. Rebooting."));
-//            ESP.restart();
-          }
-          else
-          {
-            Serial.println(F("Update not finished? Something went wrong!"));
-            return 503;
-          }
+          Serial.printf("OTA: Update.end err=%u\r\n", Update.getError());
+          return 503;
         }
-        else
+        if (!Update.isFinished())
         {
-          Serial.println("Error Occurred. Error #: " + String(Update.getError()));
+          Serial.println(F("OTA: not finished"));
           return 503;
         }
       }
       else
       {
-        Serial.println(F("Not enough space to begin OTA"));
+        Serial.println(F("Not enough space"));
         free(firmware);
         firmware = nullptr;
         return 503;
@@ -326,13 +289,13 @@ int downloadUpdateHandler(char updateType)
     }
     else
     {
-      Serial.println(F("Invalid content length"));
+      Serial.println(F("Bad content length"));
       return 503;
     }
   }
   else
   {
-    Serial.printf("HTTP error: %d\n", httpCode);
+    Serial.printf("OTA http=%d\r\n", httpCode);
     return 503;
   }
   http.end();
@@ -367,70 +330,63 @@ void updateWebUi(String latestRelease, int command)
           if (command == U_FLASH)
           {
             expectedSHA256 = downloadSHA256(getFirmwareFilename());
-            Serial.print("Expected checksum:   ");
-            Serial.println(expectedSHA256);
           }
 
           String calculated_sha256 = calculateSHA256(buffer, contentLength);
-          Serial.print("Checksum is ");
-          Serial.println(calculated_sha256);
           if ((command == U_FLASH && expectedSHA256.equals(calculated_sha256)) || command == U_SPIFFS)
           {
-            Serial.println(F("Checksum verified. Proceeding with update."));
-
             Update.onProgress(onOTAProgress);
 
             if (Update.begin(contentLength, command))
             {
               onOTAStart();
-
               Update.write(buffer, contentLength);
               if (Update.end())
               {
-                Serial.println(F("Update complete. Rebooting."));
+                Serial.println(F("OTA done, rebooting"));
                 ESP.restart();
               }
               else
               {
-                Serial.println(F("Error in update process."));
+                Serial.printf("OTA err=%u\r\n", Update.getError());
               }
             }
             else
             {
-              Serial.println(F("Not enough space to begin OTA"));
+              Serial.println(F("Not enough space"));
             }
           }
           else
           {
-            Serial.println(F("Checksum mismatch. Aborting update."));
+            Serial.printf("SHA256 mismatch: %s vs %s\r\n",
+                          calculated_sha256.c_str(), expectedSHA256.c_str());
           }
         }
         else
         {
-          Serial.println(F("Error downloading firmware"));
+          Serial.println(F("Download truncated"));
         }
         free(buffer);
       }
       else
       {
-        Serial.println(F("Not enough memory to allocate buffer"));
+        Serial.println(F("OOM buffer"));
       }
     }
     else
     {
-      Serial.println(F("Invalid content length"));
+      Serial.println(F("Bad content length"));
     }
   }
   else
   {
-    Serial.print(httpCode);
-    Serial.println("Error on HTTP request");
+    Serial.printf("OTA http err=%d\r\n", httpCode);
   }
 }
 
 void onOTAError(ota_error_t error)
 {
-  Serial.println(F("\nOTA update error, restarting"));
+  Serial.println(F("OTA error, restart"));
   Wire.end();
   SPI.end();
   isOtaUpdating = false;
@@ -440,7 +396,7 @@ void onOTAError(ota_error_t error)
 
 void onOTAComplete()
 {
-  Serial.println(F("\nOTA update finished"));
+  Serial.println(F("OTA done"));
   Wire.end();
   SPI.end();
   delay(1000);
@@ -456,7 +412,6 @@ String downloadSHA256(const String &sha256Url)
 {
   if (sha256Url.isEmpty())
   {
-    Serial.println(F("Failed to get SHA256 file URL"));
     return "";
   }
 
@@ -476,7 +431,7 @@ String downloadSHA256(const String &sha256Url)
   }
   else
   {
-    Serial.printf("Failed to download SHA256 file. HTTP error: %d\n", httpCode);
+    Serial.printf("SHA256 http=%d\r\n", httpCode);
     return "";
   }
 }
