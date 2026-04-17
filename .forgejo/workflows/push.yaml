@@ -55,10 +55,23 @@ jobs:
         run: mkdir -p junit-reports && pio test -e native_test_only --junit-output-path junit-reports/
       - name: Build BTClock firmware
         shell: bash
-        run: pio run
+        run: |
+          pio run -t clean
+          pio run 2>&1 | tee pio-run.log
       - name: Build BTClock filesystem
         shell: bash
-        run: pio run --target buildfs
+        run: pio run --target buildfs 2>&1 | tee pio-buildfs.log
+      - name: Upload build logs
+        if: always()
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          include-hidden-files: true
+          retention-days: 1
+          name: build-logs
+          path: |
+            pio-run.log
+            pio-buildfs.log
+
       - name: Copy bootloader to output folder
         run: cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin .pio
       - name: Upload artifacts
