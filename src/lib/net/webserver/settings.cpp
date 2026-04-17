@@ -12,9 +12,9 @@ static const char *const PROGMEM strSettings[] = {
     PrefKeys::HostnamePrefix, PrefKeys::MempoolInstance, PrefKeys::NostrPubKey,
     PrefKeys::NostrRelay, PrefKeys::BitaxeHostname, PrefKeys::MiningPoolName,
     PrefKeys::MiningPoolUser, PrefKeys::NostrZapPubkey, PrefKeys::HttpAuthUser,
-    PrefKeys::HttpAuthPass, PrefKeys::GitReleaseUrl, PrefKeys::PoolLogosUrl,
-    PrefKeys::CeEndpoint, PrefKeys::FontName, PrefKeys::LocalPoolHost,
-    PrefKeys::TzString};
+    PrefKeys::HttpAuthPass, PrefKeys::OtaPass, PrefKeys::GitReleaseUrl,
+    PrefKeys::PoolLogosUrl, PrefKeys::CeEndpoint, PrefKeys::FontName,
+    PrefKeys::LocalPoolHost, PrefKeys::TzString};
 
 static const char *const PROGMEM uintSettings[] = {
     PrefKeys::MinSecPriceUpd, PrefKeys::FullRefreshMin, PrefKeys::LedBrightness,
@@ -106,8 +106,14 @@ static void onApiSettingsGet(AsyncWebServerRequest *request)
   root["httpAuthUser"]    = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);
   // Never ship the raw password to the client. Expose a boolean flag instead
   // so the UI can show "password set" without giving out credentials.
-  root["httpAuthPassSet"] =
-      preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD).length() > 0;
+  // Reflect whether the user has *explicitly* stored a password (non-empty
+  // NVS value), not whether the runtime-effective value is non-empty. The
+  // previous default was DEFAULT_HTTP_AUTH_PASSWORD, so httpAuthPassSet
+  // always reported true even when the device was still on factory defaults.
+  root["httpAuthPassSet"] = preferences.getString("httpAuthPass", "").length() > 0;
+  // Do not expose the ArduinoOTA password either; just tell the UI whether
+  // one is configured so it can show a "password set" indicator.
+  root["otaPassSet"] = preferences.getString("otaPass", "").length() > 0;
 
 #ifdef HAS_FRONTLIGHT
   root["hasFrontlight"]   = true;

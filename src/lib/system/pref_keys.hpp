@@ -89,6 +89,7 @@ inline constexpr const char* NostrZapPubkey     = "nostrZapPubkey";
 // Plural form existed in prior firmware but is not currently written.
 inline constexpr const char* NostrZapPubkeys_Legacy = "nostrZapPubkeys";
 inline constexpr const char* OtaEnabled         = "otaEnabled";
+inline constexpr const char* OtaPass            = "otaPass";
 inline constexpr const char* PoolLogosUrl       = "poolLogosUrl";
 inline constexpr const char* RefrScrnChange     = "refrScrnChange";
 inline constexpr const char* ScrnRestoreZap     = "scrnRestoreZap";

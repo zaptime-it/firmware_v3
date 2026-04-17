@@ -1,5 +1,6 @@
 #include "ota.hpp"
 #include "lib/drivers/leds/led_handler.hpp"
+#include "lib/system/pref_keys.hpp"
 
 #include <algorithm>
 
@@ -22,6 +23,13 @@ void setupOTA()
     ArduinoOTA.setHostname(getMyHostname().c_str());
     ArduinoOTA.setMdnsEnabled(false);
     ArduinoOTA.setRebootOnSuccess(false);
+    // Require a password for espota/mDNS-based OTA pushes when one is set.
+    // Without this, anyone on the LAN could push arbitrary firmware at the
+    // device once otaEnabled is true.
+    String otaPass = preferences.getString(PrefKeys::OtaPass, "");
+    if (otaPass.length() > 0) {
+      ArduinoOTA.setPassword(otaPass.c_str());
+    }
     ArduinoOTA.begin();
     // downloadUpdate();
     otaQueue = xQueueCreate(1, sizeof(UpdateMessage));
