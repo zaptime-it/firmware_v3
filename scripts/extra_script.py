@@ -42,7 +42,7 @@ def process_directory(input_dir, output_dir):
 # Build web interface before building FS
 def before_buildfs(source, target, env):
 
-    env.Execute("cd data && yarn && yarn postinstall && yarn build")
+    env.Execute("cd data && pnpm install && pnpm build")
     input_directory = 'data/dist'
     output_directory = 'data/build_gz'
 #    copytree("assets", "data/dist/assets")
