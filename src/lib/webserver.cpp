@@ -46,6 +46,11 @@ static bool requireHttpAuth(AsyncWebServerRequest *request)
   return false;
 }
 
+static inline void notifyEventSourceStatus()
+{
+  if (eventSourceTaskHandle != NULL) xTaskNotifyGive(eventSourceTaskHandle);
+}
+
 void setupWebserver()
 {
   events.onConnect([](AsyncEventSourceClient *client)
@@ -429,6 +434,7 @@ void onApiActionPause(AsyncWebServerRequest *request)
 {
   setTimerActive(false);
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 };
 
 /**
@@ -439,6 +445,7 @@ void onApiActionTimerRestart(AsyncWebServerRequest *request)
 {
   setTimerActive(true);
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 /**
@@ -452,6 +459,7 @@ void onApiFullRefresh(AsyncWebServerRequest *request)
   std::array<String, NUM_SCREENS> newEpdContent = EPDManager::getInstance().getCurrentContent();
   EPDManager::getInstance().setContent(newEpdContent, true);
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 /**
@@ -468,6 +476,7 @@ void onApiShowScreen(AsyncWebServerRequest *request)
     ScreenHandler::setCurrentScreen(currentScreen);
   }
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 /**
@@ -483,6 +492,7 @@ void onApiScreenControl(AsyncWebServerRequest *request) {
         ScreenHandler::previousScreen();
     }
     request->send(HTTP_OK);
+    notifyEventSourceStatus();
 }
 
 void onApiShowText(AsyncWebServerRequest *request)
@@ -506,6 +516,7 @@ void onApiShowText(AsyncWebServerRequest *request)
   }
   ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
@@ -528,6 +539,7 @@ void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
 
   ScreenHandler::setCurrentScreen(SCREEN_CUSTOM);
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
@@ -698,6 +710,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     auto& ledHandler = getLedHandler();
     ledHandler.queueEffect(LED_FLASH_SUCCESS);
   }
+  notifyEventSourceStatus();
 }
 
 void onApiRestart(AsyncWebServerRequest *request)
@@ -983,6 +996,7 @@ void onApiStopDataSources(AsyncWebServerRequest *request)
   BlockNotify::getInstance().stop();
 
   request->send(response);
+  notifyEventSourceStatus();
 }
 
 void onApiRestartDataSources(AsyncWebServerRequest *request)
@@ -1002,6 +1016,7 @@ void onApiRestartDataSources(AsyncWebServerRequest *request)
   }
 
   request->send(response);
+  notifyEventSourceStatus();
 }
 
 void onApiLightsOff(AsyncWebServerRequest *request)
@@ -1010,6 +1025,7 @@ void onApiLightsOff(AsyncWebServerRequest *request)
   auto& ledHandler = getLedHandler();
   ledHandler.setLights(0, 0, 0);
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 void onApiLightsSetColor(AsyncWebServerRequest *request)
@@ -1047,6 +1063,7 @@ void onApiLightsSetColor(AsyncWebServerRequest *request)
     serializeJson(getLedStatusObject()["data"], *response);
 
     request->send(response);
+    notifyEventSourceStatus();
   }
   else
   {
@@ -1108,6 +1125,7 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
   ledHandler.saveLedState();
 
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 void onIndex(AsyncWebServerRequest *request)
@@ -1162,6 +1180,7 @@ void onApiShowCurrency(AsyncWebServerRequest *request)
     ScreenHandler::setCurrentScreen(ScreenHandler::getCurrentScreen());
 
     request->send(HTTP_OK);
+    notifyEventSourceStatus();
     return;
   }
   request->send(404);
@@ -1175,6 +1194,7 @@ void onApiFrontlightOn(AsyncWebServerRequest *request)
   ledHandler.frontlightFadeInAll();
 
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 void onApiFrontlightStatus(AsyncWebServerRequest *request)
@@ -1203,6 +1223,7 @@ void onApiFrontlightFlash(AsyncWebServerRequest *request)
   ledHandler.frontlightFlash(preferences.getUInt("flEffectDelay"));
 
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 
 void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
@@ -1213,6 +1234,7 @@ void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
     auto& ledHandler = getLedHandler();
     ledHandler.frontlightSetBrightness(request->getParam("b")->value().toInt());
     request->send(HTTP_OK);
+    notifyEventSourceStatus();
   }
   else
   {
@@ -1227,6 +1249,7 @@ void onApiFrontlightOff(AsyncWebServerRequest *request)
   ledHandler.frontlightFadeOutAll();
 
   request->send(HTTP_OK);
+  notifyEventSourceStatus();
 }
 #endif
 
@@ -1235,6 +1258,7 @@ void onApiDNDTimeBasedEnable(AsyncWebServerRequest *request) {
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDTimeBasedEnabled(true);
   request->send(200);
+  notifyEventSourceStatus();
 }
 
 void onApiDNDTimeBasedDisable(AsyncWebServerRequest *request) {
@@ -1242,6 +1266,7 @@ void onApiDNDTimeBasedDisable(AsyncWebServerRequest *request) {
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDTimeBasedEnabled(false);
   request->send(200);
+  notifyEventSourceStatus();
 }
 
 void onApiDNDSetTimeRange(AsyncWebServerRequest *request) {
@@ -1256,6 +1281,7 @@ void onApiDNDSetTimeRange(AsyncWebServerRequest *request) {
     
     ledHandler.setDNDTimeRange(startHour, startMinute, endHour, endMinute);
     request->send(200);
+    notifyEventSourceStatus();
   } else {
     request->send(400);
   }
@@ -1282,6 +1308,7 @@ void onApiDNDEnable(AsyncWebServerRequest *request) {
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDEnabled(true);
   request->send(200);
+  notifyEventSourceStatus();
 }
 
 void onApiDNDDisable(AsyncWebServerRequest *request) {
@@ -1289,6 +1316,7 @@ void onApiDNDDisable(AsyncWebServerRequest *request) {
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDEnabled(false);
   request->send(200);
+  notifyEventSourceStatus();
 }
 
 void onApiLightsGet(AsyncWebServerRequest *request)
@@ -1350,4 +1378,5 @@ void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
   pixels.show();
 
   request->send(200);
+  notifyEventSourceStatus();
 }
