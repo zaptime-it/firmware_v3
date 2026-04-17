@@ -17,10 +17,10 @@
 #include <WiFiManager.h>
 #define WEBSERVER_H
 #include "ESPAsyncWebServer.h"
-#include "lib/config.hpp"
-#include "lib/led_handler.hpp"
-#include "lib/block_notify.hpp"
-#include "lib/live_service.hpp"
+#include "lib/system/config.hpp"
+#include "lib/drivers/leds/led_handler.hpp"
+#include "lib/data_sources/block_notify.hpp"
+#include "lib/data_sources/live_service.hpp"
 
 uint wifiLostConnection;
 
