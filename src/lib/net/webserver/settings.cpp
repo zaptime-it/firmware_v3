@@ -32,7 +32,7 @@ static const char *const PROGMEM boolSettings[] = {
     PrefKeys::HttpAuthEnabled, PrefKeys::EnableDebugLog, PrefKeys::CeDisableSSL,
     PrefKeys::DndEnabled, PrefKeys::DndTimeEnabled, PrefKeys::ScrnRestoreZap,
     PrefKeys::BlockFeeDec, PrefKeys::SupplyPercent, PrefKeys::RefrScrnChange,
-    PrefKeys::InverseButtons};
+    PrefKeys::InverseButtons, PrefKeys::UseMscwTime};
 
 static void onApiSettingsGet(AsyncWebServerRequest *request)
 {
@@ -75,6 +75,7 @@ static void onApiSettingsGet(AsyncWebServerRequest *request)
   root["mdnsEnabled"]    = preferences.getBool("mdnsEnabled", DEFAULT_MDNS_ENABLED);
   root["otaEnabled"]     = preferences.getBool("otaEnabled", DEFAULT_OTA_ENABLED);
   root["useSatsSymbol"]  = preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL);
+  root["useMscwTime"]    = preferences.getBool("useMscwTime", DEFAULT_USE_MSCW_TIME);
   root["useBlkCountdown"] = preferences.getBool("useBlkCountdown", DEFAULT_USE_BLOCK_COUNTDOWN);
   root["suffixPrice"]    = preferences.getBool("suffixPrice", DEFAULT_SUFFIX_PRICE);
   root["disableLeds"]    = preferences.getBool("disableLeds", DEFAULT_DISABLE_LEDS);

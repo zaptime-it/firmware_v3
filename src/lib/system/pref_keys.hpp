@@ -102,6 +102,7 @@ inline constexpr const char* TimerSeconds       = "timerSeconds";
 inline constexpr const char* TxPower            = "txPower";
 inline constexpr const char* TzString           = "tzString";
 inline constexpr const char* UseBlkCountdown    = "useBlkCountdown";
+inline constexpr const char* UseMscwTime        = "useMscwTime";
 inline constexpr const char* UseSatsSymbol      = "useSatsSymbol";
 inline constexpr const char* VerticalDesc       = "verticalDesc";
 inline constexpr const char* WifiConfigured     = "wifiConfigured";

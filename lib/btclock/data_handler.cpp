@@ -137,7 +137,7 @@ std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char cu
     return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price, char currencySymbol, bool withSatsSymbol)
+std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price, char currencySymbol, bool withSatsSymbol, bool useMscwTime)
 {
     std::array<std::string, NUM_SCREENS> ret;
     ret.fill("");
@@ -145,8 +145,9 @@ std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price, c
     // Guard against div-by-zero: 1/float(0) is +inf and casting it to int is UB.
     if (price == 0)
     {
-        ret[0] = (currencySymbol == CURRENCY_USD) ? std::string("MSCW/TIME")
-                                                  : std::string("SATS/") + getCurrencyCode(currencySymbol);
+        ret[0] = (currencySymbol == CURRENCY_USD && useMscwTime)
+                     ? std::string("MSCW/TIME")
+                     : std::string("SATS/") + getCurrencyCode(currencySymbol);
         return ret;
     }
 
@@ -174,7 +175,7 @@ std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price, c
     {
         priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
 
-        if (currencySymbol != CURRENCY_USD || price >= 100000000)
+        if (currencySymbol != CURRENCY_USD || price >= 100000000 || !useMscwTime)
             ret[0] = "SATS/" + getCurrencyCode(currencySymbol);
         else
             ret[0] = "MSCW/TIME";
@@ -464,9 +465,9 @@ emscripten::val parseBlockFeesArray(float blockFees)
     return arrayToStringArray(parseBlockFees(blockFees));
 }
 
-emscripten::val parseSatsPerCurrencyArray(std::uint32_t price, const std::string &currencySymbol, bool withSatsSymbol)
+emscripten::val parseSatsPerCurrencyArray(std::uint32_t price, const std::string &currencySymbol, bool withSatsSymbol, bool useMscwTime)
 {
-    return arrayToStringArray(parseSatsPerCurrency(price, currencySymbol[0], withSatsSymbol));
+    return arrayToStringArray(parseSatsPerCurrency(price, currencySymbol[0], withSatsSymbol, useMscwTime));
 }
 
 EMSCRIPTEN_BINDINGS(my_module)

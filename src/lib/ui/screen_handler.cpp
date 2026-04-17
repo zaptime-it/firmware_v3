@@ -278,7 +278,10 @@ void workerTask(void *pvParameters) {
                             preferences.getBool("suffixShareDot", DEFAULT_SUFFIX_SHARE_DOT)
                         );
                     } else if (currentScreenValue == SCREEN_SATS_PER_CURRENCY) {
-                        taskEpdContent = parseSatsPerCurrency(price, currency, preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL));
+                        taskEpdContent = parseSatsPerCurrency(
+                            price, currency,
+                            preferences.getBool("useSatsSymbol", DEFAULT_USE_SATS_SYMBOL),
+                            preferences.getBool("useMscwTime", DEFAULT_USE_MSCW_TIME));
                     } else {
                         auto& blockNotify = BlockNotify::getInstance();
                         taskEpdContent = parseMarketCap(blockNotify.getBlockHeight(), price, currency,  preferences.getBool("mcapBigChar", DEFAULT_MCAP_BIG_CHAR));

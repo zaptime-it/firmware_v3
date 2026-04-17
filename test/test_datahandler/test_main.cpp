@@ -361,6 +361,40 @@ void test_SatsPerCurrency_LowPriceWithSymbol(void)
     // simply surviving the call is the main assertion.
 }
 
+void test_SatsPerDollar_NoMscwTime(void)
+{
+    // useMscwTime=false forces USD to use the generic "SATS/USD" header
+    // instead of "MSCW/TIME", matching the non-USD currency format.
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_USD, false, false);
+    TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING("6", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
+}
+
+void test_SatsPerDollar_MscwTime_Explicit(void)
+{
+    // Explicit useMscwTime=true matches the legacy default-arg behavior.
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_USD, false, true);
+    TEST_ASSERT_EQUAL_STRING("MSCW/TIME", output[0].c_str());
+}
+
+void test_SatsPerPound_IgnoresMscwTimeFlag(void)
+{
+    // The flag is USD-only; non-USD currencies always render as "SATS/<code>"
+    // regardless of the flag's value.
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_GBP, false, false);
+    TEST_ASSERT_EQUAL_STRING("SATS/GBP", output[0].c_str());
+}
+
+void test_SatsPerCurrency_PriceZero_NoMscwTime(void)
+{
+    // Div-by-zero guard must also respect the useMscwTime flag.
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(0, CURRENCY_USD, false, false);
+    TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
+}
+
 void test_BlockFees_HighRate(void)
 {
     // Fee rate of 150 -> "150" (3 chars). Ensure nothing is lost/clobbered.
@@ -412,6 +446,10 @@ int runUnityTests(void)
     RUN_TEST(test_SatsPerCurrency_PriceZero);
     RUN_TEST(test_SatsPerCurrency_PriceZero_WithSymbol);
     RUN_TEST(test_SatsPerCurrency_LowPriceWithSymbol);
+    RUN_TEST(test_SatsPerDollar_NoMscwTime);
+    RUN_TEST(test_SatsPerDollar_MscwTime_Explicit);
+    RUN_TEST(test_SatsPerPound_IgnoresMscwTimeFlag);
+    RUN_TEST(test_SatsPerCurrency_PriceZero_NoMscwTime);
     RUN_TEST(test_BlockFees_HighRate);
     RUN_TEST(test_BlockFees_BoundaryTen);
     return UNITY_END();
