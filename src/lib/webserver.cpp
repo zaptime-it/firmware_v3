@@ -194,8 +194,23 @@ void onFirmwareUpdate(AsyncWebServerRequest *request)
   // The upload body handler already bails out early if auth fails, but the
   // final response handler is called independently, so re-check here.
   if (requireHttpAuth(request)) return;
-  bool shouldReboot = !Update.hasError();
-  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
+
+  const bool shouldReboot = !Update.hasError();
+  if (shouldReboot)
+  {
+    // Reboot after the response is flushed to the client.
+    request->onDisconnect([]() {
+      delay(500);
+      noInterrupts();
+      esp_restart();
+    });
+
+    if (events.count())
+      events.send("closing");
+  }
+
+  AsyncWebServerResponse *response =
+      request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
   response->addHeader("Connection", "close");
   request->send(response);
 }
