@@ -1,6 +1,62 @@
 #include "bitaxe_fetch.hpp"
 
+#include <ArduinoJson.h>
+#include <cctype>
+#include <cmath>
+#include <cstdlib>
+#include <limits>
+#include <string>
+
 #include "lib/system/timers.hpp"
+
+namespace {
+
+/** True for JSON numbers (int or float) as emitted by current AxeOS `/api/system/info`. */
+bool jsonVariantIsNumeric(JsonVariantConst v) {
+    return v.is<double>() || v.is<float>() || v.is<signed char>() || v.is<short>() ||
+           v.is<int>() || v.is<long>() || v.is<long long>() || v.is<unsigned char>() ||
+           v.is<unsigned short>() || v.is<unsigned int>() || v.is<unsigned long>() ||
+           v.is<unsigned long long>();
+}
+
+/**
+ * AxeOS historically returned `bestDiff` as a human string (optionally suffixed with
+ * K/M/G/…). Newer firmware returns a raw JSON number. Accept both.
+ */
+bool parseBestDifficulty(JsonVariantConst v, uint64_t &out) {
+    if (v.isNull()) return false;
+
+    if (jsonVariantIsNumeric(v)) {
+        const double d = v.as<double>();
+        if (d < 0) return false;
+        if (d > static_cast<double>(std::numeric_limits<uint64_t>::max())) {
+            out = std::numeric_limits<uint64_t>::max();
+        } else {
+            out = static_cast<uint64_t>(std::llround(d));
+        }
+        return true;
+    }
+
+    if (!v.is<const char *>()) return false;
+
+    std::string diffStr = v.as<std::string>();
+    if (diffStr.empty()) return false;
+
+    const char diffUnit = diffStr[diffStr.length() - 1];
+    if (std::isalpha(static_cast<unsigned char>(diffUnit))) {
+        char *endp = nullptr;
+        const float diffValue = strtof(diffStr.c_str(), &endp);
+        if (endp == diffStr.c_str()) return false;
+        out = static_cast<uint64_t>(std::round(diffValue * std::pow(10, getDifficultyMultiplier(diffUnit))));
+    } else {
+        char *endp = nullptr;
+        out = strtoull(diffStr.c_str(), &endp, 10);
+        if (endp == diffStr.c_str()) return false;
+    }
+    return true;
+}
+
+}  // namespace
 
 void BitaxeFetch::taskWrapper(void* pvParameters) {
     BitaxeFetch::getInstance().task();
@@ -33,33 +89,29 @@ void BitaxeFetch::task() {
 
         JsonDocument doc;
         DeserializationError jsonErr = deserializeJson(doc, http->getString());
-        if (jsonErr ||
-            !doc["hashRate"].is<float>() ||
-            !doc["bestDiff"].is<const char*>()) {
-            Serial.println(F("Bitaxe: bad JSON"));
+        if (jsonErr) {
+            Serial.printf("Bitaxe: JSON parse error: %s\r\n", jsonErr.c_str());
             continue;
         }
 
-        // Convert GH/s to H/s (multiply by 10^9)
-        float hashRateGH = doc["hashRate"].as<float>();
-        hashrate = static_cast<uint64_t>(std::round(hashRateGH * std::pow(10, getHashrateMultiplier('G'))));
-
-        // Parse difficulty string and convert to uint64_t. Use C parsers
-        // so we don't pull in the exception-based std::sto* machinery.
-        std::string diffStr = doc["bestDiff"].as<std::string>();
-        if (diffStr.empty()) continue;
-
-        char diffUnit = diffStr[diffStr.length() - 1];
-        if (std::isalpha(static_cast<unsigned char>(diffUnit))) {
-            char* endp = nullptr;
-            float diffValue = strtof(diffStr.c_str(), &endp);
-            if (endp == diffStr.c_str()) continue;
-            bestDiff = static_cast<uint64_t>(std::round(diffValue * std::pow(10, getDifficultyMultiplier(diffUnit))));
-        } else {
-            char* endp = nullptr;
-            bestDiff = strtoull(diffStr.c_str(), &endp, 10);
-            if (endp == diffStr.c_str()) continue;
+        JsonVariantConst hashVar = doc["hashRate"];
+        JsonVariantConst diffVar = doc["bestDiff"];
+        if (!jsonVariantIsNumeric(hashVar)) {
+            Serial.println(F("Bitaxe: bad JSON (hashRate missing or not a number)"));
+            continue;
         }
+
+        uint64_t parsedBest = 0;
+        if (!parseBestDifficulty(diffVar, parsedBest)) {
+            Serial.println(F("Bitaxe: bad JSON (bestDiff missing or invalid)"));
+            continue;
+        }
+        bestDiff = parsedBest;
+
+        // Convert GH/s to H/s (multiply by 10^9). AxeOS reports hashRate as a JSON number
+        // (often stored internally as double, so we read as double rather than is<float>()).
+        const double hashRateGH = hashVar.as<double>();
+        hashrate = static_cast<uint64_t>(std::round(hashRateGH * std::pow(10, getHashrateMultiplier('G'))));
 
         if (workQueue != nullptr && (ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_HASHRATE || ScreenHandler::getCurrentScreen() == SCREEN_BITAXE_BESTDIFF)) {
             WorkItem priceUpdate = {TASK_BITAXE_UPDATE, 0};
