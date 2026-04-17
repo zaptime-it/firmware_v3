@@ -121,15 +121,24 @@ void monitorDataConnections() {
     blockNotifyLostConnection = 0;
   }
 
-  // Check for missed price updates
-  if ((getLastPriceUpdate(CURRENCY_USD) - getUptime()) > (preferences.getUInt("minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE) * 5)) {
+  // Check for missed price updates.
+  // Previously the subtraction was inverted: lastUpdate - uptime on unsigned
+  // time wraps to a huge value whenever uptime > lastUpdate (i.e. always
+  // after the first update), which made the condition fire constantly.
+  int64_t uptimeNow = getUptime();
+  int64_t lastUsdUpdate = static_cast<int64_t>(getLastPriceUpdate(CURRENCY_USD));
+  int64_t priceStaleThreshold = static_cast<int64_t>(preferences.getUInt("minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE)) * 5;
+  if (lastUsdUpdate != 0 && uptimeNow > lastUsdUpdate &&
+      (uptimeNow - lastUsdUpdate) > priceStaleThreshold) {
     Serial.println(F("Detected 5 missed price updates... restarting price handler."));
     restartPriceNotify();
     priceNotifyLostConnection = 0;
   }
 
-  // Check for missed blocks
-  if ((blockNotify.getLastBlockUpdate() - getUptime()) > 45 * 60) {
+  // Check for missed blocks (45 minute staleness threshold).
+  int64_t lastBlockUpdate = static_cast<int64_t>(blockNotify.getLastBlockUpdate());
+  if (lastBlockUpdate != 0 && uptimeNow > lastBlockUpdate &&
+      (uptimeNow - lastBlockUpdate) > (45LL * 60LL)) {
     checkMissedBlocks();
   }
 }

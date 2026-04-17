@@ -105,13 +105,18 @@ EPDManager::~EPDManager() {
         vQueueDelete(updateQueue);
     }
 
-    // Clean up fonts
-    delete antonioFonts.big;
-    delete antonioFonts.medium;
-    delete antonioFonts.small;
-    delete oswaldFonts.big;
-    delete oswaldFonts.medium;
-    delete oswaldFonts.small;
+    // FontLoader allocates fonts with malloc(), so they must be released with
+    // FontLoader::unloadFont (which calls free). Using `delete` on malloc'd
+    // memory is undefined behaviour and additionally would leak the font's
+    // bitmap block. Also ensure fontSatsymbol is released, which the previous
+    // destructor omitted entirely.
+    FontLoader::unloadFont(antonioFonts.big);
+    FontLoader::unloadFont(antonioFonts.medium);
+    FontLoader::unloadFont(antonioFonts.small);
+    FontLoader::unloadFont(oswaldFonts.big);
+    FontLoader::unloadFont(oswaldFonts.medium);
+    FontLoader::unloadFont(oswaldFonts.small);
+    FontLoader::unloadFont(const_cast<GFXfont*>(fontSatsymbol));
 }
 
 void EPDManager::initialize() {
@@ -217,11 +222,17 @@ void EPDManager::waitUntilNoneBusy() {
             count++;
             vTaskDelay(BUSY_RETRY_DELAY);
 
-            if (count == BUSY_TIMEOUT_COUNT) {
+            // Previous code only inserted the longer delay on the single
+            // iteration where count == BUSY_TIMEOUT_COUNT, which meant we
+            // busy-spun for most of the timeout window. Once past the
+            // threshold, yield for longer on every iteration until we either
+            // see BUSY go low or bail out.
+            if (count >= BUSY_TIMEOUT_COUNT) {
+                if (count > BUSY_TIMEOUT_COUNT + 5) {
+                    log_e("Display %d busy timeout", i);
+                    break;
+                }
                 vTaskDelay(pdMS_TO_TICKS(100));
-            } else if (count > BUSY_TIMEOUT_COUNT + 5) {
-                log_e("Display %d busy timeout", i);
-                break;
             }
         }
     }
@@ -257,8 +268,10 @@ void EPDManager::splitText(uint dispNum, const String& top, const String& bottom
     uint16_t bx = ((displays[dispNum].width() - tbbw) / 2) - tbbx;
     uint16_t by = ((displays[dispNum].height() - tbbh) / 2) - tbby + tbbh / 2 + 12;
 
-    // Make separator as wide as the shortest text
-    uint16_t lineWidth = (tbbw < ttbh) ? tbbw : ttbw;
+    // Make separator as wide as the shortest text. The previous expression
+    // compared the bottom text width against the top text HEIGHT (ttbh),
+    // which meant the "pick the narrower" decision was almost always wrong.
+    uint16_t lineWidth = (tbbw < ttbw) ? tbbw : ttbw;
     uint16_t lineX = round((displays[dispNum].width() - lineWidth) / 2);
 
     displays[dispNum].fillScreen(bgColor);
@@ -307,9 +320,22 @@ void EPDManager::showChars(uint dispNum, const String& chars, bool partial, cons
 
     for (size_t i = 0; i < chars.length(); i++) {
         char c = chars[i];
+        // Guard against characters outside the font's glyph table. Accessing
+        // font->glyph[c - font->first] for a character below the range
+        // reads from before the buffer (wild pointer), and above the range
+        // reads past its end.
+        if (!font || static_cast<uint8_t>(c) < font->first ||
+            static_cast<uint8_t>(c) > font->last) {
+            displays[dispNum].setCursor(x, y);
+            displays[dispNum].print(c);
+            continue;
+        }
+
+        uint16_t glyphIdx = static_cast<uint8_t>(c) - font->first;
+
         if (c == '.' || c == ',') {
             // For the dot, calculate its specific descent
-            GFXglyph* dotGlyph = &font->glyph[c - font->first];
+            GFXglyph* dotGlyph = &font->glyph[glyphIdx];
             int16_t dotDescent = dotGlyph->yOffset;
 
             // Draw the dot with adjusted y-position
@@ -322,7 +348,7 @@ void EPDManager::showChars(uint dispNum, const String& chars, bool partial, cons
         }
 
         // Move x-position for the next character
-        x += font->glyph[c - font->first].xAdvance;
+        x += font->glyph[glyphIdx].xAdvance;
     }
 }
 
@@ -354,7 +380,7 @@ bool EPDManager::renderIcon(uint dispNum, const String& text, bool partial) {
 
         int x_offset = (displays[dispNum].width() - logo.width) / 2;
         int y_offset = (displays[dispNum].height() - logo.height) / 2;
-        displays[dispNum].drawInvertedBitmap(x_offset, y_offset, logo.data, 
+        displays[dispNum].drawInvertedBitmap(x_offset, y_offset, logo.data.get(),
                                          logo.width, logo.height, fgColor);
         return true;
     }
@@ -509,9 +535,11 @@ void EPDManager::prepareDisplayUpdateTask(void* pvParameters) {
             } else if (instance.content[epdIndex].startsWith(F("qr"))) {
                 instance.renderQr(epdIndex, instance.content[epdIndex], updatePartial);
             } else if (instance.content[epdIndex].startsWith(F("mdi"))) {
-                if (!instance.renderIcon(epdIndex, instance.content[epdIndex], updatePartial)) {
-                    continue;
-                }
+                // Even if renderIcon returns false (e.g. no pool logo yet),
+                // still notify the display-update task. The previous
+                // `continue` skipped xTaskNotifyGive() at the bottom of the
+                // loop, leaving the update task blocked forever.
+                instance.renderIcon(epdIndex, instance.content[epdIndex], updatePartial);
             } else if (instance.content[epdIndex].length() > 5) {
                 instance.renderText(epdIndex, instance.content[epdIndex], updatePartial);
             } else {

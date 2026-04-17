@@ -211,8 +211,11 @@ void LedHandler::ledTask(void* pvParameters) {
                         break;
 
                     case LED_EFFECT_WIFI_CONNECTING:
-                        for (int i = NEOPIXEL_COUNT; i >= 0; i--) {
-                            for (int j = NEOPIXEL_COUNT; j >= 0; j--) {
+                        // Valid pixel indices are 0..NEOPIXEL_COUNT-1. The old
+                        // loop started at NEOPIXEL_COUNT which triggered OOB
+                        // writes on the first iteration.
+                        for (int i = NEOPIXEL_COUNT - 1; i >= 0; i--) {
+                            for (int j = NEOPIXEL_COUNT - 1; j >= 0; j--) {
                                 if (j == i) {
                                     handler->pixels.setPixelColor(i, handler->pixels.Color(16, 197, 236));
                                 } else {
@@ -225,8 +228,8 @@ void LedHandler::ledTask(void* pvParameters) {
                         break;
 
                     case LED_EFFECT_PAUSE_TIMER:
-                        for (int i = NEOPIXEL_COUNT; i >= 0; i--) {
-                            for (int j = NEOPIXEL_COUNT; j >= 0; j--) {
+                        for (int i = NEOPIXEL_COUNT - 1; i >= 0; i--) {
+                            for (int j = NEOPIXEL_COUNT - 1; j >= 0; j--) {
                                 uint32_t c = handler->pixels.Color(0, 0, 0);
                                 if (i == j)
                                     c = handler->pixels.Color(0, 255, 0);
@@ -247,8 +250,10 @@ void LedHandler::ledTask(void* pvParameters) {
                         handler->pixels.setPixelColor((NEOPIXEL_COUNT - 1), handler->pixels.Color(255, 0, 0));
                         handler->pixels.show();
                         delay(900);
-                        for (int i = NEOPIXEL_COUNT; i--; i > 0) {
-                            for (int j = NEOPIXEL_COUNT; j--; j > 0) {
+                        // Rewritten from `for (int i = NEOPIXEL_COUNT; i--; i > 0)`
+                        // which was confusing and had a no-op "increment" clause.
+                        for (int i = NEOPIXEL_COUNT - 1; i >= 0; i--) {
+                            for (int j = NEOPIXEL_COUNT - 1; j >= 0; j--) {
                                 uint32_t c = handler->pixels.Color(0, 0, 0);
                                 if (i == j)
                                     c = handler->pixels.Color(0, 255, 0);
@@ -548,10 +553,16 @@ void LedHandler::frontlightSetBrightness(uint brightness) {
 
 std::vector<uint16_t> LedHandler::frontlightGetStatus() {
     std::vector<uint16_t> statuses;
-    for (int ledPin = 1; ledPin <= NUM_SCREENS; ledPin++) {
+    // Iterate ledPin 0..NUM_SCREENS-1 to match the PWM channels used by
+    // frontlightFadeInAll / frontlightFadeOutAll (which address channel
+    // `ledPin + 1`). Previous loop was offset by one and read channels
+    // 2..NUM_SCREENS+1.
+    for (int ledPin = 0; ledPin < NUM_SCREENS; ledPin++) {
         uint16_t a = 0, b = 0;
         flArray.getPWM(ledPin + 1, &a, &b);
-        statuses.push_back(round(b - a / 4096));
+        // Operator precedence fix: original `b - a / 4096` divided `a` first,
+        // returning ~b. We want the duty cycle, (b - a) / 4096.
+        statuses.push_back(round(static_cast<float>(b - a) / 4096.0f));
     }
     return statuses;
 }
@@ -582,7 +593,9 @@ void LedHandler::frontlightFadeInAll(int flDelayTime, bool staggered) {
         }
     } else {
         for (int dutyCycle = 0; dutyCycle <= maxBrightness; dutyCycle += FL_FADE_STEP) {
-            for (int ledPin = 0; ledPin <= NUM_SCREENS; ledPin++) {
+            // ledPin range 0..NUM_SCREENS-1 (channels 1..NUM_SCREENS). The old
+            // upper bound `<= NUM_SCREENS` touched one channel past the array.
+            for (int ledPin = 0; ledPin < NUM_SCREENS; ledPin++) {
                 flArray.setPWM(ledPin + 1, 0, dutyCycle);
             }
             vTaskDelay(pdMS_TO_TICKS(flDelayTime));
@@ -617,7 +630,7 @@ void LedHandler::frontlightFadeOutAll(int flDelayTime, bool staggered) {
         }
     } else {
         for (int dutyCycle = preferences.getUInt("flMaxBrightness"); dutyCycle >= 0; dutyCycle -= FL_FADE_STEP) {
-            for (int ledPin = 0; ledPin <= NUM_SCREENS; ledPin++) {
+            for (int ledPin = 0; ledPin < NUM_SCREENS; ledPin++) {
                 flArray.setPWM(ledPin + 1, 0, dutyCycle);
             }
             vTaskDelay(pdMS_TO_TICKS(flDelayTime));

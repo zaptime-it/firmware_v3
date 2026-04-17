@@ -356,9 +356,23 @@ void handleNostrZapCallback(const String &subId, nostr::SignedNostrEvent *event)
         esp_timer_start_periodic(screenRotateTimer,
                                 timerPeriod * usPerSecond);
     } else if (preferences.getBool("scrnRestoreZap", DEFAULT_SCREEN_RESTORE_AFTER_ZAP)) {
-        TimerHandle_t screenRestoreAfterZapTimer = xTimerCreate("screenRestoreAfterZap", pdMS_TO_TICKS(getTimerSeconds() * msPerSecond), pdFALSE, (void*)(uintptr_t)screenBeforeZap, screenRestoreAfterZapCallback);
+        TimerHandle_t screenRestoreAfterZapTimer = xTimerCreate(
+            "screenRestoreAfterZap",
+            pdMS_TO_TICKS(getTimerSeconds() * msPerSecond),
+            pdFALSE,
+            (void*)(uintptr_t)screenBeforeZap,
+            screenRestoreAfterZapCallback);
+        if (screenRestoreAfterZapTimer == nullptr) {
+            Serial.println(F("Failed to create screen restore timer (out of timers?)"));
+            return;
+        }
         Serial.println("Starting screen restore after zap");
-        xTimerStart(screenRestoreAfterZapTimer, 0);
+        if (xTimerStart(screenRestoreAfterZapTimer, 0) != pdPASS) {
+            // Tear down the timer on start failure to avoid leaking it; the
+            // callback normally deletes itself but we never reached it.
+            xTimerDelete(screenRestoreAfterZapTimer, 0);
+            Serial.println(F("xTimerStart failed; deleted restore timer"));
+        }
     }
 }
 

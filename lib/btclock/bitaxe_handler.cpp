@@ -13,12 +13,23 @@ std::array<std::string, NUM_SCREENS> parseBitaxeHashRate(uint64_t hashrate)
     ret[0] = "mdi:bitaxe";
     ret[NUM_SCREENS - 1] = "GH/S";
 
-    // Calculate the position where the digits should start
+    // Clamp the digit string so it always fits between the header icon at [0]
+    // and the "GH/S" label at [NUM_SCREENS - 1]. Without this guard, a very
+    // large hashrate would underflow startIndex (size_t) and corrupt memory.
+    // Reserve slot 0 (bitaxe icon) and slot NUM_SCREENS-1 (label).
     std::size_t textLength = hashRateStr.length();
+    const std::size_t maxDigits = NUM_SCREENS - 2;
+    if (textLength > maxDigits)
+    {
+        // Keep the most significant digits that fit.
+        hashRateStr = hashRateStr.substr(0, maxDigits);
+        textLength = hashRateStr.length();
+    }
     std::size_t startIndex = NUM_SCREENS - 1 - textLength;
 
-    // Insert the "mdi:pickaxe" icon just before the digits
-    if (startIndex > 0)
+    // Insert the "mdi:pickaxe" icon just before the digits, but never at [0]
+    // which is reserved for the bitaxe icon.
+    if (startIndex > 1)
     {
         ret[startIndex - 1] = "mdi:pickaxe";
     }
@@ -74,9 +85,22 @@ std::array<std::string, NUM_SCREENS> parseBitaxeBestDiff(uint64_t difficulty)
         text = std::to_string(difficulty);
     }
 
+    // Clamp text length to NUM_SCREENS - 2 (reserve positions 0 and 1 for the
+    // bitaxe/rocket icons). Without this, size_t startIndex would underflow
+    // when text.length() > NUM_SCREENS.
+    const std::size_t maxDiffLen = NUM_SCREENS - 2;
+    if (text.length() > maxDiffLen)
+    {
+        // Preserve the suffix letter if present.
+        char suffix = text.back();
+        std::string truncated = text.substr(0, maxDiffLen - 1);
+        truncated.push_back(suffix);
+        text = truncated;
+    }
+
     // Calculate start position to right-align the text
     std::size_t startIndex = NUM_SCREENS - text.length();
-    
+
     // Place the formatted difficulty string
     for (std::size_t i = 0; i < text.length() && (startIndex + i) < NUM_SCREENS; ++i)
     {

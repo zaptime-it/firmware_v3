@@ -302,9 +302,19 @@ void setupPreferences()
     preferences.putUChar("dataSource", DEFAULT_DATA_SOURCE);
   }
 
-  // Initialize custom endpoint settings if not set
-  if (!preferences.isKey("customEndpoint")) {
-    preferences.putString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  // Initialize custom endpoint settings if not set. The web UI uses the key
+  // "ceEndpoint" as the canonical name; migrate any value that was previously
+  // stored under "customEndpoint" (a shortlived intermediate key) back to it.
+  if (!preferences.isKey("ceEndpoint")) {
+    if (preferences.isKey("customEndpoint")) {
+      preferences.putString("ceEndpoint",
+                            preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT));
+    } else {
+      preferences.putString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+    }
+  }
+  if (preferences.isKey("customEndpoint")) {
+    preferences.remove("customEndpoint");
   }
 
   if (!preferences.isKey("ceDisableSSL")) {
@@ -629,12 +639,21 @@ void WiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
 String getMyHostname()
 {
   uint8_t mac[6];
-  // WiFi.macAddress(mac);
   esp_efuse_mac_get_default(mac);
-  char hostname[15];
+
+  // Previous version passed an Arduino String straight into snprintf's %s,
+  // which is undefined behaviour, and used a 15-byte buffer that silently
+  // truncated any prefix longer than 7 chars. Truncate the prefix explicitly
+  // and pass a null-terminated C-string.
   String hostnamePrefix = preferences.getString("hostnamePrefix", DEFAULT_HOSTNAME_PREFIX);
-  snprintf(hostname, sizeof(hostname), "%s-%02x%02x%02x", hostnamePrefix,
-           mac[3], mac[4], mac[5]);
+  // DNS-safe hostnames must be <=63 chars; keep well under that.
+  constexpr size_t MAX_PREFIX_LEN = 24;
+  if (hostnamePrefix.length() > MAX_PREFIX_LEN) {
+    hostnamePrefix = hostnamePrefix.substring(0, MAX_PREFIX_LEN);
+  }
+  char hostname[MAX_PREFIX_LEN + 1 /* dash */ + 6 /* mac suffix */ + 1 /* NUL */];
+  snprintf(hostname, sizeof(hostname), "%s-%02x%02x%02x",
+           hostnamePrefix.c_str(), mac[3], mac[4], mac[5]);
   return hostname;
 }
 

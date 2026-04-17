@@ -29,6 +29,23 @@ TaskHandle_t eventSourceTaskHandle;
 #define HTTP_OK 200
 #define HTTP_BAD_REQUEST 400
 
+// Centralised HTTP auth gate used by sensitive endpoints. Returns true and
+// has already sent a 401/auth prompt if the caller is not authenticated.
+static bool requireHttpAuth(AsyncWebServerRequest *request)
+{
+  if (!preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED)) {
+    return false;
+  }
+  if (!request->authenticate(
+          preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME).c_str(),
+          preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD).c_str()))
+  {
+    request->requestAuthentication();
+    return true;
+  }
+  return false;
+}
+
 void setupWebserver()
 {
   events.onConnect([](AsyncEventSourceClient *client)
@@ -118,8 +135,11 @@ void setupWebserver()
       new OneParamRewrite("/api/show/screen/{s}", "/api/show/screen?s={s}"));
   server.addRewrite(
       new OneParamRewrite("/api/show/text/{text}", "/api/show/text?t={text}"));
+  // Placeholder name in the rewrite target must match the pattern token.
+  // Previously the template used {text} so the rewrite produced a literal
+  // "?t={text}" URL instead of substituting the captured number.
   server.addRewrite(new OneParamRewrite("/api/show/number/{number}",
-                                        "/api/show/text?t={text}"));
+                                        "/api/show/text?t={number}"));
 
   server.on("/api/dnd/status", HTTP_GET, onApiDNDStatus);
   server.on("/api/dnd/enable", HTTP_POST, onApiDNDEnable);
@@ -127,28 +147,52 @@ void setupWebserver()
 
   server.onNotFound(onNotFound);
 
+  // CORS:
+  // - For normal operation, the UI is served from the device itself.
+  // - During WebUI development, the UI is often served from a local dev server
+  //   (e.g. http://localhost:*), which must be able to call the device API.
+  //
+  // Because DefaultHeaders are global (not per-request), we can't dynamically
+  // echo back the request Origin here. Use a permissive "*" but keep headers
+  // restricted and rely on HTTP auth for state-changing endpoints.
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods",
                                        "GET, PATCH, POST, OPTIONS");
-  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "*");
+  // Allow only the headers we actually need. "*" lets any client inject
+  // arbitrary headers including Authorization, which combined with a permissive
+  // Allow-Origin used to enable trivial CSRF.
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers",
+                                       "Content-Type, Authorization");
 
   server.begin();
 
   if (preferences.getBool("mdnsEnabled", DEFAULT_MDNS_ENABLED))
   {
-    if (!MDNS.begin(getMyHostname()))
+    // Retry a few times instead of hanging the whole device forever. mDNS is
+    // a convenience; its failure must not brick the clock.
+    bool mdnsOk = false;
+    for (int attempt = 0; attempt < 3 && !mdnsOk; ++attempt)
     {
-      Serial.println(F("Error setting up MDNS responder!"));
-      while (1)
+      if (MDNS.begin(getMyHostname()))
       {
-        delay(1000);
+        mdnsOk = true;
+        break;
       }
+      Serial.printf("Error setting up MDNS responder (attempt %d)\r\n", attempt + 1);
+      delay(1000);
     }
-    MDNS.addService("http", "tcp", 80);
-    MDNS.addServiceTxt("http", "tcp", "model", "BTClock");
-    MDNS.addServiceTxt("http", "tcp", "version", "3.0");
-    MDNS.addServiceTxt("http", "tcp", "rev", GIT_REV);
-    MDNS.addServiceTxt("http", "tcp", "hw_rev", getHwRev());
+    if (mdnsOk)
+    {
+      MDNS.addService("http", "tcp", 80);
+      MDNS.addServiceTxt("http", "tcp", "model", "BTClock");
+      MDNS.addServiceTxt("http", "tcp", "version", "3.0");
+      MDNS.addServiceTxt("http", "tcp", "rev", GIT_REV);
+      MDNS.addServiceTxt("http", "tcp", "hw_rev", getHwRev());
+    }
+    else
+    {
+      Serial.println(F("MDNS setup failed after retries; continuing without mDNS."));
+    }
   }
 
   xTaskCreate(eventSourceTask, "eventSourceTask", 4096, NULL, tskIDLE_PRIORITY,
@@ -159,6 +203,9 @@ void stopWebServer() { server.end(); }
 
 void onFirmwareUpdate(AsyncWebServerRequest *request)
 {
+  // The upload body handler already bails out early if auth fails, but the
+  // final response handler is called independently, so re-check here.
+  if (requireHttpAuth(request)) return;
   bool shouldReboot = !Update.hasError();
   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", shouldReboot ? "OK" : "FAIL");
   response->addHeader("Connection", "close");
@@ -167,6 +214,7 @@ void onFirmwareUpdate(AsyncWebServerRequest *request)
 
 void onAutoUpdateFirmware(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   UpdateMessage msg = {UPDATE_ALL};
   if (xQueueSend(otaQueue, &msg, 0) == pdTRUE)
   {
@@ -180,6 +228,7 @@ void onAutoUpdateFirmware(AsyncWebServerRequest *request)
 
 void asyncWebuiUpdateHandler(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
 {
+  if (index == 0 && requireHttpAuth(request)) return;
   asyncFileUpdateHandler(request, filename, index, data, len, final, U_SPIFFS);
 }
 
@@ -192,7 +241,11 @@ void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, siz
     if (command == U_FLASH)
     {
       // Update.runAsync(true);
-      if (!Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000), command)
+      // The original expression had the closing paren misplaced, so the
+      // command argument was actually consumed by the comma operator and
+      // Update.begin() was called with only the size. Put command back
+      // inside the Update.begin() call.
+      if (!Update.begin(((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000), command))
       {
         Update.printError(Serial);
         return;
@@ -231,6 +284,7 @@ void asyncFileUpdateHandler(AsyncWebServerRequest *request, String filename, siz
 
 void asyncFirmwareUpdateHandler(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
 {
+  if (index == 0 && requireHttpAuth(request)) return;
   asyncFileUpdateHandler(request, filename, index, data, len, final, U_FLASH);
 }
 
@@ -392,6 +446,7 @@ void onApiActionTimerRestart(AsyncWebServerRequest *request)
  */
 void onApiFullRefresh(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   EPDManager::getInstance().forceFullRefresh();
   std::array<String, NUM_SCREENS> newEpdContent = EPDManager::getInstance().getCurrentContent();
   EPDManager::getInstance().setContent(newEpdContent, true);
@@ -404,6 +459,7 @@ void onApiFullRefresh(AsyncWebServerRequest *request)
  */
 void onApiShowScreen(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   if (request->hasParam("s"))
   {
     const AsyncWebParameter *p = request->getParam("s");
@@ -418,6 +474,7 @@ void onApiShowScreen(AsyncWebServerRequest *request)
  * @Path("/api/screen/next")
  */
 void onApiScreenControl(AsyncWebServerRequest *request) {
+    if (requireHttpAuth(request)) return;
     const String& action = request->url();
     if (action.endsWith("/next")) {
         ScreenHandler::nextScreen();
@@ -429,16 +486,28 @@ void onApiScreenControl(AsyncWebServerRequest *request) {
 
 void onApiShowText(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   if (request->hasParam("t"))
   {
     const AsyncWebParameter *p = request->getParam("t");
     String t = p->value();
     t.toUpperCase(); // This is needed as long as lowercase letters are glitchy
 
+    // Previous version wrote t[i] for i in [0, NUM_SCREENS), which reads past
+    // the end of the String if the caller provided fewer characters. Guard
+    // against that explicitly.
     std::array<String, NUM_SCREENS> textEpdContent;
+    size_t tLen = t.length();
     for (uint i = 0; i < NUM_SCREENS; i++)
     {
-      textEpdContent[i] = t[i];
+      if (i < tLen)
+      {
+        textEpdContent[i] = String(t[i]);
+      }
+      else
+      {
+        textEpdContent[i] = "";
+      }
     }
 
     EPDManager::getInstance().setContent(textEpdContent);
@@ -449,12 +518,16 @@ void onApiShowText(AsyncWebServerRequest *request)
 
 void onApiShowTextAdvanced(AsyncWebServerRequest *request, JsonVariant &json)
 {
+  if (requireHttpAuth(request)) return;
   JsonArray screens = json.as<JsonArray>();
 
   std::array<String, NUM_SCREENS> epdContent;
+  // Only take up to NUM_SCREENS entries; the previous code wrote past the
+  // array end if the client sent more than NUM_SCREENS screens.
   int i = 0;
   for (JsonVariant s : screens)
   {
+    if (i >= static_cast<int>(NUM_SCREENS)) break;
     epdContent[i] = s.as<String>();
     i++;
   }
@@ -612,10 +685,17 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
     }
   }
 
-  // Handle custom endpoint settings
-  if (settings["customEndpoint"].is<String>()) {
-    preferences.putString("customEndpoint", settings["customEndpoint"].as<String>());
-    Serial.printf("Setting customEndpoint to %s\r\n", settings["customEndpoint"].as<String>().c_str());
+  // Handle custom endpoint settings. "ceEndpoint" is the canonical key used
+  // by the web UI; accept the transitional "customEndpoint" name as a
+  // fallback so older firmware payloads keep working.
+  if (settings["ceEndpoint"].is<String>()) {
+    preferences.putString("ceEndpoint", settings["ceEndpoint"].as<String>());
+    Serial.printf("Setting ceEndpoint to %s\r\n", settings["ceEndpoint"].as<String>().c_str());
+    settingsChanged = true;
+  } else if (settings["customEndpoint"].is<String>()) {
+    preferences.putString("ceEndpoint", settings["customEndpoint"].as<String>());
+    Serial.printf("Setting ceEndpoint (from legacy customEndpoint) to %s\r\n",
+                  settings["customEndpoint"].as<String>().c_str());
     settingsChanged = true;
   }
 
@@ -647,6 +727,7 @@ void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json)
 
 void onApiRestart(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   request->onDisconnect([]() {
     delay(500);
 
@@ -717,7 +798,7 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["fontName"] = preferences.getString("fontName", DEFAULT_FONT_NAME);
   root["availableFonts"] = FontNames::getAvailableFonts();
   // Custom endpoint settings (only used for CUSTOM_SOURCE)
-  root["customEndpoint"] = preferences.getString("customEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  root["ceEndpoint"] = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
 
   root["ledTestOnPower"] = preferences.getBool("ledTestOnPower", DEFAULT_LED_TEST_ON_POWER);
   root["ledFlashOnUpd"] = preferences.getBool("ledFlashOnUpd", DEFAULT_LED_FLASH_ON_UPD);
@@ -756,7 +837,10 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   root["availablePools"] = PoolFactory::getAvailablePools();
   root["httpAuthEnabled"] = preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED);
   root["httpAuthUser"] = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);
-  root["httpAuthPass"] = preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD);
+  // Never ship the raw password to the client. Expose a boolean flag instead
+  // so the UI can show "password set" without giving out credentials.
+  root["httpAuthPassSet"] =
+      preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD).length() > 0;
 #ifdef HAS_FRONTLIGHT
   root["hasFrontlight"] = true;
   root["flDisable"] = preferences.getBool("flDisable");
@@ -805,7 +889,14 @@ void onApiSettingsGet(AsyncWebServerRequest *request)
   }
 
   root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
-  root["ceEndpoint"] = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+  // "ceEndpoint" is the canonical NVS key. Emit the transitional alias
+  // "customEndpoint" as well so any client still looking for it keeps
+  // working; both PATCH names write back to "ceEndpoint".
+  {
+    const String endpoint = preferences.getString("ceEndpoint", DEFAULT_CUSTOM_ENDPOINT);
+    root["ceEndpoint"] = endpoint;
+    root["customEndpoint"] = endpoint;
+  }
   root["ceDisableSSL"] = preferences.getBool("ceDisableSSL", DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL);
 
   // Add DND settings
@@ -879,6 +970,7 @@ void onApiSystemStatus(AsyncWebServerRequest *request)
 
 void onApiSetWifiTxPower(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   if (request->hasParam("txPower"))
   {
     const AsyncWebParameter *txPowerParam = request->getParam("txPower");
@@ -918,6 +1010,7 @@ void onApiLightsStatus(AsyncWebServerRequest *request)
 
 void onApiStopDataSources(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
 
@@ -929,6 +1022,7 @@ void onApiStopDataSources(AsyncWebServerRequest *request)
 
 void onApiRestartDataSources(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   AsyncResponseStream *response =
       request->beginResponseStream(JSON_CONTENT);
 
@@ -947,6 +1041,7 @@ void onApiRestartDataSources(AsyncWebServerRequest *request)
 
 void onApiLightsOff(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setLights(0, 0, 0);
   request->send(HTTP_OK);
@@ -954,6 +1049,7 @@ void onApiLightsOff(AsyncWebServerRequest *request)
 
 void onApiLightsSetColor(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   if (request->hasParam("c"))
   {
     AsyncResponseStream *response =
@@ -968,8 +1064,14 @@ void onApiLightsSetColor(AsyncWebServerRequest *request)
     }
     else
     {
-      uint r, g, b;
-      sscanf(rgbColor.c_str(), "%02x%02x%02x", &r, &g, &b);
+      unsigned int r = 0, g = 0, b = 0;
+      // Validate that we actually parsed three byte values; otherwise reject
+      // the request instead of using uninitialised memory.
+      if (sscanf(rgbColor.c_str(), "%2x%2x%2x", &r, &g, &b) != 3)
+      {
+        request->send(HTTP_BAD_REQUEST);
+        return;
+      }
       auto& ledHandler = getLedHandler();
       ledHandler.setLights(r, g, b);
     }
@@ -989,6 +1091,7 @@ void onApiLightsSetColor(AsyncWebServerRequest *request)
 
 void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   auto& pixels = ledHandler.getPixels();
   
@@ -1020,8 +1123,8 @@ void onApiLightsSetJson(AsyncWebServerRequest *request, JsonVariant &json)
     }
     else if (lights[i]["hex"].is<const char*>())
     {
-      if (!sscanf(lights[i]["hex"].as<String>().c_str(), "#%02X%02X%02X", &red,
-                  &green, &blue) == 3)
+      if (sscanf(lights[i]["hex"].as<String>().c_str(), "#%02X%02X%02X", &red,
+                 &green, &blue) != 3)
       {
         Serial.printf("Invalid hex for LED %d\n", i);
         request->send(HTTP_BAD_REQUEST);
@@ -1079,6 +1182,7 @@ void eventSourceTask(void *pvParameters)
 
 void onApiShowCurrency(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   if (request->hasParam("c"))
   {
     const AsyncWebParameter *p = request->getParam("c");
@@ -1104,6 +1208,7 @@ void onApiShowCurrency(AsyncWebServerRequest *request)
 #ifdef HAS_FRONTLIGHT
 void onApiFrontlightOn(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.frontlightFadeInAll();
 
@@ -1131,6 +1236,7 @@ void onApiFrontlightStatus(AsyncWebServerRequest *request)
 
 void onApiFrontlightFlash(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.frontlightFlash(preferences.getUInt("flEffectDelay"));
 
@@ -1139,6 +1245,7 @@ void onApiFrontlightFlash(AsyncWebServerRequest *request)
 
 void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   if (request->hasParam("b"))
   {
     auto& ledHandler = getLedHandler();
@@ -1153,6 +1260,7 @@ void onApiFrontlightSetBrightness(AsyncWebServerRequest *request)
 
 void onApiFrontlightOff(AsyncWebServerRequest *request)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.frontlightFadeOutAll();
 
@@ -1161,18 +1269,21 @@ void onApiFrontlightOff(AsyncWebServerRequest *request)
 #endif
 
 void onApiDNDTimeBasedEnable(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDTimeBasedEnabled(true);
   request->send(200);
 }
 
 void onApiDNDTimeBasedDisable(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDTimeBasedEnabled(false);
   request->send(200);
 }
 
 void onApiDNDSetTimeRange(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request)) return;
   if (request->hasParam("startHour") && request->hasParam("startMinute") &&
       request->hasParam("endHour") && request->hasParam("endMinute")) {
     auto& ledHandler = getLedHandler();
@@ -1205,12 +1316,14 @@ void onApiDNDStatus(AsyncWebServerRequest *request) {
 }
 
 void onApiDNDEnable(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDEnabled(true);
   request->send(200);
 }
 
 void onApiDNDDisable(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   ledHandler.setDNDEnabled(false);
   request->send(200);
@@ -1241,11 +1354,14 @@ void onApiLightsGet(AsyncWebServerRequest *request)
 void onApiLightsPost(AsyncWebServerRequest *request, uint8_t *data, size_t len,
                     size_t index, size_t total)
 {
+  if (requireHttpAuth(request)) return;
   auto& ledHandler = getLedHandler();
   auto& pixels = ledHandler.getPixels();
   
   JsonDocument doc;
-  DeserializationError error = deserializeJson(doc, data);
+  // Use the length-aware overload so the parser does not run off the end of
+  // the buffer for non-NUL-terminated chunks.
+  DeserializationError error = deserializeJson(doc, data, len);
   if (error)
   {
     request->send(400);

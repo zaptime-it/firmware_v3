@@ -119,7 +119,17 @@ void BlockNotify::onWebsocketMessage(esp_websocket_event_data_t *data) {
     filter["block"]["height"] = true;
     filter["mempool-blocks"][0]["medianFee"] = true;
 
-    deserializeJson(doc, (char*)data->data_ptr, DeserializationOption::Filter(filter));
+    if (data == nullptr || data->data_ptr == nullptr || data->data_len == 0) {
+        return;
+    }
+
+    DeserializationError err = deserializeJson(doc, (char*)data->data_ptr,
+                                               (size_t)data->data_len,
+                                               DeserializationOption::Filter(filter));
+    if (err) {
+        Serial.printf("BlockNotify: JSON parse error: %s\r\n", err.c_str());
+        return;
+    }
 
     if (doc["block"].is<JsonObject>()) {
         JsonObject block = doc["block"];
@@ -129,6 +139,12 @@ void BlockNotify::onWebsocketMessage(esp_websocket_event_data_t *data) {
     }
     else if (doc["mempool-blocks"].is<JsonArray>()) {
         JsonArray blockInfo = doc["mempool-blocks"].as<JsonArray>();
+        // Previously indexed [0] without checking the array actually had
+        // entries, which returned a null JsonVariant cast to NaN; round(NaN)
+        // then yielded an undefined integer.
+        if (blockInfo.size() == 0 || !blockInfo[0]["medianFee"].is<double>()) {
+            return;
+        }
         uint medianFee = (uint)round(blockInfo[0]["medianFee"].as<double>());
         processNewBlockFee(medianFee);
     }
@@ -317,16 +333,18 @@ int BlockNotify::fetchLatestBlock() {
         const String protocol = preferences.getBool("mempoolSecure", DEFAULT_MEMPOOL_SECURE) ? "https" : "http";
         String url = protocol + "://" + mempoolInstance + "/api/blocks/tip/height";
 
-        HTTPClient* http = HttpHelper::begin(url);
+        auto http = HttpHelper::beginScoped(url);
+        if (!http) {
+            Serial.println(F("fetchLatestBlock: failed to allocate HTTPClient"));
+            return 2203;
+        }
         Serial.println("Fetching block height from " + url);
         int httpCode = http->GET();
 
-        if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
+        if (httpCode == HTTP_CODE_OK) {
             String blockHeightStr = http->getString();
-            HttpHelper::end(http);
             return blockHeightStr.toInt();
         }
-        HttpHelper::end(http);
         Serial.println("HTTP code" + String(httpCode));
     } catch (...) {
         Serial.println(F("An exception occurred while trying to get the latest block"));

@@ -328,6 +328,60 @@ void test_BitcoinSupplySmallChars(void)
     // TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 1].c_str(), joined.c_str());
 }
 
+// ---------------------------------------------------------------------------
+// Regression tests for bounds / div-by-zero in parseSatsPerCurrency and friends.
+// ---------------------------------------------------------------------------
+
+void test_SatsPerCurrency_PriceZero(void)
+{
+    // Regression: 1/float(0) -> inf, int(inf) is UB.
+    // parseSatsPerCurrency must handle a 0 price without crashing and return a
+    // placeholder array.
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(0, CURRENCY_USD, false);
+    // Must not crash. Label should be present so the UI shows *something*.
+    TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+}
+
+void test_SatsPerCurrency_PriceZero_WithSymbol(void)
+{
+    // Regression: withSatsSymbol=true must not write out-of-bounds when the
+    // insertSatSymbol index underflows (size_t/uint8_t wrap).
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(0, CURRENCY_USD, true);
+    TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+}
+
+void test_SatsPerCurrency_LowPriceWithSymbol(void)
+{
+    // Regression: price=100 -> sats/USD ~1e6 (7 digit string). With NUM_SCREENS=7
+    // the old insertSatSymbol index would be -1 and wrap around to 255 as
+    // uint8_t, triggering an OOB write. Must stay in-bounds.
+    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(100, CURRENCY_USD, true);
+    TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+    // No element should ever be the literal "STS" at an impossible position;
+    // simply surviving the call is the main assertion.
+}
+
+void test_BlockFees_HighRate(void)
+{
+    // Fee rate of 150 -> "150" (3 chars). Ensure nothing is lost/clobbered.
+    std::array<std::string, NUM_SCREENS> output = parseBlockFees(150.0f);
+    TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 4].c_str());
+    TEST_ASSERT_EQUAL_STRING("5", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
+}
+
+void test_BlockFees_BoundaryTen(void)
+{
+    // Exactly at the >= 10.0 boundary.
+    std::array<std::string, NUM_SCREENS> output = parseBlockFees(10.0f);
+    TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
+    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 3].c_str());
+    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+    TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
+}
+
 // not needed when using generate_test_runner.rb
 int runUnityTests(void)
 {
@@ -355,6 +409,11 @@ int runUnityTests(void)
     RUN_TEST(test_BitcoinSupply);
     RUN_TEST(test_BitcoinSupplySmallChars);
     RUN_TEST(test_BitcoinSupplyPercentage);
+    RUN_TEST(test_SatsPerCurrency_PriceZero);
+    RUN_TEST(test_SatsPerCurrency_PriceZero_WithSymbol);
+    RUN_TEST(test_SatsPerCurrency_LowPriceWithSymbol);
+    RUN_TEST(test_BlockFees_HighRate);
+    RUN_TEST(test_BlockFees_BoundaryTen);
     return UNITY_END();
 }
 

@@ -19,7 +19,9 @@ public:
 
     void setup();
     std::string getHashRate() const;
-    int getDailyEarnings() const;
+    // Returned in satoshis; int64 so we do not silently truncate values
+    // larger than ~21 BTC a day.
+    int64_t getDailyEarnings() const;
     TaskHandle_t getTaskHandle() const { return taskHandle; }
     static void taskWrapper(void* pvParameters);
     static void downloadLogoTaskWrapper(void* pvParameters);
@@ -40,6 +42,6 @@ private:
     
     TaskHandle_t taskHandle = nullptr;
     std::string hashrate;
-    int dailyEarnings = 0;
+    int64_t dailyEarnings = 0;
     std::unique_ptr<MiningPoolInterface> currentPool;
 };

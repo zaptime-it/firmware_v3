@@ -31,7 +31,17 @@ void setupOTA()
 
 void onOTAProgress(unsigned int progress, unsigned int total)
 {
-  uint percentage = progress / (total / 100);
+  // Guard against div-by-zero: if total is < 100 the previous expression
+  // `total / 100` evaluated to 0 and triggered a panic.
+  uint percentage = 0;
+  if (total >= 100)
+  {
+    percentage = progress / (total / 100);
+  }
+  else if (total > 0)
+  {
+    percentage = (progress * 100) / total;
+  }
   auto& ledHandler = getLedHandler();
   auto& pixels = ledHandler.getPixels();
   
@@ -124,14 +134,26 @@ ReleaseInfo getLatestRelease(const String &fileToDownload)
 
   ReleaseInfo info = {"", ""};
 
-  if (httpCode > 0)
+  if (httpCode == HTTP_CODE_OK)
   {
     String payload = http.getString();
 
     JsonDocument doc;
-    deserializeJson(doc, payload);
+    DeserializationError err = deserializeJson(doc, payload);
+    if (err)
+    {
+      Serial.printf("getLatestRelease: JSON parse error: %s\r\n", err.c_str());
+      http.end();
+      return info;
+    }
 
     JsonArray assets = doc["assets"];
+    if (assets.isNull())
+    {
+      Serial.println(F("getLatestRelease: no 'assets' array in response"));
+      http.end();
+      return info;
+    }
 
     for (JsonObject asset : assets)
     {
@@ -152,6 +174,10 @@ ReleaseInfo getLatestRelease(const String &fileToDownload)
     }
     Serial.printf("Latest release URL: %s\r\n", info.fileUrl.c_str());
     Serial.printf("Checksum URL: %s\r\n", info.checksumUrl.c_str());
+  }
+  else
+  {
+    Serial.printf("getLatestRelease: HTTP error: %d\r\n", httpCode);
   }
   http.end();
   return info;
@@ -182,12 +208,19 @@ int downloadUpdateHandler(char updateType)
   break;
   }
 
+  // Bail if the release metadata didn't resolve to any URLs.
+  if (latestRelease.fileUrl.isEmpty() || latestRelease.checksumUrl.isEmpty())
+  {
+    Serial.println(F("No release artifacts found. Aborting update."));
+    return 503;
+  }
+
   // First, download the expected SHA256
   String expectedSHA256 = downloadSHA256(latestRelease.checksumUrl);
   if (expectedSHA256.isEmpty())
   {
     Serial.println(F("Failed to get SHA256 checksum. Aborting update."));
-    return false;
+    return 503;
   }
 
   http.begin(client, latestRelease.fileUrl);
@@ -204,7 +237,7 @@ int downloadUpdateHandler(char updateType)
       if (!firmware)
       {
         Serial.println(F("Not enough memory to store firmware"));
-        return false;
+        return 503;
       }
 
       WiFiClient *stream = http.getStreamPtr();
@@ -224,7 +257,7 @@ int downloadUpdateHandler(char updateType)
       {
         Serial.println(F("Failed to read entire firmware"));
         free(firmware);
-        return false;
+        return 503;
       }
 
       // Calculate SHA256
@@ -239,7 +272,7 @@ int downloadUpdateHandler(char updateType)
       {
         Serial.println(F("Checksum mismatch. Aborting update."));
         free(firmware);
-        return false;
+        return 503;
       }
       
       Update.onProgress(onOTAProgress);
@@ -249,17 +282,19 @@ int downloadUpdateHandler(char updateType)
         onOTAStart();
         size_t written = Update.write(firmware, contentLength);
 
-        if (written == contentLength)
-        {
-          Serial.println("Written : " + String(written) + " successfully");
-          free(firmware);
-        }
-        else
+        // Free the download buffer immediately after Update.write(); Update's
+        // internal copy has taken ownership of the bytes that matter. NULL the
+        // pointer so subsequent error branches don't double-free.
+        free(firmware);
+        firmware = nullptr;
+
+        if (written != contentLength)
         {
           Serial.println("Written only : " + String(written) + "/" + String(contentLength) + ". Retry?");
-          free(firmware);
+          Update.abort();
           return 503;
         }
+        Serial.println("Written : " + String(written) + " successfully");
 
         if (Update.end())
         {
@@ -272,14 +307,12 @@ int downloadUpdateHandler(char updateType)
           else
           {
             Serial.println(F("Update not finished? Something went wrong!"));
-            free(firmware);
             return 503;
           }
         }
         else
         {
           Serial.println("Error Occurred. Error #: " + String(Update.getError()));
-          free(firmware);
           return 503;
         }
       }
@@ -287,6 +320,7 @@ int downloadUpdateHandler(char updateType)
       {
         Serial.println(F("Not enough space to begin OTA"));
         free(firmware);
+        firmware = nullptr;
         return 503;
       }
     }

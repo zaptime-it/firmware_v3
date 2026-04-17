@@ -14,6 +14,7 @@
 #include <Update.h>
 #include <HTTPClient.h>
 
+#include <memory>
 #include <mutex>
 #include <utils.hpp>
 #include <array>
@@ -119,6 +120,17 @@ class HttpHelper {
 public:
     static HTTPClient* begin(const String& url);
     static void end(HTTPClient* http);
+
+    // RAII wrapper: the returned unique_ptr automatically calls end() and
+    // deletes the HTTPClient when it goes out of scope, even on early returns
+    // or exceptions. Prefer this in all new code.
+    struct HttpClientDeleter {
+        void operator()(HTTPClient* http) const { HttpHelper::end(http); }
+    };
+    using ScopedHttp = std::unique_ptr<HTTPClient, HttpClientDeleter>;
+    static ScopedHttp beginScoped(const String& url) {
+        return ScopedHttp(begin(url));
+    }
 
 private:
     static WiFiClientSecure secureClient;

@@ -102,18 +102,13 @@ void PoolFactory::downloadPoolLogo(const std::string& poolName, const MiningPool
 
 LogoData PoolFactory::loadLogoFromFS(const std::string& poolName, const MiningPoolInterface* poolInterface)
 {
-    // Initialize with dimensions from the pool interface
-    LogoData logo = {nullptr, 
-                     0, 
-                     0, 
-                     0};
-    
+    LogoData logo = {nullptr, 0, 0, 0};
+
     String logoPath = String(LOGOS_DIR) + "/" + String(poolName.c_str()) + "_logo.bin";
     if (!LittleFS.exists(logoPath)) {
         return logo;
     }
-    
-    // Only set dimensions if file exists
+
     logo.width = static_cast<size_t>(poolInterface->getLogoWidth());
     logo.height = static_cast<size_t>(poolInterface->getLogoHeight());
 
@@ -123,17 +118,13 @@ LogoData PoolFactory::loadLogoFromFS(const std::string& poolName, const MiningPo
     }
 
     size_t size = file.size();
-    uint8_t* buffer = new uint8_t[size];
+    std::shared_ptr<uint8_t[]> buffer(new uint8_t[size]);
 
-
-    if (file.read(buffer, size) == size) {
+    if (file.read(buffer.get(), size) == size) {
         logo.data = buffer;
         logo.size = size;
-    } else {
-        delete[] buffer;
-        logo.data = nullptr;
-        logo.size = 0;
     }
+    // On short reads the shared_ptr goes out of scope and frees the buffer.
 
     file.close();
     return logo;

@@ -137,51 +137,68 @@ std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char cu
     return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price,char currencySymbol, bool withSatsSymbol)
+std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price, char currencySymbol, bool withSatsSymbol)
 {
     std::array<std::string, NUM_SCREENS> ret;
-    std::string priceString = std::to_string(int(round(1 / float(price) * 10e7)));
-    std::uint32_t firstIndex = 0;
-    std::uint8_t insertSatSymbol = NUM_SCREENS - priceString.length() - 1;
+    ret.fill("");
 
-    if (priceString.length() < (NUM_SCREENS))
+    // Guard against div-by-zero: 1/float(0) is +inf and casting it to int is UB.
+    if (price == 0)
     {
-        // Check if price is greater than 1 billion
-        if (price >= 100000000)
-        {
-            double satsPerCurrency = (1.0 / static_cast<double>(price)) * 1e8; // Calculate satoshis
-            std::ostringstream oss;
-            oss << std::fixed << std::setprecision(3) << satsPerCurrency; // Format with 3 decimal places
-            priceString = oss.str();
-        }
-        else
-        {
-            priceString = std::to_string(static_cast<int>(round(1.0 / static_cast<double>(price) * 1e8))); // Default formatting
-        }
+        ret[0] = (currencySymbol == CURRENCY_USD) ? std::string("MSCW/TIME")
+                                                  : std::string("SATS/") + getCurrencyCode(currencySymbol);
+        return ret;
+    }
 
-        // Pad the string with spaces if necessary
-        if (priceString.length() < NUM_SCREENS)
-        {
-            priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
-        }
+    std::string priceString;
 
-        if (currencySymbol != CURRENCY_USD || price >= 100000000) // no time anymore when earlier than 1
+    // Compute the sats-per-currency string once with the final formatting so the
+    // "STS" symbol position below uses the final string length (previous code
+    // computed the index against a stale initial string, leading to uint8_t
+    // wrap-around and OOB writes).
+    if (price >= 100000000)
+    {
+        double satsPerCurrency = (1.0 / static_cast<double>(price)) * 1e8;
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(3) << satsPerCurrency;
+        priceString = oss.str();
+    }
+    else
+    {
+        priceString = std::to_string(static_cast<int>(round(1.0 / static_cast<double>(price) * 1e8)));
+    }
+
+    std::uint32_t firstIndex = 0;
+
+    if (priceString.length() < NUM_SCREENS)
+    {
+        priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
+
+        if (currencySymbol != CURRENCY_USD || price >= 100000000)
             ret[0] = "SATS/" + getCurrencyCode(currencySymbol);
-        else 
+        else
             ret[0] = "MSCW/TIME";
 
         firstIndex = 1;
+    }
 
-        for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
-        {
-            ret[i] = priceString[i];
-        }
+    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
+    {
+        ret[i] = priceString[i];
+    }
 
-        if (withSatsSymbol)
+    if (withSatsSymbol)
+    {
+        // Figure out where the first non-space digit starts in the padded
+        // priceString and put the STS marker just before it, but never before
+        // the header label at index 0.
+        std::size_t firstDigit = priceString.find_first_not_of(' ');
+        if (firstDigit != std::string::npos && firstDigit > firstIndex)
         {
-            ret[insertSatSymbol] = "STS";
+            ret[firstDigit - 1] = "STS";
         }
     }
+
     return ret;
 }
 

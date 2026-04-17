@@ -42,8 +42,19 @@ std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters, bool mo
     const long long million = 1000000;
     const long long thousand = 1000;
 
+    // Guard against log10(0) == -inf; casting -inf to int is undefined behaviour.
+    if (num == 0) {
+        if (mowMode) {
+            // Preserve existing "divide by million" shape so the "M" suffix still appears.
+            snprintf(result, sizeof(result), "0M");
+        } else {
+            snprintf(result, sizeof(result), "0");
+        }
+        return result;
+    }
+
     double numDouble = (double)num;
-    int numDigits = (int)log10(num) + 1;
+    int numDigits = (int)log10((double)num) + 1;
     char suffix;
 
     if (num >= quadrillion || numDigits > 15)
@@ -173,6 +184,15 @@ void parseHashrateString(const std::string& hashrate, std::string& label, std::s
         return;
     }
 
+    // Reject strings that don't start with a digit so we never propagate
+    // std::invalid_argument / std::out_of_range out of std::stod. Any leading
+    // sign/whitespace is also considered invalid for hashrate values.
+    if (!std::isdigit(static_cast<unsigned char>(hashrate[0]))) {
+        label = "H/S";
+        output = "0";
+        return;
+    }
+
     size_t suffixLength = 0;
     if (hashrate.length() > 21) {
         label = "ZH/S";
@@ -200,7 +220,15 @@ void parseHashrateString(const std::string& hashrate, std::string& label, std::s
         suffixLength = 0;
     }
 
-        double value = std::stod(hashrate) / std::pow(10, suffixLength);
+        double value = 0.0;
+        try {
+            value = std::stod(hashrate) / std::pow(10, suffixLength);
+        } catch (const std::exception&) {
+            // Malformed numeric input -> treat as zero hashrate.
+            label = "H/S";
+            output = "0";
+            return;
+        }
 
         // Calculate integer part length
         int integerPartLength = std::to_string(static_cast<int>(value)).length();
@@ -241,7 +269,9 @@ int getHashrateMultiplier(char unit) {
         {'Z', 21}, {'E', 18}, {'P', 15}, {'T', 12},
         {'G', 9},  {'M', 6},  {'K', 3}
     };
-    return multipliers.at(unit);
+    // Use find() to avoid std::out_of_range on unknown units.
+    auto it = multipliers.find(unit);
+    return (it == multipliers.end()) ? 0 : it->second;
 }
 
 int getDifficultyMultiplier(char unit) {
@@ -252,5 +282,6 @@ int getDifficultyMultiplier(char unit) {
         {'Q', 15}, {'T', 12}, {'B', 9}, {'M', 6}, {'K', 3}, {'G', 9},
         {'q', 15}, {'t', 12}, {'b', 9}, {'m', 6}, {'k', 3}, {'g', 9}
     };
-    return multipliers.at(unit);
+    auto it = multipliers.find(unit);
+    return (it == multipliers.end()) ? 0 : it->second;
 }

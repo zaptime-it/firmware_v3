@@ -82,10 +82,11 @@
 
 #define DEFAULT_ENABLE_DEBUG_LOG false
 
-#define DEFAULT_DISABLE_FL false
+// DEFAULT_DISABLE_FL and DEFAULT_MOW_MODE are defined above; these duplicate
+// definitions were silently redefining the same macro and are removed to make
+// future conflicts an obvious error.
 #define DEFAULT_CUSTOM_ENDPOINT "ws-staging.btclock.dev"
 #define DEFAULT_CUSTOM_ENDPOINT_DISABLE_SSL false
-#define DEFAULT_MOW_MODE false
 #define DEFAULT_SCREEN_RESTORE_AFTER_ZAP true
 #define DEFAULT_BLOCK_FEE_DECIMALS true
 #define DEFAULT_BLOCK_FLASH_COLOR 0xE04300

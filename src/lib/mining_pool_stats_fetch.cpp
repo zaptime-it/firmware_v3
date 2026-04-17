@@ -12,7 +12,7 @@ std::string MiningPoolStatsFetch::getHashRate() const {
     return hashrate;
 }
 
-int MiningPoolStatsFetch::getDailyEarnings() const {
+int64_t MiningPoolStatsFetch::getDailyEarnings() const {
     return dailyEarnings;
 }
 
@@ -60,7 +60,12 @@ void MiningPoolStatsFetch::task() {
         if (httpCode == 200) {
             String payload = http.getString();
             JsonDocument doc;
-            deserializeJson(doc, payload);
+            DeserializationError err = deserializeJson(doc, payload);
+            if (err) {
+                Serial.printf("Mining pool stats JSON parse error: %s\r\n", err.c_str());
+                http.end();
+                continue;
+            }
 
             if (debugLogEnabled()) {
                 Serial.printf("Mining pool stats response: %s\r\n", payload.c_str());
@@ -84,6 +89,7 @@ void MiningPoolStatsFetch::task() {
             Serial.print(F("Error retrieving mining pool data. HTTP status code: "));
             Serial.println(httpCode);
         }
+        http.end();
     }
 }
 

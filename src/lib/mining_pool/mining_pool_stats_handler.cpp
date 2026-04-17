@@ -10,12 +10,20 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(const std::str
     parseHashrateString(hashrate, label, output, 4);
 
     std::size_t textLength = output.length();
-    // Calculate the position where the digits should start
-    // Account for the position of the mining pool logo and the hashrate label
+    // Defensive clamp: reserve slot 0 (logo/label) and slot NUM_SCREENS-1
+    // (units) so startIndex (size_t) never underflows if parseHashrateString
+    // ever returns a string longer than the display can hold.
+    const std::size_t maxDigits = NUM_SCREENS - 2;
+    if (textLength > maxDigits)
+    {
+        output = output.substr(0, maxDigits);
+        textLength = output.length();
+    }
     std::size_t startIndex = NUM_SCREENS - 1 - textLength;
- 
-    // Insert the pickaxe icon just before the digits
-    if (startIndex > 0)
+
+    // Insert the pickaxe icon just before the digits, but never at [0]
+    // which is reserved for the pool logo/label.
+    if (startIndex > 1)
     {
         ret[startIndex - 1] = "mdi:pickaxe";
     }
@@ -39,13 +47,13 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(const std::str
 }
 
 
-std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int sats, std::string label, const MiningPoolInterface& pool)
+std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int64_t sats, std::string label, const MiningPoolInterface& pool)
 {
     std::array<std::string, NUM_SCREENS> ret;
     ret.fill(""); // Initialize all elements to empty strings
     std::string satsDisplay = std::to_string(sats);
 
-    if (sats >= 100000000) {
+    if (sats >= 100000000LL) {
         // A whale mining 1+ BTC per day! No decimal points; whales scoff at such things.
         label = "BTC" + label.substr(4);
         satsDisplay = satsDisplay.substr(0, satsDisplay.length() - 8);
@@ -67,12 +75,17 @@ std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int sats,
 
     std::size_t textLength = satsDisplay.length();
 
-    // Calculate the position where the digits should start
-    // Account for the position of the mining pool logo
+    // Defensive clamp to prevent size_t underflow.
+    const std::size_t maxEarningDigits = NUM_SCREENS - 2;
+    if (textLength > maxEarningDigits)
+    {
+        satsDisplay = satsDisplay.substr(0, maxEarningDigits);
+        textLength = satsDisplay.length();
+    }
     std::size_t startIndex = NUM_SCREENS - 1 - textLength;
 
-    // Insert the pickaxe icon just before the digits if there's room
-    if (startIndex > 0)
+    // Insert the pickaxe icon just before the digits, but never at [0].
+    if (startIndex > 1)
     {
         ret[startIndex - 1] = "mdi:pickaxe";
     }

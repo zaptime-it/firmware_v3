@@ -122,29 +122,48 @@ bool ScreenHandler::handleCurrencyRotation(bool forward) {
 
 int ScreenHandler::findNextVisibleScreen(int currentScreen, bool forward) {
     std::vector<ScreenMapping> screenMappings = getScreenNameMap();
+    if (screenMappings.empty()) {
+        return currentScreen;
+    }
+
+    // Clamp the starting index so a stale -1 (from findScreenIndexByValue)
+    // doesn't cause us to walk past screenMappings.front()/back() boundaries.
+    if (currentScreen < 0 || static_cast<size_t>(currentScreen) >= screenMappings.size()) {
+        currentScreen = 0;
+    }
+
     int newScreen;
-    
     if (forward) {
-        newScreen = (currentScreen < screenMappings.size() - 1) ? 
+        newScreen = (static_cast<size_t>(currentScreen) < screenMappings.size() - 1) ?
             screenMappings[currentScreen + 1].value : screenMappings.front().value;
     } else {
-        newScreen = (currentScreen > 0) ? 
+        newScreen = (currentScreen > 0) ?
             screenMappings[currentScreen - 1].value : screenMappings.back().value;
     }
 
+    // Bail out after one full pass through the mappings so we never spin
+    // forever when every screen is hidden.
     String key = "screen" + String(newScreen) + "Visible";
+    const int maxIterations = static_cast<int>(screenMappings.size()) + 1;
+    int iterations = 0;
     while (!preferences.getBool(key.c_str(), true)) {
+        if (++iterations > maxIterations) {
+            return newScreen; // all hidden -> return whatever we landed on
+        }
         currentScreen = findScreenIndexByValue(newScreen);
+        if (currentScreen < 0 || static_cast<size_t>(currentScreen) >= screenMappings.size()) {
+            return newScreen;
+        }
         if (forward) {
-            newScreen = (currentScreen < screenMappings.size() - 1) ? 
+            newScreen = (static_cast<size_t>(currentScreen) < screenMappings.size() - 1) ?
                 screenMappings[currentScreen + 1].value : screenMappings.front().value;
         } else {
-            newScreen = (currentScreen > 0) ? 
+            newScreen = (currentScreen > 0) ?
                 screenMappings[currentScreen - 1].value : screenMappings.back().value;
         }
         key = "screen" + String(newScreen) + "Visible";
     }
-    
+
     return newScreen;
 }
 
@@ -239,12 +258,19 @@ void workerTask(void *pvParameters) {
                 case TASK_MINING_POOL_STATS_UPDATE: {
                     if (currentScreenValue != SCREEN_MINING_POOL_STATS_HASHRATE && 
                         currentScreenValue != SCREEN_MINING_POOL_STATS_EARNINGS) break;
-                        
+
+                    auto& miningFetch = MiningPoolStatsFetch::getInstance();
+                    auto pool = miningFetch.getPool();
+                    // Guard against getPool() returning nullptr (no pool configured).
+                    // Dereferencing a null pool pointer would crash the worker task.
+                    if (pool == nullptr) {
+                        break;
+                    }
                     taskEpdContent = (currentScreenValue == SCREEN_MINING_POOL_STATS_HASHRATE) ?
-                        parseMiningPoolStatsHashRate(MiningPoolStatsFetch::getInstance().getHashRate(), *MiningPoolStatsFetch::getInstance().getPool()) :
-                        parseMiningPoolStatsDailyEarnings(MiningPoolStatsFetch::getInstance().getDailyEarnings(), 
-                            MiningPoolStatsFetch::getInstance().getPool()->getDailyEarningsLabel(), 
-                            *MiningPoolStatsFetch::getInstance().getPool());
+                        parseMiningPoolStatsHashRate(miningFetch.getHashRate(), *pool) :
+                        parseMiningPoolStatsDailyEarnings(miningFetch.getDailyEarnings(),
+                            pool->getDailyEarningsLabel(),
+                            *pool);
                     EPDManager::getInstance().setContent(taskEpdContent);
                     break;
                 }
@@ -310,8 +336,14 @@ void workerTask(void *pvParameters) {
 
                         timeString =
                             std::to_string(timeinfo.tm_hour) + ":" + minute.c_str();
-                        timeString.insert(timeString.begin(),
-                                          NUM_SCREENS - timeString.length(), ' ');
+                        // Guard against size_t underflow if timeString somehow
+                        // grows longer than NUM_SCREENS (e.g. corrupt tm_hour).
+                        if (timeString.length() < NUM_SCREENS) {
+                            timeString.insert(timeString.begin(),
+                                              NUM_SCREENS - timeString.length(), ' ');
+                        } else if (timeString.length() > NUM_SCREENS) {
+                            timeString = timeString.substr(timeString.length() - NUM_SCREENS);
+                        }
                         taskEpdContent[0] = std::to_string(timeinfo.tm_mday) + "/" +
                                             std::to_string(timeinfo.tm_mon + 1);
 

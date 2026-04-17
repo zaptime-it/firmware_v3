@@ -58,9 +58,13 @@ namespace V2Notify
                 getLedHandler().queueEffect(LED_DATA_BLOCK_ERROR);
             }
 
-            if (disconnectCount > 20) 
+            if (disconnectCount > 20)
             {
-                Serial.println(F("Disconnected too many times, rebooting device"));
+                // Back off before rebooting to avoid a tight reboot loop when
+                // the upstream is unreachable (otherwise we'd brick the device
+                // in a crash-restart cycle that only worsens connectivity).
+                Serial.println(F("Disconnected too many times, rebooting device after backoff"));
+                vTaskDelay(pdMS_TO_TICKS(30 * 1000));
                 noInterrupts();
                 esp_restart();
                 interrupts();
@@ -74,44 +78,37 @@ namespace V2Notify
             Serial.println((char *)payload);
 
             disconnectCount = 0;
-            JsonDocument response;
 
-            response["type"] = "subscribe";
-            response["eventType"] = blockFeeDecimals ? "blockfee2" : "blockfee";
-            size_t responseLength = measureMsgPack(response);
-            uint8_t *buffer = new uint8_t[responseLength];
-            serializeMsgPack(response, buffer, responseLength);
-            webSocket.sendBIN(buffer, responseLength);
-            delete[] buffer;
+            auto sendSubscription = [](JsonDocument &doc) {
+                size_t responseLength = measureMsgPack(doc);
+                std::unique_ptr<uint8_t[]> buffer(new uint8_t[responseLength]);
+                serializeMsgPack(doc, buffer.get(), responseLength);
+                webSocket.sendBIN(buffer.get(), responseLength);
+            };
 
-            buffer = new uint8_t[responseLength];
-
-            response["type"] = "subscribe";
-            response["eventType"] = "blockheight";
-            responseLength = measureMsgPack(response);
-            buffer = new uint8_t[responseLength];
-            serializeMsgPack(response, buffer, responseLength);
-            webSocket.sendBIN(buffer, responseLength);
-
-            delete[] buffer;
-
-            buffer = new uint8_t[responseLength];
-
-            response["type"] = "subscribe";
-            response["eventType"] = "price";
-
-            JsonArray currenciesArray = response["currencies"].to<JsonArray>();
-
-            for (const auto &str : getActiveCurrencies())
             {
-                currenciesArray.add(str);
+                JsonDocument response;
+                response["type"] = "subscribe";
+                response["eventType"] = blockFeeDecimals ? "blockfee2" : "blockfee";
+                sendSubscription(response);
             }
-
-            //            response["currencies"] = currenciesArray;
-            responseLength = measureMsgPack(response);
-            buffer = new uint8_t[responseLength];
-            serializeMsgPack(response, buffer, responseLength);
-            webSocket.sendBIN(buffer, responseLength);
+            {
+                JsonDocument response;
+                response["type"] = "subscribe";
+                response["eventType"] = "blockheight";
+                sendSubscription(response);
+            }
+            {
+                JsonDocument response;
+                response["type"] = "subscribe";
+                response["eventType"] = "price";
+                JsonArray currenciesArray = response["currencies"].to<JsonArray>();
+                for (const auto &str : getActiveCurrencies())
+                {
+                    currenciesArray.add(str);
+                }
+                sendSubscription(response);
+            }
             break;
         }
         case WStype_TEXT:
@@ -204,13 +201,20 @@ namespace V2Notify
 
     void setupV2NotifyTask()
     {
-        if (V2Notify::v2NotifyTaskHandle != NULL)
+        // Never try to delete the task we're running in; that would terminate
+        // this function mid-flight. Only tear it down from a different task.
+        TaskHandle_t caller = xTaskGetCurrentTaskHandle();
+        if (V2Notify::v2NotifyTaskHandle != NULL &&
+            V2Notify::v2NotifyTaskHandle != caller)
         {
             vTaskDelete(V2Notify::v2NotifyTaskHandle);
             V2Notify::v2NotifyTaskHandle = NULL;
         }
-        xTaskCreate(V2Notify::taskV2Notify, "v2Notify", (6 * 1024), NULL, tskIDLE_PRIORITY,
-                    &V2Notify::v2NotifyTaskHandle);
+        if (V2Notify::v2NotifyTaskHandle == NULL)
+        {
+            xTaskCreate(V2Notify::taskV2Notify, "v2Notify", (6 * 1024), NULL, tskIDLE_PRIORITY,
+                        &V2Notify::v2NotifyTaskHandle);
+        }
     }
 
     bool isV2NotifyConnected()

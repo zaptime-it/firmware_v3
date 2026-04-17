@@ -8,4 +8,4 @@
 #endif
 
 std::array<std::string, NUM_SCREENS> parseMiningPoolStatsHashRate(const std::string& hashrate, const MiningPoolInterface& pool);
-std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int sats, std::string label, const MiningPoolInterface& pool);
+std::array<std::string, NUM_SCREENS> parseMiningPoolStatsDailyEarnings(int64_t sats, std::string label, const MiningPoolInterface& pool);

@@ -44,18 +44,27 @@ void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
         }
         case WStype_TEXT:
         {
+            if (payload == nullptr || length == 0) {
+                break;
+            }
             JsonDocument doc;
-            deserializeJson(doc, (char *)payload);
+            DeserializationError err = deserializeJson(doc, (char *)payload, length);
+            if (err) {
+                Serial.printf("Price WS JSON parse error: %s\r\n", err.c_str());
+                break;
+            }
 
-            if (doc["data"][0].is<JsonObject>())
+            JsonArray dataArr = doc["data"].as<JsonArray>();
+            if (!dataArr.isNull() && dataArr.size() > 0 &&
+                dataArr[0].is<JsonObject>() && dataArr[0]["last"].is<float>())
             {
-                float price = doc["data"][0]["last"].as<float>();
+                float price = dataArr[0]["last"].as<float>();
                 uint roundedPrice = round(price);
                 if (currentPrice != roundedPrice)
                 {
                     processNewPrice(roundedPrice, CURRENCY_USD);
                 }
-            } 
+            }
             break;
         }
         case WStype_BIN:
