@@ -2,6 +2,8 @@
 
 #include <mutex>
 
+#include "price_policy.hpp"
+
 const char *wsServerPrice = "wss://ws.kraken.com/v2";
 
 WebSocketsClient webSocket;
@@ -42,12 +44,28 @@ void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
             priceNotifyInit = true;
             Serial.println("Connected to " + String(wsServerPrice));
 
+            // Subscribe to BTC/<currency> for every currency the user has
+            // enabled, not just USD. Kraken accepts an array of symbols in
+            // a single subscribe frame; responses carry their own "symbol"
+            // field which we use below to dispatch into the per-currency
+            // bucket.
             JsonDocument doc;
             doc["method"] = "subscribe";
             JsonObject params = doc["params"].to<JsonObject>();
             params["channel"] = "ticker";
-            params["symbol"][0] = "BTC/USD";
-            
+            JsonArray symbolArr = params["symbol"].to<JsonArray>();
+            std::string actCurrencies = preferences
+                .getString("actCurrencies", DEFAULT_ACTIVE_CURRENCIES)
+                .c_str();
+            auto codes = price_policy::parseCurrencyCsv(actCurrencies);
+            if (codes.empty()) {
+                // Never send an empty symbol list — Kraken would reject it
+                // and leave us with no feed. USD is the universal fallback.
+                codes.push_back("USD");
+            }
+            for (const auto &code : codes) {
+                symbolArr.add(std::string("BTC/") + code);
+            }
             webSocket.sendTXT(doc.as<String>().c_str());
             break;
         }
@@ -64,15 +82,22 @@ void onWebsocketPriceEvent(WStype_t type, uint8_t * payload, size_t length) {
             }
 
             JsonArray dataArr = doc["data"].as<JsonArray>();
-            if (!dataArr.isNull() && dataArr.size() > 0 &&
-                dataArr[0].is<JsonObject>() && dataArr[0]["last"].is<float>())
-            {
-                float price = dataArr[0]["last"].as<float>();
+            if (dataArr.isNull()) {
+                break;
+            }
+            for (JsonObject tick : dataArr) {
+                if (!tick["last"].is<float>()) continue;
+                float price = tick["last"].as<float>();
                 uint roundedPrice = round(price);
-                if (currentPrice != roundedPrice)
-                {
-                    processNewPrice(roundedPrice, CURRENCY_USD);
+                // Kraken v2 ticker responses carry the pair in "symbol"
+                // as "BTC/<code>"; strip the prefix and map to the char
+                // constants the rest of the firmware keys on.
+                std::string sym = tick["symbol"].as<std::string>();
+                char currency = CURRENCY_USD;
+                if (sym.size() >= 7 && sym.compare(0, 4, "BTC/") == 0) {
+                    currency = getCurrencyChar(sym.substr(4));
                 }
+                processNewPrice(roundedPrice, currency);
             }
             break;
         }
