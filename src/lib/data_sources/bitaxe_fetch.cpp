@@ -87,8 +87,20 @@ void BitaxeFetch::task() {
             continue;
         }
 
+        // Stream directly from the HTTP client + filter to the two fields
+        // the display actually needs. `http->getString()` would otherwise
+        // buffer the entire AxeOS `/api/system/info` response (~2 KB) as an
+        // Arduino String before parsing — on Rev B with bitaxe + mining
+        // pool + nostr + mempool WS + Kraken WS all active, that peak
+        // allocation pushes DRAM below what mbedtls needs for its in-flight
+        // TLS sessions.
+        JsonDocument filter;
+        filter["hashRate"] = true;
+        filter["bestDiff"] = true;
+
         JsonDocument doc;
-        DeserializationError jsonErr = deserializeJson(doc, http->getString());
+        DeserializationError jsonErr = deserializeJson(
+            doc, *http->getStreamPtr(), DeserializationOption::Filter(filter));
         if (jsonErr) {
             Serial.printf("Bitaxe: JSON parse error: %s\r\n", jsonErr.c_str());
             continue;

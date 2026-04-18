@@ -67,8 +67,16 @@ void MiningPoolStatsFetch::task() {
             continue;
         }
 
+        // Stream-parse straight off the HTTP client. `http->getString()`
+        // would buffer the entire pool response as an Arduino String
+        // before ArduinoJson even sees it — on Rev B with the full
+        // THIRD_PARTY set of WS sessions (mempool + Kraken + Nostr) the
+        // extra peak allocation is enough to starve mbedtls. Each pool
+        // adapter handles its own field extraction from the resulting
+        // JsonDocument, so we cannot attach a generic field filter here
+        // without reshaping the MiningPoolInterface contract.
         JsonDocument doc;
-        DeserializationError err = deserializeJson(doc, http->getString());
+        DeserializationError err = deserializeJson(doc, *http->getStreamPtr());
         if (err) {
             Serial.printf("Mining pool bad JSON: %s\r\n", err.c_str());
             continue;
