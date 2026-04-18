@@ -1,8 +1,10 @@
 #include "v2_notify.hpp"
 
 #include <WiFi.h>
+#include <mutex>
 
 #include "data_source_policy.hpp"
+#include "lib/system/tls_gate.hpp"
 
 using namespace V2Notify;
 
@@ -185,7 +187,14 @@ namespace V2Notify
     {
         for (;;)
         {
-            webSocket.loop();
+            // Serialise only TLS-handshake windows against the rest of the
+            // firmware's TLS users; stay lock-free once the WSS is up.
+            if (webSocket.isConnected()) {
+                webSocket.loop();
+            } else {
+                std::lock_guard<std::mutex> lk(tls_gate::mutex());
+                webSocket.loop();
+            }
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     }

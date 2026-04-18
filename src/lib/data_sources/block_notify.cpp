@@ -1,6 +1,9 @@
 #include "block_notify.hpp"
 
+#include <mutex>
 #include <utility>
+
+#include "lib/system/tls_gate.hpp"
 
 // Initialize static members
 WebSocketsClient BlockNotify::wsClient;
@@ -178,7 +181,17 @@ void BlockNotify::taskBlockNotify(void *pvParameters) {
             vTaskDelete(nullptr);
             return;
         }
-        wsClient.loop();
+        // When disconnected, a wsClient.loop() call runs the full TLS
+        // handshake inline. Serialise that with every other in-flight
+        // TLS handshake via the firmware-wide gate. Already-connected
+        // iterations skip the lock entirely so steady-state event
+        // handling stays contention-free.
+        if (wsClient.isConnected()) {
+            wsClient.loop();
+        } else {
+            std::lock_guard<std::mutex> lk(tls_gate::mutex());
+            wsClient.loop();
+        }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }

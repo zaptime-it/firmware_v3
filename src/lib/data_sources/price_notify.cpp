@@ -3,6 +3,7 @@
 #include <mutex>
 
 #include "price_policy.hpp"
+#include "lib/system/tls_gate.hpp"
 
 const char *wsServerPrice = "wss://ws.kraken.com/v2";
 
@@ -224,7 +225,15 @@ void taskPriceNotify(void *pvParameters)
 {
   for (;;)
   {
-    webSocket.loop();
+    // See block_notify: hold the firmware-wide TLS gate only while the
+    // Kraken WS is trying to reconnect. Steady-state data pumping stays
+    // lock-free.
+    if (webSocket.isConnected()) {
+      webSocket.loop();
+    } else {
+      std::lock_guard<std::mutex> lk(tls_gate::mutex());
+      webSocket.loop();
+    }
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }

@@ -1,7 +1,9 @@
 #include "nostr_notify.hpp"
 #include "lib/drivers/leds/led_handler.hpp"
 #include "lib/system/config.hpp"
+#include "lib/system/tls_gate.hpp"
 
+#include <mutex>
 #include <new>
 
 std::vector<nostr::NostrPool *> pools;
@@ -148,8 +150,17 @@ void nostrTask(void *pvParameters)
         for (nostr::NostrPool *pool : pools)
         {
             // Run internal loop: refresh relays, complete pending connections, send
-            // pending messages
-            pool->loop();
+            // pending messages. Take the firmware-wide TLS gate only while
+            // we are not known-connected — same pattern as the other WS
+            // clients, so the Nostr TLS handshake doesn't stack on top of
+            // the mempool/Kraken/HTTP handshakes at boot or after a
+            // network flap.
+            if (nostrIsConnected) {
+                pool->loop();
+            } else {
+                std::lock_guard<std::mutex> lk(tls_gate::mutex());
+                pool->loop();
+            }
             if (!nostrIsSubscribed && !nostrIsSubscribing) {
                 if (debugLogEnabled())
                 {

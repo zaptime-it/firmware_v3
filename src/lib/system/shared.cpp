@@ -156,7 +156,6 @@ String calculateSHA256(WiFiClient *stream, size_t contentLength) {
 WiFiClientSecure HttpHelper::secureClient;
 WiFiClient HttpHelper::insecureClient;
 bool HttpHelper::certBundleSet = false;
-std::mutex HttpHelper::clientMutex;
 
 HTTPClient* HttpHelper::begin(const String& url) {
     HTTPClient* http = new HTTPClient();
