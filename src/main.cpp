@@ -17,157 +17,110 @@
 #include <WiFiManager.h>
 #define WEBSERVER_H
 #include "ESPAsyncWebServer.h"
-#include "lib/config.hpp"
+#include "lib/system/config.hpp"
+#include "lib/drivers/leds/led_handler.hpp"
+#include "lib/data_sources/block_notify.hpp"
+#include "lib/data_sources/live_service.hpp"
 
 uint wifiLostConnection;
-uint priceNotifyLostConnection = 0;
-uint blockNotifyLostConnection = 0;
-// char ptrTaskList[1500];
 
-extern "C" void app_main()
-{
+int64_t getUptime() {
+    return esp_timer_get_time() / 1000000;
+}
+
+void handleFrontlight() {
+#ifdef HAS_FRONTLIGHT
+  if (hasLightLevel() && preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) != 0) {
+    uint lightLevel = getLightLevel();
+    uint luxThreshold = preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE);
+    auto& ledHandler = getLedHandler();
+    
+    if (lightLevel <= 1 && preferences.getBool("flOffWhenDark", DEFAULT_FL_OFF_WHEN_DARK)) {
+      if (ledHandler.frontlightIsOn()) ledHandler.frontlightFadeOutAll();
+    } else if (lightLevel < luxThreshold && !ledHandler.frontlightIsOn()) {
+      ledHandler.frontlightFadeInAll();
+    } else if (ledHandler.frontlightIsOn() && lightLevel > luxThreshold) {
+      ledHandler.frontlightFadeOutAll();
+    }
+  }
+#endif
+}
+
+void checkWiFiConnection() {
+  if (!WiFi.isConnected()) {
+    if (!wifiLostConnection) {
+      wifiLostConnection = getUptime();
+      Serial.println(F("Lost WiFi connection, trying to reconnect..."));
+    }
+    if ((getUptime() - wifiLostConnection) > 600) {
+      Serial.println(F("Still no connection after 10 minutes, restarting..."));
+      delay(2000);
+      ESP.restart();
+    }
+    WiFi.begin();
+  } else if (wifiLostConnection) {
+    wifiLostConnection = 0;
+    Serial.println(F("Connection restored, reset timer."));
+  }
+}
+
+void checkMissedBlocks() {
+  Serial.println(F("Long time (45 min) since last block, checking if I missed anything..."));
+  auto& blockNotify = BlockNotify::getInstance();
+  int currentBlock = blockNotify.fetchLatestBlock();
+  if (currentBlock != -1) {
+    if (currentBlock != blockNotify.getBlockHeight()) {
+      Serial.println(F("Detected stuck block height... restarting block handler."));
+      blockNotify.restart();
+    }
+    blockNotify.setLastBlockUpdate(getUptime());
+  }
+}
+
+void monitorDataConnections() {
+  // Delegate generic disconnect/staleness watchdogs to the registry.
+  // Each LiveService declares its own staleAfterSeconds() policy, so
+  // the bespoke "5 missed price updates" + "45 min no block" timers
+  // are now expressed declaratively by PriceNotifyService and
+  // BlockNotify respectively.
+  LiveServiceRegistry::instance().monitor();
+
+  // BlockNotify still gets a special-case REST probe on long silences,
+  // because a live WebSocket can appear healthy while the upstream has
+  // silently dropped new-block events.
+  auto& blockNotify = BlockNotify::getInstance();
+  int64_t uptimeNow = getUptime();
+  int64_t lastBlockUpdate = static_cast<int64_t>(blockNotify.getLastBlockUpdate());
+  if (blockNotify.isInitialized() && lastBlockUpdate != 0 &&
+      uptimeNow > lastBlockUpdate &&
+      (uptimeNow - lastBlockUpdate) > (45LL * 60LL)) {
+    checkMissedBlocks();
+  }
+}
+
+extern "C" void app_main() {
   initArduino();
-
   Serial.begin(115200);
   setup();
 
-  while (true)
-  {
-    // vTaskList(ptrTaskList);
-    // Serial.println(F("**********************************"));
-    // Serial.println(F("Task  State   Prio    Stack    Num"));
-    // Serial.println(F("**********************************"));
-    // Serial.print(ptrTaskList);
-    // Serial.println(F("**********************************"));
-    if (eventSourceTaskHandle != NULL)
+  while (true) {
+    if (eventSourceTaskHandle != NULL) {
       xTaskNotifyGive(eventSourceTaskHandle);
+    }
 
-    int64_t currentUptime = esp_timer_get_time() / 1000000;
-    ;
-    
-    if (!getIsOTAUpdating())
-    {
-#ifdef HAS_FRONTLIGHT
-      if (hasLightLevel()) {
-        if (preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) != 0)
-        {
-          if (hasLightLevel() && getLightLevel() <= 1 && preferences.getBool("flOffWhenDark", DEFAULT_FL_OFF_WHEN_DARK))
-          {
-            if (frontlightIsOn()) {
-              frontlightFadeOutAll();
-            }
-          }
-          else if (hasLightLevel() && getLightLevel() < preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE) && !frontlightIsOn())
-          {
-            frontlightFadeInAll();
-          }
-          else if (frontlightIsOn() && getLightLevel() > preferences.getUInt("luxLightToggle", DEFAULT_LUX_LIGHT_TOGGLE))
-          {
-            frontlightFadeOutAll();
-          }
-        }
-      }
-#endif
+    if (!getIsOTAUpdating()) {
+      handleFrontlight();
+      checkWiFiConnection();
 
-      if (!WiFi.isConnected())
-      {
-        if (!wifiLostConnection)
-        {
-          wifiLostConnection = currentUptime;
-          Serial.println(F("Lost WiFi connection, trying to reconnect..."));
-        }
+      // monitorDataConnections() now iterates the LiveServiceRegistry
+      // so every active data source (BTCLOCK/CUSTOM V2, Mempool/Kraken,
+      // Nostr) gets the same disconnect + staleness watchdog treatment.
+      monitorDataConnections();
 
-        if ((currentUptime - wifiLostConnection) > 600)
-        {
-          Serial.println(F("Still no connection after 10 minutes, restarting..."));
-          delay(2000);
-          ESP.restart();
-        }
-
-        WiFi.begin();
-      }
-      else if (wifiLostConnection)
-      {
-        wifiLostConnection = 0;
-        Serial.println(F("Connection restored, reset timer."));
-      }
-
-      if (getPriceNotifyInit() && !preferences.getBool("fetchEurPrice", DEFAULT_FETCH_EUR_PRICE) && !isPriceNotifyConnected())
-      {
-        priceNotifyLostConnection++;
-        Serial.println(F("Lost price data connection..."));
-        queueLedEffect(LED_DATA_PRICE_ERROR);
-
-        // if price WS connection does not come back after 6*5 seconds, destroy and recreate
-        if (priceNotifyLostConnection > 6)
-        {
-          Serial.println(F("Restarting price handler..."));
-
-          restartPriceNotify();
-          //  setupPriceNotify();
-          priceNotifyLostConnection = 0;
-        }
-      }
-      else if (priceNotifyLostConnection > 0 && isPriceNotifyConnected())
-      {
-        priceNotifyLostConnection = 0;
-      }
-
-      if (getBlockNotifyInit() && !isBlockNotifyConnected())
-      {
-        blockNotifyLostConnection++;
-        Serial.println(F("Lost block data connection..."));
-        queueLedEffect(LED_DATA_BLOCK_ERROR);
-        // if mempool WS connection does not come back after 6*5 seconds, destroy and recreate
-        if (blockNotifyLostConnection > 6)
-        {
-          Serial.println(F("Restarting block handler..."));
-
-          restartBlockNotify();
-          // setupBlockNotify();
-          blockNotifyLostConnection = 0;
-        }
-      }
-      else if (blockNotifyLostConnection > 0 && isBlockNotifyConnected())
-      {
-        blockNotifyLostConnection = 0;
-      }
-
-      // if more than 5 price updates are missed, there is probably something wrong, reconnect
-      if ((getLastPriceUpdate(CURRENCY_USD) - currentUptime) > (preferences.getUInt("minSecPriceUpd", DEFAULT_SECONDS_BETWEEN_PRICE_UPDATE) * 5))
-      {
-        Serial.println(F("Detected 5 missed price updates... restarting price handler."));
-
-        restartPriceNotify();
-        // setupPriceNotify();
-
-        priceNotifyLostConnection = 0;
-      }
-
-      // If after 45 minutes no mempool blocks, check the rest API
-      if ((getLastBlockUpdate() - currentUptime) > 45 * 60)
-      {
-        Serial.println(F("Long time (45 min) since last block, checking if I missed anything..."));
-        int currentBlock = getBlockFetch();
-        if (currentBlock != -1)
-        {
-          if (currentBlock != getBlockHeight())
-          {
-            Serial.println(F("Detected stuck block height... restarting block handler."));
-            // Mempool source stuck, restart
-            restartBlockNotify();
-            // setupBlockNotify();
-          }
-          // set last block update so it doesn't fetch for 45 minutes
-          setLastBlockUpdate(currentUptime);
-        }
-      }
-
-      if (currentUptime - getLastTimeSync() > 24 * 60 * 60)
-      {
+      if (getUptime() - getLastTimeSync() > 24 * 60 * 60) {
         Serial.println(F("Last time update is longer than 24 hours ago, sync again"));
         syncTime();
-      };
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(5000));

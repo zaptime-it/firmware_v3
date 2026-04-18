@@ -137,51 +137,69 @@ std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char cu
     return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price,char currencySymbol, bool withSatsSymbol)
+std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price, char currencySymbol, bool withSatsSymbol, bool useMscwTime)
 {
     std::array<std::string, NUM_SCREENS> ret;
-    std::string priceString = std::to_string(int(round(1 / float(price) * 10e7)));
-    std::uint32_t firstIndex = 0;
-    std::uint8_t insertSatSymbol = NUM_SCREENS - priceString.length() - 1;
+    ret.fill("");
 
-    if (priceString.length() < (NUM_SCREENS))
+    // Guard against div-by-zero: 1/float(0) is +inf and casting it to int is UB.
+    if (price == 0)
     {
-        // Check if price is greater than 1 billion
-        if (price >= 100000000)
-        {
-            double satsPerCurrency = (1.0 / static_cast<double>(price)) * 1e8; // Calculate satoshis
-            std::ostringstream oss;
-            oss << std::fixed << std::setprecision(3) << satsPerCurrency; // Format with 3 decimal places
-            priceString = oss.str();
-        }
-        else
-        {
-            priceString = std::to_string(static_cast<int>(round(1.0 / static_cast<double>(price) * 1e8))); // Default formatting
-        }
+        ret[0] = (currencySymbol == CURRENCY_USD && useMscwTime)
+                     ? std::string("MSCW/TIME")
+                     : std::string("SATS/") + getCurrencyCode(currencySymbol);
+        return ret;
+    }
 
-        // Pad the string with spaces if necessary
-        if (priceString.length() < NUM_SCREENS)
-        {
-            priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
-        }
+    std::string priceString;
 
-        if (currencySymbol != CURRENCY_USD || price >= 100000000) // no time anymore when earlier than 1
+    // Compute the sats-per-currency string once with the final formatting so the
+    // "STS" symbol position below uses the final string length (previous code
+    // computed the index against a stale initial string, leading to uint8_t
+    // wrap-around and OOB writes).
+    if (price >= 100000000)
+    {
+        double satsPerCurrency = (1.0 / static_cast<double>(price)) * 1e8;
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(3) << satsPerCurrency;
+        priceString = oss.str();
+    }
+    else
+    {
+        priceString = std::to_string(static_cast<int>(round(1.0 / static_cast<double>(price) * 1e8)));
+    }
+
+    std::uint32_t firstIndex = 0;
+
+    if (priceString.length() < NUM_SCREENS)
+    {
+        priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
+
+        if (currencySymbol != CURRENCY_USD || price >= 100000000 || !useMscwTime)
             ret[0] = "SATS/" + getCurrencyCode(currencySymbol);
-        else 
+        else
             ret[0] = "MSCW/TIME";
 
         firstIndex = 1;
+    }
 
-        for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
-        {
-            ret[i] = priceString[i];
-        }
+    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
+    {
+        ret[i] = priceString[i];
+    }
 
-        if (withSatsSymbol)
+    if (withSatsSymbol)
+    {
+        // Figure out where the first non-space digit starts in the padded
+        // priceString and put the STS marker just before it, but never before
+        // the header label at index 0.
+        std::size_t firstDigit = priceString.find_first_not_of(' ');
+        if (firstDigit != std::string::npos && firstDigit > firstIndex)
         {
-            ret[insertSatSymbol] = "STS";
+            ret[firstDigit - 1] = "STS";
         }
     }
+
     return ret;
 }
 
@@ -206,10 +224,22 @@ std::array<std::string, NUM_SCREENS> parseBlockHeight(std::uint32_t blockHeight)
     return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseBlockFees(std::uint16_t blockFees)
+std::array<std::string, NUM_SCREENS> parseBlockFees(float blockFees)
 {
     std::array<std::string, NUM_SCREENS> ret;
-    std::string blockFeesString = std::to_string(blockFees);
+    std::string blockFeesString;
+    if (blockFees < 10.0f) {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%.2f", blockFees);
+        // // Remove trailing zeros and possible trailing dot
+        blockFeesString = buf;
+        // if(blockFeesString.find('.') != std::string::npos) {
+        //     blockFeesString.erase(blockFeesString.find_last_not_of('0') + 1);
+        //     if(blockFeesString.back() == '.') blockFeesString.pop_back();
+        // }
+    } else {
+        blockFeesString = std::to_string(static_cast<int>(std::round(blockFees)));
+    }
     std::uint32_t firstIndex = 0;
 
     if (blockFeesString.length() < NUM_SCREENS)
@@ -268,6 +298,68 @@ std::array<std::string, NUM_SCREENS> parseHalvingCountdown(std::uint32_t blockHe
         ret[(NUM_SCREENS - 1)] = "TO/GO";
     }
 
+    return ret;
+}
+
+std::array<std::string, NUM_SCREENS> parseBitcoinSupply(std::uint32_t blockHeight, bool bigChars, bool showPercentage)
+{
+    std::array<std::string, NUM_SCREENS> ret;
+
+    ret[0] = "BTC/SUPPLY";
+
+
+    if (showPercentage)
+    {
+        double supplyPercentage = round((getSupplyAtBlock(blockHeight) / 20999999.9769) * 10000) / 100.0;
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2) << supplyPercentage << "%";
+        std::string supplyPercentageString = oss.str();
+        if (supplyPercentageString.length() < NUM_SCREENS) {
+            supplyPercentageString.insert(supplyPercentageString.begin(),
+               NUM_SCREENS - supplyPercentageString.length(), ' ');
+        }
+        
+        for (std::uint32_t i = 1; i < NUM_SCREENS; i++)
+        {
+            ret[i] = supplyPercentageString[i];
+        }
+
+        ret[NUM_SCREENS - 1] = " % ";
+
+        return ret;
+    }
+    
+    if (bigChars)
+    {
+        std::string supplyString = formatNumberWithSuffix(getSupplyAtBlock(blockHeight), (NUM_SCREENS - 2));
+        supplyString.insert(supplyString.begin(), NUM_SCREENS - supplyString.length(), ' ');
+
+        for (std::uint32_t i = 1; i < NUM_SCREENS; i++)
+        {
+            ret[i] = supplyString[i];
+        }
+    }
+    else
+    {
+        std::string supplyString = std::to_string(static_cast<uint64_t>(getSupplyAtBlock(blockHeight)));
+        size_t supplyLength = supplyString.length();
+        size_t leadingSpaces = (3 - supplyLength % 3) % 3;
+        supplyString = std::string(leadingSpaces, ' ') + supplyString;
+        std::uint32_t groups = (supplyLength + leadingSpaces) / 3;
+
+        std::uint32_t firstIndex = 1;
+
+        for (int i = firstIndex; i < NUM_SCREENS - groups - 1; i++)
+        {
+            ret[i] = "";
+        }
+
+        ret[NUM_SCREENS - groups - 1] = std::string(" ");
+        for (std::uint32_t i = 0; i < groups; i++)
+        {
+            ret[(NUM_SCREENS - groups + i)] = supplyString.substr(i * 3, 3).c_str();
+        }
+    }
     return ret;
 }
 
@@ -363,14 +455,19 @@ emscripten::val parseMarketCapArray(std::uint32_t blockHeight, std::uint32_t pri
     return arrayToStringArray(parseMarketCap(blockHeight, price, currencySymbol[0], bigChars));
 }
 
-emscripten::val parseBlockFeesArray(std::uint16_t blockFees)
+emscripten::val parseBitcoinSupplyArray(std::uint32_t blockHeight, bool bigChars, bool showPercentage)
+{
+    return arrayToStringArray(parseBitcoinSupply(blockHeight, bigChars, showPercentage));
+}
+
+emscripten::val parseBlockFeesArray(float blockFees)
 {
     return arrayToStringArray(parseBlockFees(blockFees));
 }
 
-emscripten::val parseSatsPerCurrencyArray(std::uint32_t price, const std::string &currencySymbol, bool withSatsSymbol)
+emscripten::val parseSatsPerCurrencyArray(std::uint32_t price, const std::string &currencySymbol, bool withSatsSymbol, bool useMscwTime)
 {
-    return arrayToStringArray(parseSatsPerCurrency(price, currencySymbol[0], withSatsSymbol));
+    return arrayToStringArray(parseSatsPerCurrency(price, currencySymbol[0], withSatsSymbol, useMscwTime));
 }
 
 EMSCRIPTEN_BINDINGS(my_module)
@@ -380,6 +477,7 @@ EMSCRIPTEN_BINDINGS(my_module)
     emscripten::function("parseBlockHeight", &parseBlockHeightArray);
     emscripten::function("parseHalvingCountdown", &parseHalvingCountdownArray);
     emscripten::function("parseMarketCap", &parseMarketCapArray);
+    emscripten::function("parseBitcoinSupply", &parseBitcoinSupplyArray);
     emscripten::function("parseBlockFees", &parseBlockFeesArray);
     emscripten::function("parseSatsPerCurrency", &parseSatsPerCurrencyArray);
     emscripten::function("parsePriceData", &parsePriceDataArray);
