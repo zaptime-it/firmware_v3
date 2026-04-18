@@ -61,8 +61,22 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
     if (pool == nullptr) {
         return;
     }
-    String relay = preferences.getString("nostrRelay");
-    String pubKey = preferences.getString("nostrPubKey");
+    // Always pass the build-time default for these two keys. Historically
+    // they were read without a default, so any NVS miss (fresh install,
+    // corrupted entry, transient read failure) produced an empty URL that
+    // still went through ensureRelay → NostrRelay("", …). The resulting
+    // ghost relay never connects but happily fires DISCONNECTED events
+    // that flip nostrIsConnected to false, making the WebUI's Nostr
+    // status column stick at "disconnected" forever even though the real
+    // primal.net relay is up.
+    String relay = preferences.getString("nostrRelay", DEFAULT_NOSTR_RELAY);
+    String pubKey = preferences.getString("nostrPubKey", DEFAULT_NOSTR_NPUB);
+    if (relay.length() == 0) {
+        // Belt and braces: if the default is ever set to "" we still
+        // refuse to create a ghost relay.
+        Serial.println(F("[ Nostr ] skipping setup: relay URL is empty"));
+        return;
+    }
     pools.push_back(pool);
 
     std::vector<nostr::NostrRelay *> *relays = pool->getConnectedRelays();
@@ -99,6 +113,12 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
 
     for (nostr::NostrRelay *r : *relays)
     {
+        // Skip any relay that somehow ended up with an empty URL. Such
+        // an entry never completes the TCP connect, so its listener
+        // only ever sees DISCONNECTED — which would overwrite
+        // nostrIsConnected set to true by the real relay.
+        if (r == nullptr || r->getUrl().length() == 0) continue;
+
         r->getConnection()->addConnectionStatusListener([r](const nostr::ConnectionStatus &status)
         {
             nostrIsConnected = (status == nostr::ConnectionStatus::CONNECTED);
@@ -134,7 +154,7 @@ void nostrTask(void *pvParameters)
                 if (debugLogEnabled())
                 {
                 }
-                subscribeZaps(pool, preferences.getString("nostrRelay"), 1);
+                subscribeZaps(pool, preferences.getString("nostrRelay", DEFAULT_NOSTR_RELAY), 1);
             }
         }
         vTaskDelay(pdMS_TO_TICKS(100));
