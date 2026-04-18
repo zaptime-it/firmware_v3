@@ -10,6 +10,7 @@
 #include <GxEPD2.h>
 #include <GxEPD2_BW.h>
 #include <mbedtls/md.h>
+#include <mutex>
 #include "esp_crt_bundle.h"
 #include <Update.h>
 #include <HTTPClient.h>
@@ -121,19 +122,37 @@ public:
     static HTTPClient* begin(const String& url);
     static void end(HTTPClient* http);
 
-    // RAII wrapper: the returned unique_ptr automatically calls end() and
-    // deletes the HTTPClient when it goes out of scope, even on early returns
-    // or exceptions. Prefer this in all new code.
+    // RAII wrapper over `HTTPClient*` that also serialises access to the
+    // shared static WiFi(Secure)Client instances below.
+    //
+    // Multiple FreeRTOS tasks (BlockNotify setup, MiningPoolStatsFetch,
+    // Bitaxe fetcher, OTA) call `beginScoped()` concurrently. Without a
+    // lock they all operate on the same `secureClient`, whose mbedtls
+    // SSL context is not reentrancy-safe: two overlapping HTTPS requests
+    // corrupt each other's SSL state, and the second `WiFiClientSecure::
+    // stop()` → `mbedtls_ssl_free()` → `mbedtls_free()` then trips a
+    // heap-poisoning assert ("CORRUPT HEAP: Bad head") and reboots the
+    // device.
+    //
+    // We guard the whole request lifetime by putting a `unique_lock` in
+    // the deleter. `beginScoped()` takes the mutex and moves the lock
+    // into the returned handle; destruction runs the HTTPClient cleanup
+    // and then releases the lock, so the serialisation covers every
+    // reference to `secureClient` that the HTTPClient holds.
     struct HttpClientDeleter {
+        std::unique_lock<std::mutex> lock;
         void operator()(HTTPClient* http) const { HttpHelper::end(http); }
     };
     using ScopedHttp = std::unique_ptr<HTTPClient, HttpClientDeleter>;
     static ScopedHttp beginScoped(const String& url) {
-        return ScopedHttp(begin(url));
+        std::unique_lock<std::mutex> lk(clientMutex);
+        HTTPClient* http = begin(url);
+        return ScopedHttp(http, HttpClientDeleter{std::move(lk)});
     }
 
 private:
     static WiFiClientSecure secureClient;
     static bool certBundleSet;
     static WiFiClient insecureClient;
+    static std::mutex clientMutex;
 };
