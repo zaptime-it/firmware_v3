@@ -120,6 +120,40 @@ same disconnect / staleness watchdog over every active feed. Before
 3.4.0 this was hard-coded to BlockNotify + PriceNotify, so BTClock and
 Nostr sources had no app-level watchdog at all.
 
+**TLS handshake serialisation.** Every WS-based data source runs its
+own `WebSocketsClient.loop()` pump task, and each of those pumps owns a
+separate mbedtls SSL context. The convention each task must follow —
+see the existing implementations in `block_notify.cpp`,
+`price_notify.cpp`, `v2_notify.cpp`, and `nostr_notify.cpp` — is to
+take `tls_gate::mutex()` **only when the socket is not already
+connected**:
+
+```cpp
+if (wsClient.isConnected()) {
+    wsClient.loop();
+} else {
+    std::lock_guard<std::mutex> lk(tls_gate::mutex());
+    wsClient.loop();
+}
+```
+
+This keeps the steady-state event pump lock-free while forcing every
+TLS handshake (boot, reconnect, network flap) to happen sequentially
+with every other TLS user — including the HTTPS pollers that go
+through `HttpHelper::beginScoped()`. Any new always-on WS data source
+must follow the same pattern; a `loop()` that unconditionally holds
+the mutex would serialise idle event pumping across tasks and regress
+throughput.
+
+**Kraken price subscription shape.** `PriceNotify` builds its
+subscribe frame from the comma-separated `actCurrencies` NVS string,
+then dispatches incoming ticker frames into the per-currency bucket by
+parsing `BTC/<code>` from Kraken's `symbol` field. Before this, only
+BTC/USD was requested, so the THIRD_PARTY data source silently left
+every non-USD price screen showing whatever was last loaded from NVS.
+The CSV parser lives in `data_sources/price_policy.hpp` and is unit-
+tested natively.
+
 ## Main loop and tasks
 
 `src/main.cpp` is deliberately short. It does three things on a 5-second
@@ -162,6 +196,7 @@ pattern.
 | `displayMutexes`  | `drivers/epd/epd.cpp`                                  | Per-panel GxEPD2 state                   |
 | `updateMutex`     | `net/ota/ota.cpp`                                      | "an OTA is in progress" flag             |
 | `priceMapMutex`   | `data_sources/price_notify.cpp` (3.4.0)                | `currencyMap`, `lastUpdateMap`            |
+| `tls_gate::mutex()` | `system/tls_gate.hpp`                                | TLS handshakes across HttpHelper + every WS client. Every mbedtls SSL context takes ~16 KB of IN buffer + scratch; without this gate the initial-burst moment where mempool WS + Kraken WS + Nostr WS + bitaxe HTTPS + mining-pool HTTPS all try to hand-shake concurrently reliably OOMs mbedtls. The gate forces one handshake at a time. |
 
 `BlockNotify` exposes several `std::atomic` statics (`currentBlockHeight`,
 `blockMedianFee`, `notifyInit`, `wsConnected`, `lastBlockUpdate`) in

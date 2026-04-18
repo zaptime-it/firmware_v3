@@ -29,10 +29,12 @@ repo.
   - Mining pool hashrate / earnings (when mining pool stats are enabled)
 - **Steal focus on new block** — display jumps to the block height screen
   when a new block is mined, with an LED flash in a color you choose.
-- **Multiple data sources**:
+- **Multiple data sources**, each supporting the full list of
+  configured currencies on the currency-dependent screens:
   - The default BTClock source
   - Any public [mempool.space](https://mempool.space) instance, including
-    self-hosted
+    self-hosted. Prices come from Kraken and populate every currency in
+    `actCurrencies`, not just USD.
   - A Nostr relay
   - A custom WebSocket endpoint that speaks the BTClock data format — see
     [ws-go-server](https://git.btclock.dev/btclock/ws-go-server) for a
@@ -50,6 +52,10 @@ repo.
   - GoBrrr Pool
   - CKPool
   - EU CKPool
+
+  Noderunners and Satoshi Radio additionally expose a pool-wide
+  hashrate; a "Show pool-wide hashrate" toggle switches the screen from
+  per-user to global without needing a username.
 - **Nostr Zap notifier** — flash the LEDs (and frontlight on supported
   hardware) and optionally switch the screen when a zap lands on a given
   pubkey.
@@ -62,7 +68,9 @@ repo.
   flash color, currencies shown on the currency-dependent screens, big
   characters for market cap, block countdown mode, sats symbol, price
   suffix formatting, MoW mode (Samson-Mow-style price in millions, e.g.
-  `0.1M` instead of `100k`), and more.
+  `0.1M` instead of `100k`), Moscow Time toggle that switches the
+  USD sats-per-currency screen between the classic "MSCW/TIME" label
+  and the generic "SATS/USD" used by the other currencies, and more.
 - **Multi-language WebUI** — English, Dutch, German, Spanish.
 - **Over-the-air updates** — ESP OTA via the WebUI, and ArduinoOTA for
   push updates from PlatformIO.

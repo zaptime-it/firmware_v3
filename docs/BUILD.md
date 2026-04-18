@@ -140,6 +140,26 @@ Almost every defaulted setting lives in
 `PrefKeys::…` constants. Don't inline string literals for either — see
 [PREFERENCES.md](PREFERENCES.md).
 
+### Third-party library patches
+
+Some third-party Arduino libraries hard-code values that need to vary
+across our targets. Rather than fork them, [`scripts/pre_script.py`](../scripts/pre_script.py)
+patches the affected header in-place at build time. Each patch is
+idempotent via a sentinel comment, so it's safe against `pio run -t
+clean` and library reinstalls.
+
+- **`WebSockets.h`** (Links2004 WebSockets library) — wraps
+  `#define WEBSOCKETS_MAX_DATA_SIZE (15 * 1024)` in an `#ifndef` guard
+  so the `-D WEBSOCKETS_MAX_DATA_SIZE=32768` build flag in
+  `[btclock_base]` actually wins. Needed because `mempool.space` pushes
+  an ~18 KB initial `blocks` history burst right after our subscription;
+  the upstream 15 KB cap would otherwise issue close code 1009
+  ("message too big") and park the WS in a reconnect loop.
+
+If you add a new patch, keep it behind a sentinel comment, log "patched
+…" when the patch actually applies, and document the upstream fact
+that motivated it.
+
 ## Troubleshooting
 
 - **`pio: command not found`.** Prepend `~/.platformio/penv/bin` to
