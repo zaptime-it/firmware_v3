@@ -1,6 +1,8 @@
 #include "config.hpp"
 #include "lib/drivers/leds/led_handler.hpp"
 #include "lib/data_sources/live_service.hpp"
+#include "lib/system/pref_keys.hpp"
+#include "screen_order.hpp"
 
 #define MAX_ATTEMPTS_WIFI_CONNECTION 20
 
@@ -19,12 +21,85 @@ bool hasLuxSensor = false;
 #endif
 
 std::vector<ScreenMapping> screenMappings;
+// Guards every read and mutation of screenMappings. Previously screenMappings
+// was only appended to at boot, so no lock existed. With user-configurable
+// rotation order a PATCH to /api/settings can now rebuild the vector while
+// taskScreenRotate and the button ISR-driven handlers are iterating it.
+static std::mutex screenMappingsMutex;
 std::mutex mcpMutex;
 uint lastTimeSync;
 
+namespace {
+
+struct ScreenCatalogEntry {
+  int id;
+  const char *name;
+};
+
+// The complete, feature-gated set of rotatable screens this firmware knows
+// about. Order here is the fallback sequence only — any catalog entry the
+// user hasn't explicitly positioned (because they've never seen it, e.g.
+// a screen added by a later firmware) lands at the end of rotation in the
+// order listed here. Update this list, not setupPreferences, when adding a
+// new rotating screen.
+std::vector<ScreenCatalogEntry> buildScreenCatalog() {
+  std::vector<ScreenCatalogEntry> cat;
+  cat.push_back({SCREEN_BLOCK_HEIGHT, "Block Height"});
+  cat.push_back({SCREEN_TIME, "Time"});
+  cat.push_back({SCREEN_HALVING_COUNTDOWN, "Halving countdown"});
+  cat.push_back({SCREEN_BLOCK_FEE_RATE, "Block Fee Rate"});
+  cat.push_back({SCREEN_SATS_PER_CURRENCY, "Sats per dollar"});
+  cat.push_back({SCREEN_BTC_TICKER, "Ticker"});
+  cat.push_back({SCREEN_MARKET_CAP, "Market Cap"});
+  cat.push_back({SCREEN_BITCOIN_SUPPLY, "Bitcoin Supply"});
+
+  if (preferences.getBool(PrefKeys::BitaxeEnabled, DEFAULT_BITAXE_ENABLED)) {
+    cat.push_back({SCREEN_BITAXE_HASHRATE, "Bitaxe Hashrate"});
+    cat.push_back({SCREEN_BITAXE_BESTDIFF, "Bitaxe Best Difficulty"});
+  }
+
+  if (preferences.getBool(PrefKeys::MiningPoolStats, DEFAULT_MINING_POOL_STATS_ENABLED)) {
+    cat.push_back({SCREEN_MINING_POOL_STATS_HASHRATE, "Mining Pool Hashrate"});
+    if (MiningPoolStatsFetch::getInstance().getPool()->supportsDailyEarnings()) {
+      cat.push_back({SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings"});
+    }
+  }
+
+  return cat;
+}
+
+}  // namespace
+
 void addScreenMapping(int value, const char *name)
 {
+  std::lock_guard<std::mutex> lk(screenMappingsMutex);
   screenMappings.push_back({value, name});
+}
+
+void rebuildScreenMappings()
+{
+  auto catalog = buildScreenCatalog();
+  std::vector<int> catalogIds;
+  catalogIds.reserve(catalog.size());
+  for (const auto &e : catalog) catalogIds.push_back(e.id);
+
+  const std::string stored =
+      preferences.getString(PrefKeys::ScreenOrder, DEFAULT_SCREEN_ORDER).c_str();
+  const auto storedIds = btclock::parseScreenOrder(stored);
+  const auto merged = btclock::mergeScreenOrder(storedIds, catalogIds);
+
+  std::vector<ScreenMapping> next;
+  next.reserve(merged.size());
+  for (int id : merged) {
+    for (const auto &e : catalog) {
+      if (e.id == id) { next.push_back({e.id, e.name}); break; }
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> lk(screenMappingsMutex);
+    screenMappings.swap(next);
+  }
 }
 
 void setupDataSource()
@@ -344,32 +419,11 @@ void setupPreferences()
   }
  
 
-  addScreenMapping(SCREEN_BLOCK_HEIGHT, "Block Height");
-
-  addScreenMapping(SCREEN_TIME, "Time");
-  addScreenMapping(SCREEN_HALVING_COUNTDOWN, "Halving countdown");
-  addScreenMapping(SCREEN_BLOCK_FEE_RATE, "Block Fee Rate");
-
-  addScreenMapping(SCREEN_SATS_PER_CURRENCY, "Sats per dollar");
-  addScreenMapping(SCREEN_BTC_TICKER, "Ticker");
-  addScreenMapping(SCREEN_MARKET_CAP, "Market Cap");
-  addScreenMapping(SCREEN_BITCOIN_SUPPLY, "Bitcoin Supply");
-
-  // addCurrencyMappings(getActiveCurrencies());
-
-  if (preferences.getBool("bitaxeEnabled", DEFAULT_BITAXE_ENABLED))
-  {
-    addScreenMapping(SCREEN_BITAXE_HASHRATE, "Bitaxe Hashrate");
-    addScreenMapping(SCREEN_BITAXE_BESTDIFF, "Bitaxe Best Difficulty");
+  if (!preferences.isKey(PrefKeys::ScreenOrder)) {
+    preferences.putString(PrefKeys::ScreenOrder, DEFAULT_SCREEN_ORDER);
   }
 
-  if (preferences.getBool("miningPoolStats", DEFAULT_MINING_POOL_STATS_ENABLED))
-  {
-    addScreenMapping(SCREEN_MINING_POOL_STATS_HASHRATE, "Mining Pool Hashrate");
-    if (MiningPoolStatsFetch::getInstance().getPool()->supportsDailyEarnings()) {
-      addScreenMapping(SCREEN_MINING_POOL_STATS_EARNINGS, "Mining Pool Earnings");
-    }
-  }
+  rebuildScreenMappings();
 }
 
 String replaceAmbiguousChars(String input)
@@ -427,7 +481,10 @@ void finishSetup()
   }
 }
 
-std::vector<ScreenMapping> getScreenNameMap() { return screenMappings; }
+std::vector<ScreenMapping> getScreenNameMap() {
+  std::lock_guard<std::mutex> lk(screenMappingsMutex);
+  return screenMappings;
+}
 
 void setupMcp()
 {
@@ -648,7 +705,8 @@ String getFsRev()
 
 int findScreenIndexByValue(int value)
 {
-  for (int i = 0; i < screenMappings.size(); i++)
+  std::lock_guard<std::mutex> lk(screenMappingsMutex);
+  for (int i = 0; i < (int)screenMappings.size(); i++)
   {
     if (screenMappings[i].value == value)
     {

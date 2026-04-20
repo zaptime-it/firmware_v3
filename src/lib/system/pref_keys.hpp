@@ -93,6 +93,7 @@ inline constexpr const char* OtaPass            = "otaPass";
 inline constexpr const char* PoolGlobalStats    = "poolGlobalStats";
 inline constexpr const char* PoolLogosUrl       = "poolLogosUrl";
 inline constexpr const char* RefrScrnChange     = "refrScrnChange";
+inline constexpr const char* ScreenOrder        = "screenOrder";
 inline constexpr const char* ScrnRestoreZap     = "scrnRestoreZap";
 inline constexpr const char* StealFocus         = "stealFocus";
 inline constexpr const char* SuffixPrice        = "suffixPrice";

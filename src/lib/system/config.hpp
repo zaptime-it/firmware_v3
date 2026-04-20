@@ -85,6 +85,11 @@ void addScreenMapping(int value, const char* name);
 // void addScreenMapping(int value, const String& name);
 // void addScreenMapping(int value, const std::string& name);
 
+// Rebuild screenMappings from the PrefKeys::ScreenOrder NVS value merged
+// against the current feature-gated catalog. Safe to call at runtime after
+// a PATCH to /api/settings changes the order; guarded by an internal mutex.
+void rebuildScreenMappings();
+
 int findScreenIndexByValue(int value);
 String replaceAmbiguousChars(String input);
 const char* getFirmwareFilename();

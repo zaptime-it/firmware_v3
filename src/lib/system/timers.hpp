@@ -21,6 +21,13 @@ bool isTimerActive();
 void setTimerActive(bool status);
 void toggleTimerActive();
 
+// Restart the periodic rotation timer from zero if (and only if) it's
+// currently active. Called after the user reorders screens via the WebUI so
+// the new sequence starts playing immediately rather than mid-interval —
+// otherwise the first screen in the new order doesn't appear until up to
+// timerSeconds after the save, which feels broken. No-op while paused.
+void resetScreenRotateTimer();
+
 // ISR-safe task-handle registration. The minute timer ISR runs from IRAM
 // and must not reach into flash-resident singleton accessors, so the
 // relevant task handles are cached in module-level volatile statics set

@@ -56,6 +56,12 @@
 #define DEFAULT_TIMER_SECONDS 1800
 #define DEFAULT_CURRENT_SCREEN 0
 
+// Default rotation order: comma-separated screen IDs from shared.hpp.
+// Matches the historical addScreenMapping() sequence so existing installs
+// see no behaviour change on upgrade. IDs 98 (SCREEN_COUNTDOWN) and
+// 99 (SCREEN_CUSTOM) are mode overrides and are intentionally absent.
+#define DEFAULT_SCREEN_ORDER "0,3,4,6,10,20,30,40,70,71,80,81"
+
 #define DEFAULT_BITAXE_ENABLED false
 #define DEFAULT_BITAXE_HOSTNAME "bitaxe1"
 

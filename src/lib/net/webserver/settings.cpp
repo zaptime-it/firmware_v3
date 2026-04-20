@@ -3,6 +3,12 @@
 #include "lib/drivers/leds/led_handler.hpp"
 #include "lib/system/pref_keys.hpp"
 #include "lib/system/shared.hpp"
+#include "lib/system/timers.hpp"
+#include "screen_order.hpp"
+
+#include <algorithm>
+#include <set>
+#include <vector>
 
 // The three arrays below drive the generic branch of onApiSettingsPatch and
 // the schema exposed by onApiSettingsGet. Routing keys through PrefKeys
@@ -159,6 +165,10 @@ static void onApiSettingsGet(AsyncWebServerRequest *request)
     o["id"]      = screenNameMap.at(i).value;
     o["name"]    = String(screenNameMap.at(i).name);
     o["enabled"] = preferences.getBool(key.c_str(), true);
+    // `order` reflects the current rotation position. Emitted explicitly
+    // so clients don't need to trust JsonArray iteration order, and so a
+    // reorder PATCH has an unambiguous field to write back into.
+    o["order"]   = i;
   }
 
   root["poolLogosUrl"] = preferences.getString("poolLogosUrl", DEFAULT_MINING_POOL_LOGOS_URL);
@@ -263,7 +273,90 @@ static void onApiSettingsPatch(AsyncWebServerRequest *request, JsonVariant &json
 
   if (settings["screens"].is<JsonArray>())
   {
-    for (JsonVariant screen : settings["screens"].as<JsonArray>())
+    JsonArray incoming = settings["screens"].as<JsonArray>();
+
+    // Detect whether this is a reorder PATCH or a visibility-only PATCH.
+    // Reorder requires every entry to carry an `order`; a partial order
+    // is ambiguous (what positions do the unsent screens get?) and is
+    // rejected rather than silently applied.
+    bool anyOrder = false;
+    bool allOrder = true;
+    for (JsonVariant screen : incoming) {
+      JsonObject s = screen.as<JsonObject>();
+      if (s["order"].is<int>() || s["order"].is<uint>()) anyOrder = true;
+      else allOrder = false;
+    }
+    if (anyOrder && !allOrder) {
+      request->send(HTTP_BAD_REQUEST, JSON_CONTENT,
+          "{\"error\":\"partial screen order: every entry must include 'order' or none\"}");
+      return;
+    }
+
+    if (anyOrder) {
+      // Validate against the catalog returned by getScreenNameMap(),
+      // which is the same set the WebUI saw on the preceding GET. Any ID
+      // outside that set (98/99 mode overrides, unknown, feature-gated
+      // off) is a programming error on the client and we reject loudly.
+      std::vector<ScreenMapping> catalog = getScreenNameMap();
+      std::set<int> catalogIds;
+      for (const auto &m : catalog) catalogIds.insert(m.value);
+
+      const size_t n = incoming.size();
+      std::vector<std::pair<int,int>> pairs;  // (order, id)
+      pairs.reserve(n);
+      std::set<int> seenIds;
+      std::set<int> seenOrders;
+
+      for (JsonVariant screen : incoming) {
+        JsonObject s = screen.as<JsonObject>();
+        int id = s["id"].as<int>();
+        int order = s["order"].as<int>();
+
+        if (!catalogIds.count(id)) {
+          request->send(HTTP_BAD_REQUEST, JSON_CONTENT,
+              "{\"error\":\"unknown screen id in order\"}");
+          return;
+        }
+        if (!seenIds.insert(id).second) {
+          request->send(HTTP_BAD_REQUEST, JSON_CONTENT,
+              "{\"error\":\"duplicate screen id in order\"}");
+          return;
+        }
+        if (order < 0 || order >= (int)n) {
+          request->send(HTTP_BAD_REQUEST, JSON_CONTENT,
+              "{\"error\":\"screen order out of range; expected 0..n-1\"}");
+          return;
+        }
+        if (!seenOrders.insert(order).second) {
+          request->send(HTTP_BAD_REQUEST, JSON_CONTENT,
+              "{\"error\":\"duplicate order value\"}");
+          return;
+        }
+        pairs.emplace_back(order, id);
+      }
+      if (seenIds.size() != catalogIds.size()) {
+        // Not every rotatable screen was mentioned — a reorder must cover
+        // the full set. Otherwise we can't produce a coherent linear order.
+        request->send(HTTP_BAD_REQUEST, JSON_CONTENT,
+            "{\"error\":\"screen order must include every rotatable screen\"}");
+        return;
+      }
+
+      std::sort(pairs.begin(), pairs.end());
+      std::vector<int> orderedIds;
+      orderedIds.reserve(pairs.size());
+      for (const auto &p : pairs) orderedIds.push_back(p.second);
+
+      preferences.putString(PrefKeys::ScreenOrder,
+                            btclock::serializeScreenOrder(orderedIds).c_str());
+      rebuildScreenMappings();
+      // Restart the periodic esp_timer so the user sees the new sequence
+      // immediately rather than waiting out the remainder of the current
+      // timerSeconds interval.
+      resetScreenRotateTimer();
+    }
+
+    for (JsonVariant screen : incoming)
     {
       JsonObject s = screen.as<JsonObject>();
       uint id = s["id"].as<uint>();

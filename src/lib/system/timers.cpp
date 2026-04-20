@@ -76,6 +76,13 @@ void setTimerActive(bool status) {
 
 void toggleTimerActive() { setTimerActive(!isTimerActive()); }
 
+void resetScreenRotateTimer() {
+  if (!esp_timer_is_active(screenRotateTimer)) return;
+  esp_timer_stop(screenRotateTimer);
+  esp_timer_start_periodic(screenRotateTimer,
+                           getTimerSeconds() * usPerSecond);
+}
+
 void IRAM_ATTR minuteTimerISR(void *arg) {
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
   WorkItem timeUpdate = {TASK_TIME_UPDATE, 0};
