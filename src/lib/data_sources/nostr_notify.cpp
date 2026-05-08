@@ -3,6 +3,7 @@
 #include "lib/system/config.hpp"
 #include "lib/system/tls_gate.hpp"
 
+#include <cstdlib>
 #include <mutex>
 #include <new>
 
@@ -17,6 +18,27 @@ static bool s_nostrZapNotify = false;
 static unsigned long s_lastNostrUpdate = 0;
 
 String subIdZap;
+static String subIdData;
+
+static bool parseUintFromString(const char *s, uint &out)
+{
+    if (s == nullptr || *s == '\0') return false;
+    char *end = nullptr;
+    unsigned long v = strtoul(s, &end, 10);
+    if (end == s) return false;
+    out = static_cast<uint>(v);
+    return true;
+}
+
+static bool parseFloatFromString(const char *s, float &out)
+{
+    if (s == nullptr || *s == '\0') return false;
+    char *end = nullptr;
+    float v = strtof(s, &end);
+    if (end == s) return false;
+    out = v;
+    return true;
+}
 
 bool nostrIsInitialized() { return s_nostrAsDatasource || s_nostrZapNotify; }
 unsigned long getLastNostrUpdate() { return s_lastNostrUpdate; }
@@ -90,11 +112,15 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
 
     if (asDatasource)
     {
-        String subId = pool->subscribeMany(
+        // Prefer the ws-node Nostr publisher format:
+        // - kind 30078 (parameterized-replaceable, NIP-78)
+        // - `d` tag slot per datum: price:<CCY>, blockheight, medianFee
+        // - content carries the value as a string
+        subIdData = pool->subscribeMany(
             {relay},
             {// First filter
              {
-                 {"kinds", {"12203"}},
+                 {"kinds", {"30078"}},
                  {"since", {String(getMinutesAgo(60))}},
                  {"authors", {pubKey}},
              }},
@@ -104,8 +130,8 @@ void setupNostrNotify(bool asDatasource, bool zapNotify)
 
         if (debugLogEnabled())
         {
-            Serial.printf("[ Nostr ] debug: data subscription subId=%s relay=%s kinds=12203 since=%s author=%s\n",
-                          subId.c_str(), relay.c_str(), String(getMinutesAgo(60)).c_str(), pubKey.c_str());
+            Serial.printf("[ Nostr ] debug: data subscription subId=%s relay=%s kinds=30078 since=%s author=%s\n",
+                          subIdData.c_str(), relay.c_str(), String(getMinutesAgo(60)).c_str(), pubKey.c_str());
         }
     }
 
@@ -248,10 +274,8 @@ void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *even
         return;
     }
 
-    // Use direct value access instead of multiple comparisons
-    String typeValue;
-    uint medianFee = 0;
-    uint blockHeight = 0;
+    // ws-node publisher format (kind 30078): tag ["d","slot"], content holds the value
+    String dTag;
     
     for (JsonArray tag : tags) {
         if (tag.size() != 2) continue;
@@ -261,43 +285,46 @@ void handleNostrEventCallback(const String &subId, nostr::SignedNostrEvent *even
         
         // Use switch for better performance on string comparisons
         switch (key[0]) {
-            case 't':  // type
-                if (strcmp(key, "type") == 0) {
+            case 'd':  // d tag (parameterized-replaceable slot)
+                if (strcmp(key, "d") == 0) {
                     const char *value = tag[1];
-                    if (value) typeValue = value;
-                }
-                break;
-            case 'm':  // medianFee
-                if (strcmp(key, "medianFee") == 0) {
-                    medianFee = tag[1].as<uint>();
-                }
-                break;
-            case 'b':  // blockHeight
-                if (strcmp(key, "block") == 0) {
-                    blockHeight = tag[1].as<uint>();
+                    if (value) dTag = value;
                 }
                 break;
         }
     }
     
-    // Process the data
-    if (!typeValue.isEmpty()) {
-        if (typeValue == "priceUsd") {
-            processNewPrice(obj["content"].as<uint>(), CURRENCY_USD);
-            if (blockHeight != 0) {
-                auto& blockNotify = BlockNotify::getInstance();
-                blockNotify.processNewBlock(blockHeight);
+    const char *contentStr = obj["content"].as<const char *>();
+    if (dTag.isEmpty()) return;
+
+    auto &blockNotify = BlockNotify::getInstance();
+    if (dTag == "blockheight")
+    {
+        uint h = 0;
+        if (parseUintFromString(contentStr, h)) {
+            blockNotify.processNewBlock(h);
+        }
+        return;
+    }
+    if (dTag == "medianFee")
+    {
+        float fee = 0.0f;
+        if (parseFloatFromString(contentStr, fee)) {
+            blockNotify.processNewBlockFee(fee);
+        }
+        return;
+    }
+    if (dTag.startsWith("price:"))
+    {
+        String code = dTag.substring(6);
+        if (code.length() > 0)
+        {
+            uint price = 0;
+            if (parseUintFromString(contentStr, price)) {
+                processNewPrice(price, getCurrencyChar(code.c_str()));
             }
         }
-        else if (typeValue == "blockHeight") {
-            auto& blockNotify = BlockNotify::getInstance();
-            blockNotify.processNewBlock(obj["content"].as<uint>());
-        }
-
-        if (medianFee != 0) {
-            auto& blockNotify = BlockNotify::getInstance();
-            blockNotify.processNewBlockFee(medianFee);
-        }
+        return;
     }
 }
 
