@@ -84,8 +84,11 @@ void setupWebserver() {
   AsyncStaticWebHandler &staticHandler =
       server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
-  server.rewrite("/convert", "/");
-  server.rewrite("/api", "/");
+  // SPA routes: serve index.html so the client router can take over.
+  // Use an explicit file target (not "/") so the handler never depends on
+  // DefaultFile resolution for rewritten paths.
+  server.rewrite("/convert", "/index.html");
+  server.rewrite("/api", "/index.html");
 
   if (preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED)) {
     String authUser =
