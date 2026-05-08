@@ -1,0 +1,114 @@
+name: "Lint"
+
+# Mirrors btclock_v4's lint gates:
+# - clang-format check over the whole codebase
+# - clang-tidy over the host-test/native compilation set
+#
+# We use PlatformIO's native env to get a tractable include graph for tidy
+# (similar to v4's host_tests-only tidy).
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  format:
+    runs-on: docker
+    container:
+      image: ghcr.io/catthehacker/ubuntu:js-24.04
+    env:
+      CLANG_VERSION: "22"
+      CLANG_FORMAT: clang-format-22
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install clang-format-${{ env.CLANG_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            wget gnupg lsb-release software-properties-common ca-certificates git
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | gpg --dearmor -o /usr/share/keyrings/llvm.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-${CLANG_VERSION} main" \
+            > /etc/apt/sources.list.d/llvm.list
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            "clang-format-${CLANG_VERSION}"
+
+      - name: Verify formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Format gate on all tracked C/C++ sources/headers in src/, lib/, include/, test/.
+          files="$(git ls-files \
+            'src/**/*.c' 'src/**/*.cpp' 'src/**/*.h' 'src/**/*.hpp' \
+            'lib/**/*.c' 'lib/**/*.cpp' 'lib/**/*.h' 'lib/**/*.hpp' \
+            'include/**/*.h' 'include/**/*.hpp' \
+            'test/**/*.c' 'test/**/*.cpp' 'test/**/*.h' 'test/**/*.hpp' || true)"
+          if [ -z "$files" ]; then
+            echo "No source files found for formatting gate."
+            exit 0
+          fi
+          echo "$files" | xargs -n 50 "${CLANG_FORMAT}" --dry-run --Werror
+
+  tidy:
+    runs-on: docker
+    container:
+      image: ghcr.io/catthehacker/ubuntu:js-24.04
+    env:
+      CLANG_VERSION: "22"
+      CLANG_TIDY: clang-tidy-22
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install build tools + clang-tidy-${{ env.CLANG_VERSION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            wget gnupg lsb-release software-properties-common ca-certificates git \
+            build-essential python3 python3-pip
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
+            | gpg --dearmor -o /usr/share/keyrings/llvm.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-${CLANG_VERSION} main" \
+            > /etc/apt/sources.list.d/llvm.list
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            "clang-tidy-${CLANG_VERSION}" "clang-${CLANG_VERSION}"
+          pip3 install --upgrade platformio
+
+      - name: Generate compile_commands.json (native env)
+        shell: bash
+        run: |
+          set -euo pipefail
+          pio run -e native_test_only -t compiledb
+          # PlatformIO writes compile_commands.json into the project root.
+          # Ensure it exists so clang-tidy doesn't silently fall back to
+          # guesswork.
+          test -f compile_commands.json
+
+      - name: Run clang-tidy (native compilation set)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only run tidy on tracked source files to keep output stable.
+          # Native env won't cover ESP-IDF specifics, but catches a lot of C++ UB/bugs.
+          files="$(git ls-files 'lib/**/*.cpp' 'src/**/*.cpp' 'test/**/*.cpp' || true)"
+          if [ -z "$files" ]; then
+            echo "No .cpp files found for clang-tidy."
+            exit 0
+          fi
+          echo "$files" | xargs -n 20 "${CLANG_TIDY}" -p .
+
