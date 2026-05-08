@@ -163,11 +163,9 @@ jobs:
       - name: Create checksum for littlefs partition
         shell: bash
         run: |
-          fs_file=$(find .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }} -name "littlefs*.bin")
-          echo $fs_file
+          fs_file=$(ls .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs*.bin | head -n1)
           fs_name=$(basename "$fs_file")
           shasum -a 256 "$fs_file" | awk '{print $1}' > "${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${fs_name}.sha256"
-          cat "${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${fs_name}.sha256"
       - name: Copy all artifacts to output folder
         run: cp .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin .pio/boot_app0.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}
 
@@ -188,16 +186,110 @@ jobs:
       checks: write
     needs: merge
     steps:
+      - name: Install tools
+        shell: bash
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends jq coreutils
       - name: Download matrix outputs
         uses: https://code.forgejo.org/forgejo/download-artifact@v7
         with:
           pattern: build-*
           merge-multiple: false
           path: temp
-      - name: Copy files
+      - name: Stage release assets (no collisions) + manifest
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}
         run: |
-          mkdir -p release
-          find temp -type f \( -name "*.bin" -o -name "*.sha256" \) -exec cp -f {} release/ \;
+          set -euo pipefail
+          mkdir -p release temp/manifest-fragments
+
+          for d in temp/build-*; do
+            [ -d "$d" ] || continue
+            name="$(basename "$d")"
+            variant="${name#build-}"           # chip-epd_variant
+            chip="${variant%-*}"               # chip can contain underscores
+            epd_variant="${variant##*-}"
+            variant_id="${chip}_${epd_variant}"
+
+            firmware_asset="${variant_id}_firmware.bin"
+            merged_asset="${variant_id}.bin"
+            littlefs_asset=""
+
+            if [ -f "$d/${firmware_asset}" ]; then
+              cp "$d/${firmware_asset}" "release/${firmware_asset}"
+            fi
+
+            if [ -f "$d/${merged_asset}" ]; then
+              cp "$d/${merged_asset}" "release/${merged_asset}"
+            fi
+
+            # These are target-specific; prefix to avoid cross-target overwrite.
+            for support in bootloader.bin partitions.bin ota_data_initial.bin boot_app0.bin; do
+              if [ -f "$d/${support}" ]; then
+                cp "$d/${support}" "release/${variant_id}_${support}"
+              fi
+            done
+
+            # Keep existing LittleFS names (littlefs_4MB.bin / 8MB / 16MB) for updater compatibility.
+            for fs in "$d"/littlefs*.bin; do
+              [ -f "$fs" ] || continue
+              fs_name="$(basename "$fs")"
+              littlefs_asset="$fs_name"
+              if [ ! -f "release/${fs_name}" ]; then
+                cp "$fs" "release/${fs_name}"
+              fi
+              break
+            done
+
+            jq -n \
+              --arg variant "$variant_id" \
+              --arg chip "$chip" \
+              --arg epd_variant "$epd_variant" \
+              --arg firmware "$firmware_asset" \
+              --arg merged "$merged_asset" \
+              --arg littlefs "$littlefs_asset" \
+              --arg built_at "$(date -u +%FT%TZ)" \
+              '{
+                variant: $variant,
+                chip: $chip,
+                epd_variant: $epd_variant,
+                firmware_asset: $firmware,
+                merged_asset: $merged,
+                littlefs_asset: $littlefs,
+                bootloader_asset: ($variant + "_bootloader.bin"),
+                partitions_asset: ($variant + "_partitions.bin"),
+                ota_data_initial_asset: ($variant + "_ota_data_initial.bin"),
+                boot_app0_asset: ($variant + "_boot_app0.bin"),
+                built_at: $built_at
+              }' > "temp/manifest-fragments/${variant_id}.json"
+          done
+
+          jq -n \
+            --arg release_tag "$TAG" \
+            --arg repository "$REPO" \
+            --arg server_url "$SERVER" \
+            --arg generated_at "$(date -u +%FT%TZ)" \
+            --argjson variants "$(jq -s '.' temp/manifest-fragments/*.json)" \
+            '{
+              release_tag: $release_tag,
+              repository: $repository,
+              server_url: $server_url,
+              generated_at: $generated_at,
+              variants: $variants
+            }' > release/manifest.json
+
+          # Generate release-side checksums in a format verifiers can consume directly.
+          (
+            cd release
+            for f in *.bin manifest.json; do
+              [ -f "$f" ] || continue
+              sha256sum "$f" > "$f.sha256"
+            done
+          )
       - name: Create release
         uses: https://code.forgejo.org/actions/forgejo-release@v2.11.3
         with:

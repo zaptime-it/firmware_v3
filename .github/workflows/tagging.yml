@@ -54,10 +54,11 @@ jobs:
         with:
           name: prepared-outputs
           path: .pio
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Install esptools.py
         run: pip install --upgrade esptool
-      # - name: Create merged firmware binary
-      # run: mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} && esptool.py --chip ${{ matrix.chip.version }} merge_bin -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin --flash_mode dio 0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin 0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin 0xe000 .pio/boot_app0.bin 0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin 0x369000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin
       - name: Create merged firmware binary
         shell: bash
         run: |
@@ -103,7 +104,11 @@ jobs:
         run: shasum -a 256 ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin.sha256
 
       - name: Create checksum for littlefs partition
-        run: shasum -a 256 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs.bin.sha256
+        shell: bash
+        run: |
+          fs_file=$(ls .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs*.bin | head -n1)
+          fs_name=$(basename "$fs_file")
+          shasum -a 256 "$fs_file" | awk '{print $1}' > "${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${fs_name}.sha256"
 
       - name: Copy all artifacts to output folder
         run: cp .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin .pio/boot_app0.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}
@@ -125,21 +130,113 @@ jobs:
       checks: write
     needs: merge
     steps:
+      - name: Install tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq coreutils
       - name: Download matrix outputs
         uses: actions/download-artifact@v5
         with:
           pattern: build-*
           merge-multiple: false
-      - name: Write commit hash to file
-        run: echo $GITHUB_SHA > commit.txt
+          path: temp
+      - name: Stage release assets (no collisions) + manifest
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          SERVER: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p release temp/manifest-fragments
 
-      - name: Write build date to file
-        run: echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > date.txt
+          for d in temp/build-*; do
+            [ -d "$d" ] || continue
+            name="$(basename "$d")"
+            variant="${name#build-}"           # chip-epd_variant
+            chip="${variant%-*}"               # chip can contain underscores
+            epd_variant="${variant##*-}"
+            variant_id="${chip}_${epd_variant}"
+
+            firmware_asset="${variant_id}_firmware.bin"
+            merged_asset="${variant_id}.bin"
+            littlefs_asset=""
+
+            if [ -f "$d/${firmware_asset}" ]; then
+              cp "$d/${firmware_asset}" "release/${firmware_asset}"
+            fi
+
+            if [ -f "$d/${merged_asset}" ]; then
+              cp "$d/${merged_asset}" "release/${merged_asset}"
+            fi
+
+            for support in bootloader.bin partitions.bin ota_data_initial.bin boot_app0.bin; do
+              if [ -f "$d/${support}" ]; then
+                cp "$d/${support}" "release/${variant_id}_${support}"
+              fi
+            done
+
+            # Keep updater-facing LittleFS names stable (littlefs_4MB/8MB/16MB.bin).
+            for fs in "$d"/littlefs*.bin; do
+              [ -f "$fs" ] || continue
+              fs_name="$(basename "$fs")"
+              littlefs_asset="$fs_name"
+              if [ ! -f "release/${fs_name}" ]; then
+                cp "$fs" "release/${fs_name}"
+              fi
+              break
+            done
+
+            jq -n \
+              --arg variant "$variant_id" \
+              --arg chip "$chip" \
+              --arg epd_variant "$epd_variant" \
+              --arg firmware "$firmware_asset" \
+              --arg merged "$merged_asset" \
+              --arg littlefs "$littlefs_asset" \
+              --arg built_at "$(date -u +%FT%TZ)" \
+              '{
+                variant: $variant,
+                chip: $chip,
+                epd_variant: $epd_variant,
+                firmware_asset: $firmware,
+                merged_asset: $merged,
+                littlefs_asset: $littlefs,
+                bootloader_asset: ($variant + "_bootloader.bin"),
+                partitions_asset: ($variant + "_partitions.bin"),
+                ota_data_initial_asset: ($variant + "_ota_data_initial.bin"),
+                boot_app0_asset: ($variant + "_boot_app0.bin"),
+                built_at: $built_at
+              }' > "temp/manifest-fragments/${variant_id}.json"
+          done
+
+          jq -n \
+            --arg release_tag "$TAG" \
+            --arg repository "$REPO" \
+            --arg server_url "$SERVER" \
+            --arg generated_at "$(date -u +%FT%TZ)" \
+            --argjson variants "$(jq -s '.' temp/manifest-fragments/*.json)" \
+            '{
+              release_tag: $release_tag,
+              repository: $repository,
+              server_url: $server_url,
+              generated_at: $generated_at,
+              variants: $variants
+            }' > release/manifest.json
+
+          (
+            cd release
+            for f in *.bin manifest.json; do
+              [ -f "$f" ] || continue
+              sha256sum "$f" > "$f.sha256"
+            done
+          )
 
       - name: Create release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "**/*.bin,**/*.sha256"
+          artifacts: "release/*.bin,release/*.sha256,release/manifest.json"
           allowUpdates: true
           removeArtifacts: true
           makeLatest: true
