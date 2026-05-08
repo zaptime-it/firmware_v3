@@ -81,7 +81,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             wget gnupg lsb-release software-properties-common ca-certificates git \
-            build-essential python3 python3-pip
+            build-essential python3 python3-venv
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
             | gpg --dearmor -o /usr/share/keyrings/llvm.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-${CLANG_VERSION} main" \
@@ -89,13 +89,17 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             "clang-tidy-${CLANG_VERSION}" "clang-${CLANG_VERSION}"
-          pip3 install --upgrade platformio
+          # PEP 668: avoid installing Python packages into the system
+          # environment. Use a venv for PlatformIO.
+          python3 -m venv /opt/pio-venv
+          /opt/pio-venv/bin/pip install --upgrade pip
+          /opt/pio-venv/bin/pip install --upgrade platformio
 
       - name: Generate compile_commands.json (native env)
         shell: bash
         run: |
           set -euo pipefail
-          pio run -e native_test_only -t compiledb
+          /opt/pio-venv/bin/pio run -e native_test_only -t compiledb
           # PlatformIO writes compile_commands.json into the project root.
           # Ensure it exists so clang-tidy doesn't silently fall back to
           # guesswork.
