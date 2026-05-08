@@ -19,23 +19,26 @@ namespace price_policy {
 //     stays the "primary" one in later handling,
 //   * codes are not uppercased or validated here — Kraken is
 //     case-insensitive and the device ships them as-is.
-inline std::vector<std::string> parseCurrencyCsv(const std::string& csv)
-{
-    std::vector<std::string> out;
-    std::string::size_type start = 0;
-    while (start <= csv.size()) {
-        std::string::size_type comma = csv.find(',', start);
-        if (comma == std::string::npos) comma = csv.size();
+inline std::vector<std::string> parseCurrencyCsv(const std::string &csv) {
+  std::vector<std::string> out;
+  std::string::size_type start = 0;
+  while (start <= csv.size()) {
+    std::string::size_type comma = csv.find(',', start);
+    if (comma == std::string::npos)
+      comma = csv.size();
 
-        std::string::size_type l = start;
-        std::string::size_type r = comma;
-        while (l < r && std::isspace(static_cast<unsigned char>(csv[l]))) ++l;
-        while (r > l && std::isspace(static_cast<unsigned char>(csv[r - 1]))) --r;
-        if (r > l) out.emplace_back(csv.substr(l, r - l));
+    std::string::size_type l = start;
+    std::string::size_type r = comma;
+    while (l < r && std::isspace(static_cast<unsigned char>(csv[l])))
+      ++l;
+    while (r > l && std::isspace(static_cast<unsigned char>(csv[r - 1])))
+      --r;
+    if (r > l)
+      out.emplace_back(csv.substr(l, r - l));
 
-        start = comma + 1;
-    }
-    return out;
+    start = comma + 1;
+  }
+  return out;
 }
 
-}  // namespace price_policy
+} // namespace price_policy

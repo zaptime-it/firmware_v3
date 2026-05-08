@@ -4,8 +4,9 @@
 
 class LocalPublicPool : public PublicPool {
 public:
-    std::string getApiUrl() const override;
-    std::string getDisplayLabel() const override { return "LOCAL/POOL"; }
+  std::string getApiUrl() const override;
+  std::string getDisplayLabel() const override { return "LOCAL/POOL"; }
+
 private:
-    std::string getEndpoint() const;
-}; 
+  std::string getEndpoint() const;
+};

@@ -4,485 +4,456 @@
 #include <emscripten/bind.h>
 #endif
 
-char getCurrencySymbol(char input)
-{
-    switch (input)
-    {
-    case CURRENCY_EUR:
-        return '[';
-        break;
-    case CURRENCY_GBP:
-        return ']';
-        break;
-    case CURRENCY_JPY:
-        return '^';
-        break;
-    case CURRENCY_AUD:
-    case CURRENCY_CAD:
-    case CURRENCY_USD:
-        return '$';
-        break;
-    default:
-        return input;
-    }
+char getCurrencySymbol(char input) {
+  switch (input) {
+  case CURRENCY_EUR:
+    return '[';
+    break;
+  case CURRENCY_GBP:
+    return ']';
+    break;
+  case CURRENCY_JPY:
+    return '^';
+    break;
+  case CURRENCY_AUD:
+  case CURRENCY_CAD:
+  case CURRENCY_USD:
+    return '$';
+    break;
+  default:
+    return input;
+  }
 }
 
-std::string getCurrencyCode(char input)
-{
-    switch (input)
-    {
-    case CURRENCY_EUR:
-        return CURRENCY_CODE_EUR;
-        break;
-    case CURRENCY_GBP:
-        return CURRENCY_CODE_GBP;
-        break;
-    case CURRENCY_JPY:
-        return CURRENCY_CODE_JPY;
-        break;
-    case CURRENCY_AUD:
-        return CURRENCY_CODE_AUD;
-        break;
-    case CURRENCY_CAD:
-        return CURRENCY_CODE_CAD;
-        break;
-    default:
-        return CURRENCY_CODE_USD;
-    }
+std::string getCurrencyCode(char input) {
+  switch (input) {
+  case CURRENCY_EUR:
+    return CURRENCY_CODE_EUR;
+    break;
+  case CURRENCY_GBP:
+    return CURRENCY_CODE_GBP;
+    break;
+  case CURRENCY_JPY:
+    return CURRENCY_CODE_JPY;
+    break;
+  case CURRENCY_AUD:
+    return CURRENCY_CODE_AUD;
+    break;
+  case CURRENCY_CAD:
+    return CURRENCY_CODE_CAD;
+    break;
+  default:
+    return CURRENCY_CODE_USD;
+  }
 }
 
-char getCurrencyChar(const std::string& input)
-{
-    if (input == "EUR")
-        return CURRENCY_EUR;
-    else if (input == "GBP")
-        return CURRENCY_GBP;
-    else if (input == "JPY")
-        return CURRENCY_JPY;
-    else if (input == "AUD")
-        return CURRENCY_AUD;
-    else if (input == "CAD")
-        return CURRENCY_CAD;
-    else
-        return CURRENCY_USD;  // Assuming USD is the default for unknown inputs
+char getCurrencyChar(const std::string &input) {
+  if (input == "EUR")
+    return CURRENCY_EUR;
+  else if (input == "GBP")
+    return CURRENCY_GBP;
+  else if (input == "JPY")
+    return CURRENCY_JPY;
+  else if (input == "AUD")
+    return CURRENCY_AUD;
+  else if (input == "CAD")
+    return CURRENCY_CAD;
+  else
+    return CURRENCY_USD; // Assuming USD is the default for unknown inputs
 }
 
-std::array<std::string, NUM_SCREENS> parsePriceData(std::uint32_t price, char currencySymbol, bool useSuffixFormat, bool mowMode, bool shareDot)
-{
-    std::array<std::string, NUM_SCREENS> ret;
-    std::string priceString;
-    if (std::to_string(price).length() >= NUM_SCREENS || useSuffixFormat)
-    {
-        int numScreens = shareDot || mowMode ? NUM_SCREENS - 1 : NUM_SCREENS - 2;
-        priceString = getCurrencySymbol(currencySymbol) + formatNumberWithSuffix(price, numScreens, mowMode);
-    }
-    else
-    {
-        priceString = getCurrencySymbol(currencySymbol) + std::to_string(price);
-    }
-    std::uint32_t firstIndex = 0;
-    if ((shareDot && priceString.length() <= (NUM_SCREENS)) || priceString.length() < (NUM_SCREENS))
-    {
-        priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
+std::array<std::string, NUM_SCREENS>
+parsePriceData(std::uint32_t price, char currencySymbol, bool useSuffixFormat,
+               bool mowMode, bool shareDot) {
+  std::array<std::string, NUM_SCREENS> ret;
+  std::string priceString;
+  if (std::to_string(price).length() >= NUM_SCREENS || useSuffixFormat) {
+    int numScreens = shareDot || mowMode ? NUM_SCREENS - 1 : NUM_SCREENS - 2;
+    priceString = getCurrencySymbol(currencySymbol) +
+                  formatNumberWithSuffix(price, numScreens, mowMode);
+  } else {
+    priceString = getCurrencySymbol(currencySymbol) + std::to_string(price);
+  }
+  std::uint32_t firstIndex = 0;
+  if ((shareDot && priceString.length() <= (NUM_SCREENS)) ||
+      priceString.length() < (NUM_SCREENS)) {
+    priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(),
+                       ' ');
 
-        if (mowMode)
-        {
-            ret[0] = "MOW/UNITS";
-        }
-        else
-        {
-            ret[0] = "BTC/" + getCurrencyCode(currencySymbol);
-        }
-
-
-        firstIndex = 1;
-    }
-    
-    size_t dotPosition = priceString.find('.');
-
-    if (shareDot && dotPosition != std::string::npos && dotPosition > 0)
-    {
-        std::vector<std::string> tempArray;
-        if (dotPosition != std::string::npos && dotPosition > 0)
-        {
-            for (size_t i = 0; i < priceString.length(); ++i)
-            {
-                if (i == dotPosition - 1)
-                {
-                    tempArray.push_back(std::string(1, priceString[i]) + ".");
-                    ++i; // Skip the dot in the next iteration
-                }
-                else
-                {
-                    tempArray.push_back(std::string(1, priceString[i]));
-                }
-            }
-
-            // Copy from tempArray to ret
-            for (std::uint32_t i = firstIndex; i < NUM_SCREENS && i - firstIndex < tempArray.size(); ++i)
-            {
-                ret[i] = tempArray[i - firstIndex];
-            }
-        }
-    }
-    else
-    {
-        for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
-        {
-            ret[i] = std::string(1, priceString[i]);
-        }
-    }
-
-
-    return ret;
-}
-
-std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price, char currencySymbol, bool withSatsSymbol, bool useMscwTime)
-{
-    std::array<std::string, NUM_SCREENS> ret;
-    ret.fill("");
-
-    // Guard against div-by-zero: 1/float(0) is +inf and casting it to int is UB.
-    if (price == 0)
-    {
-        ret[0] = (currencySymbol == CURRENCY_USD && useMscwTime)
-                     ? std::string("MSCW/TIME")
-                     : std::string("SATS/") + getCurrencyCode(currencySymbol);
-        return ret;
-    }
-
-    std::string priceString;
-
-    // Compute the sats-per-currency string once with the final formatting so the
-    // "STS" symbol position below uses the final string length (previous code
-    // computed the index against a stale initial string, leading to uint8_t
-    // wrap-around and OOB writes).
-    if (price >= 100000000)
-    {
-        double satsPerCurrency = (1.0 / static_cast<double>(price)) * 1e8;
-        std::ostringstream oss;
-        oss << std::fixed << std::setprecision(3) << satsPerCurrency;
-        priceString = oss.str();
-    }
-    else
-    {
-        priceString = std::to_string(static_cast<int>(round(1.0 / static_cast<double>(price) * 1e8)));
-    }
-
-    std::uint32_t firstIndex = 0;
-
-    if (priceString.length() < NUM_SCREENS)
-    {
-        priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
-
-        if (currencySymbol != CURRENCY_USD || price >= 100000000 || !useMscwTime)
-            ret[0] = "SATS/" + getCurrencyCode(currencySymbol);
-        else
-            ret[0] = "MSCW/TIME";
-
-        firstIndex = 1;
-    }
-
-    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
-    {
-        ret[i] = priceString[i];
-    }
-
-    if (withSatsSymbol)
-    {
-        // Figure out where the first non-space digit starts in the padded
-        // priceString and put the STS marker just before it, but never before
-        // the header label at index 0.
-        std::size_t firstDigit = priceString.find_first_not_of(' ');
-        if (firstDigit != std::string::npos && firstDigit > firstIndex)
-        {
-            ret[firstDigit - 1] = "STS";
-        }
-    }
-
-    return ret;
-}
-
-std::array<std::string, NUM_SCREENS> parseBlockHeight(std::uint32_t blockHeight)
-{
-    std::array<std::string, NUM_SCREENS> ret;
-    std::string blockNrString = std::to_string(blockHeight);
-    std::uint32_t firstIndex = 0;
-
-    if (blockNrString.length() < NUM_SCREENS)
-    {
-        blockNrString.insert(blockNrString.begin(), NUM_SCREENS - blockNrString.length(), ' ');
-        ret[0] = "BLOCK/HEIGHT";
-        firstIndex = 1;
-    }
-
-    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
-    {
-        ret[i] = blockNrString[i];
-    }
-
-    return ret;
-}
-
-std::array<std::string, NUM_SCREENS> parseBlockFees(float blockFees)
-{
-    std::array<std::string, NUM_SCREENS> ret;
-    std::string blockFeesString;
-    if (blockFees < 10.0f) {
-        char buf[8];
-        snprintf(buf, sizeof(buf), "%.2f", blockFees);
-        // // Remove trailing zeros and possible trailing dot
-        blockFeesString = buf;
-        // if(blockFeesString.find('.') != std::string::npos) {
-        //     blockFeesString.erase(blockFeesString.find_last_not_of('0') + 1);
-        //     if(blockFeesString.back() == '.') blockFeesString.pop_back();
-        // }
+    if (mowMode) {
+      ret[0] = "MOW/UNITS";
     } else {
-        blockFeesString = std::to_string(static_cast<int>(std::round(blockFees)));
+      ret[0] = "BTC/" + getCurrencyCode(currencySymbol);
     }
+
+    firstIndex = 1;
+  }
+
+  size_t dotPosition = priceString.find('.');
+
+  if (shareDot && dotPosition != std::string::npos && dotPosition > 0) {
+    std::vector<std::string> tempArray;
+    if (dotPosition != std::string::npos && dotPosition > 0) {
+      for (size_t i = 0; i < priceString.length(); ++i) {
+        if (i == dotPosition - 1) {
+          tempArray.push_back(std::string(1, priceString[i]) + ".");
+          ++i; // Skip the dot in the next iteration
+        } else {
+          tempArray.push_back(std::string(1, priceString[i]));
+        }
+      }
+
+      // Copy from tempArray to ret
+      for (std::uint32_t i = firstIndex;
+           i < NUM_SCREENS && i - firstIndex < tempArray.size(); ++i) {
+        ret[i] = tempArray[i - firstIndex];
+      }
+    }
+  } else {
+    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++) {
+      ret[i] = std::string(1, priceString[i]);
+    }
+  }
+
+  return ret;
+}
+
+std::array<std::string, NUM_SCREENS> parseSatsPerCurrency(std::uint32_t price,
+                                                          char currencySymbol,
+                                                          bool withSatsSymbol,
+                                                          bool useMscwTime) {
+  std::array<std::string, NUM_SCREENS> ret;
+  ret.fill("");
+
+  // Guard against div-by-zero: 1/float(0) is +inf and casting it to int is UB.
+  if (price == 0) {
+    ret[0] = (currencySymbol == CURRENCY_USD && useMscwTime)
+                 ? std::string("MSCW/TIME")
+                 : std::string("SATS/") + getCurrencyCode(currencySymbol);
+    return ret;
+  }
+
+  std::string priceString;
+
+  // Compute the sats-per-currency string once with the final formatting so the
+  // "STS" symbol position below uses the final string length (previous code
+  // computed the index against a stale initial string, leading to uint8_t
+  // wrap-around and OOB writes).
+  if (price >= 100000000) {
+    double satsPerCurrency = (1.0 / static_cast<double>(price)) * 1e8;
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(3) << satsPerCurrency;
+    priceString = oss.str();
+  } else {
+    priceString = std::to_string(
+        static_cast<int>(round(1.0 / static_cast<double>(price) * 1e8)));
+  }
+
+  std::uint32_t firstIndex = 0;
+
+  if (priceString.length() < NUM_SCREENS) {
+    priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(),
+                       ' ');
+
+    if (currencySymbol != CURRENCY_USD || price >= 100000000 || !useMscwTime)
+      ret[0] = "SATS/" + getCurrencyCode(currencySymbol);
+    else
+      ret[0] = "MSCW/TIME";
+
+    firstIndex = 1;
+  }
+
+  for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++) {
+    ret[i] = priceString[i];
+  }
+
+  if (withSatsSymbol) {
+    // Figure out where the first non-space digit starts in the padded
+    // priceString and put the STS marker just before it, but never before
+    // the header label at index 0.
+    std::size_t firstDigit = priceString.find_first_not_of(' ');
+    if (firstDigit != std::string::npos && firstDigit > firstIndex) {
+      ret[firstDigit - 1] = "STS";
+    }
+  }
+
+  return ret;
+}
+
+std::array<std::string, NUM_SCREENS>
+parseBlockHeight(std::uint32_t blockHeight) {
+  std::array<std::string, NUM_SCREENS> ret;
+  std::string blockNrString = std::to_string(blockHeight);
+  std::uint32_t firstIndex = 0;
+
+  if (blockNrString.length() < NUM_SCREENS) {
+    blockNrString.insert(blockNrString.begin(),
+                         NUM_SCREENS - blockNrString.length(), ' ');
+    ret[0] = "BLOCK/HEIGHT";
+    firstIndex = 1;
+  }
+
+  for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++) {
+    ret[i] = blockNrString[i];
+  }
+
+  return ret;
+}
+
+std::array<std::string, NUM_SCREENS> parseBlockFees(float blockFees) {
+  std::array<std::string, NUM_SCREENS> ret;
+  std::string blockFeesString;
+  if (blockFees < 10.0f) {
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%.2f", blockFees);
+    // // Remove trailing zeros and possible trailing dot
+    blockFeesString = buf;
+    // if(blockFeesString.find('.') != std::string::npos) {
+    //     blockFeesString.erase(blockFeesString.find_last_not_of('0') + 1);
+    //     if(blockFeesString.back() == '.') blockFeesString.pop_back();
+    // }
+  } else {
+    blockFeesString = std::to_string(static_cast<int>(std::round(blockFees)));
+  }
+  std::uint32_t firstIndex = 0;
+
+  if (blockFeesString.length() < NUM_SCREENS) {
+    blockFeesString.insert(blockFeesString.begin(),
+                           NUM_SCREENS - blockFeesString.length() - 1, ' ');
+    ret[0] = "FEE/RATE";
+    firstIndex = 1;
+  }
+
+  for (std::uint8_t i = firstIndex; i < NUM_SCREENS - 1; i++) {
+    ret[i] = blockFeesString[i];
+  }
+
+  ret[NUM_SCREENS - 1] = "sat/vB";
+
+  return ret;
+}
+
+std::array<std::string, NUM_SCREENS>
+parseHalvingCountdown(std::uint32_t blockHeight, bool asBlocks) {
+  std::array<std::string, NUM_SCREENS> ret;
+  const std::uint32_t nextHalvingBlock = 210000 - (blockHeight % 210000);
+  const std::uint32_t minutesToHalving = nextHalvingBlock * 10;
+
+  if (asBlocks) {
+    std::string blockNrString = std::to_string(nextHalvingBlock);
     std::uint32_t firstIndex = 0;
 
-    if (blockFeesString.length() < NUM_SCREENS)
-    {
-        blockFeesString.insert(blockFeesString.begin(), NUM_SCREENS - blockFeesString.length() - 1, ' ');
-        ret[0] = "FEE/RATE";
-        firstIndex = 1;
+    if (blockNrString.length() < NUM_SCREENS) {
+      blockNrString.insert(blockNrString.begin(),
+                           NUM_SCREENS - blockNrString.length(), ' ');
+      ret[0] = "HAL/VING";
+      firstIndex = 1;
     }
 
-    for (std::uint8_t i = firstIndex; i < NUM_SCREENS - 1; i++)
-    {
-        ret[i] = blockFeesString[i];
+    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++) {
+      ret[i] = blockNrString[i];
     }
+  } else {
 
-    ret[NUM_SCREENS - 1] = "sat/vB";
+    const int years = floor(minutesToHalving / 525600);
+    const int days = floor((minutesToHalving - (years * 525600)) / (24 * 60));
+    const int hours =
+        floor((minutesToHalving - (years * 525600) - (days * (24 * 60))) / 60);
+    const int mins = floor(minutesToHalving - (years * 525600) -
+                           (days * (24 * 60)) - (hours * 60));
+    ret[0] = "BIT/COIN";
+    ret[1] = "HAL/VING";
+    ret[(NUM_SCREENS - 5)] = std::to_string(years) + "/YRS";
+    ret[(NUM_SCREENS - 4)] = std::to_string(days) + "/DAYS";
+    ret[(NUM_SCREENS - 3)] = std::to_string(hours) + "/HRS";
+    ret[(NUM_SCREENS - 2)] = std::to_string(mins) + "/MINS";
+    ret[(NUM_SCREENS - 1)] = "TO/GO";
+  }
 
-    return ret;
+  return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseHalvingCountdown(std::uint32_t blockHeight, bool asBlocks)
-{
-    std::array<std::string, NUM_SCREENS> ret;
-    const std::uint32_t nextHalvingBlock = 210000 - (blockHeight % 210000);
-    const std::uint32_t minutesToHalving = nextHalvingBlock * 10;
+std::array<std::string, NUM_SCREENS>
+parseBitcoinSupply(std::uint32_t blockHeight, bool bigChars,
+                   bool showPercentage) {
+  std::array<std::string, NUM_SCREENS> ret;
 
-    if (asBlocks)
-    {
-        std::string blockNrString = std::to_string(nextHalvingBlock);
-        std::uint32_t firstIndex = 0;
+  ret[0] = "BTC/SUPPLY";
 
-        if (blockNrString.length() < NUM_SCREENS)
-        {
-            blockNrString.insert(blockNrString.begin(), NUM_SCREENS - blockNrString.length(), ' ');
-            ret[0] = "HAL/VING";
-            firstIndex = 1;
-        }
-
-        for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
-        {
-            ret[i] = blockNrString[i];
-        }
+  if (showPercentage) {
+    double supplyPercentage =
+        round((getSupplyAtBlock(blockHeight) / 20999999.9769) * 10000) / 100.0;
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(2) << supplyPercentage << "%";
+    std::string supplyPercentageString = oss.str();
+    if (supplyPercentageString.length() < NUM_SCREENS) {
+      supplyPercentageString.insert(
+          supplyPercentageString.begin(),
+          NUM_SCREENS - supplyPercentageString.length(), ' ');
     }
-    else
-    {
 
-        const int years = floor(minutesToHalving / 525600);
-        const int days = floor((minutesToHalving - (years * 525600)) / (24 * 60));
-        const int hours = floor((minutesToHalving - (years * 525600) - (days * (24 * 60))) / 60);
-        const int mins = floor(minutesToHalving - (years * 525600) - (days * (24 * 60)) - (hours * 60));
-        ret[0] = "BIT/COIN";
-        ret[1] = "HAL/VING";
-        ret[(NUM_SCREENS - 5)] = std::to_string(years) + "/YRS";
-        ret[(NUM_SCREENS - 4)] = std::to_string(days) + "/DAYS";
-        ret[(NUM_SCREENS - 3)] = std::to_string(hours) + "/HRS";
-        ret[(NUM_SCREENS - 2)] = std::to_string(mins) + "/MINS";
-        ret[(NUM_SCREENS - 1)] = "TO/GO";
+    for (std::uint32_t i = 1; i < NUM_SCREENS; i++) {
+      ret[i] = supplyPercentageString[i];
     }
+
+    ret[NUM_SCREENS - 1] = " % ";
 
     return ret;
+  }
+
+  if (bigChars) {
+    std::string supplyString = formatNumberWithSuffix(
+        getSupplyAtBlock(blockHeight), (NUM_SCREENS - 2));
+    supplyString.insert(supplyString.begin(),
+                        NUM_SCREENS - supplyString.length(), ' ');
+
+    for (std::uint32_t i = 1; i < NUM_SCREENS; i++) {
+      ret[i] = supplyString[i];
+    }
+  } else {
+    std::string supplyString =
+        std::to_string(static_cast<uint64_t>(getSupplyAtBlock(blockHeight)));
+    size_t supplyLength = supplyString.length();
+    size_t leadingSpaces = (3 - supplyLength % 3) % 3;
+    supplyString = std::string(leadingSpaces, ' ') + supplyString;
+    std::uint32_t groups = (supplyLength + leadingSpaces) / 3;
+
+    std::uint32_t firstIndex = 1;
+
+    for (int i = firstIndex; i < NUM_SCREENS - groups - 1; i++) {
+      ret[i] = "";
+    }
+
+    ret[NUM_SCREENS - groups - 1] = std::string(" ");
+    for (std::uint32_t i = 0; i < groups; i++) {
+      ret[(NUM_SCREENS - groups + i)] = supplyString.substr(i * 3, 3).c_str();
+    }
+  }
+  return ret;
 }
 
-std::array<std::string, NUM_SCREENS> parseBitcoinSupply(std::uint32_t blockHeight, bool bigChars, bool showPercentage)
-{
-    std::array<std::string, NUM_SCREENS> ret;
+std::array<std::string, NUM_SCREENS> parseMarketCap(std::uint32_t blockHeight,
+                                                    std::uint32_t price,
+                                                    char currencySymbol,
+                                                    bool bigChars) {
+  std::array<std::string, NUM_SCREENS> ret;
+  std::uint32_t firstIndex = 0;
+  double supply = getSupplyAtBlock(blockHeight);
+  uint64_t marketCap = static_cast<std::uint64_t>(supply * double(price));
 
-    ret[0] = "BTC/SUPPLY";
+  ret[0] = getCurrencyCode(currencySymbol) + "/MCAP";
 
+  if (bigChars) {
+    firstIndex = 1;
+    // Serial.print("Market cap: ");
+    // Serial.println(marketCap);
+    std::string priceString =
+        currencySymbol + formatNumberWithSuffix(marketCap, (NUM_SCREENS - 2));
+    priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(),
+                       ' ');
 
-    if (showPercentage)
-    {
-        double supplyPercentage = round((getSupplyAtBlock(blockHeight) / 20999999.9769) * 10000) / 100.0;
-        std::ostringstream oss;
-        oss << std::fixed << std::setprecision(2) << supplyPercentage << "%";
-        std::string supplyPercentageString = oss.str();
-        if (supplyPercentageString.length() < NUM_SCREENS) {
-            supplyPercentageString.insert(supplyPercentageString.begin(),
-               NUM_SCREENS - supplyPercentageString.length(), ' ');
-        }
-        
-        for (std::uint32_t i = 1; i < NUM_SCREENS; i++)
-        {
-            ret[i] = supplyPercentageString[i];
-        }
-
-        ret[NUM_SCREENS - 1] = " % ";
-
-        return ret;
+    for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++) {
+      ret[i] = priceString[i];
     }
-    
-    if (bigChars)
-    {
-        std::string supplyString = formatNumberWithSuffix(getSupplyAtBlock(blockHeight), (NUM_SCREENS - 2));
-        supplyString.insert(supplyString.begin(), NUM_SCREENS - supplyString.length(), ' ');
+  } else {
+    std::string stringValue = std::to_string(marketCap);
+    size_t mcLength = stringValue.length();
+    size_t leadingSpaces = (3 - mcLength % 3) % 3;
+    stringValue = std::string(leadingSpaces, ' ') + stringValue;
 
-        for (std::uint32_t i = 1; i < NUM_SCREENS; i++)
-        {
-            ret[i] = supplyString[i];
-        }
-    }
-    else
-    {
-        std::string supplyString = std::to_string(static_cast<uint64_t>(getSupplyAtBlock(blockHeight)));
-        size_t supplyLength = supplyString.length();
-        size_t leadingSpaces = (3 - supplyLength % 3) % 3;
-        supplyString = std::string(leadingSpaces, ' ') + supplyString;
-        std::uint32_t groups = (supplyLength + leadingSpaces) / 3;
+    std::uint32_t groups = (mcLength + leadingSpaces) / 3;
 
-        std::uint32_t firstIndex = 1;
-
-        for (int i = firstIndex; i < NUM_SCREENS - groups - 1; i++)
-        {
-            ret[i] = "";
-        }
-
-        ret[NUM_SCREENS - groups - 1] = std::string(" ");
-        for (std::uint32_t i = 0; i < groups; i++)
-        {
-            ret[(NUM_SCREENS - groups + i)] = supplyString.substr(i * 3, 3).c_str();
-        }
-    }
-    return ret;
-}
-
-std::array<std::string, NUM_SCREENS> parseMarketCap(std::uint32_t blockHeight, std::uint32_t price, char currencySymbol, bool bigChars)
-{
-    std::array<std::string, NUM_SCREENS> ret;
-    std::uint32_t firstIndex = 0;
-    double supply = getSupplyAtBlock(blockHeight);
-    uint64_t marketCap = static_cast<std::uint64_t>(supply * double(price));
-
-    ret[0] = getCurrencyCode(currencySymbol) + "/MCAP";
-
-    if (bigChars)
-    {
-        firstIndex = 1;
-        // Serial.print("Market cap: ");
-        // Serial.println(marketCap);
-        std::string priceString = currencySymbol + formatNumberWithSuffix(marketCap, (NUM_SCREENS - 2));
-        priceString.insert(priceString.begin(), NUM_SCREENS - priceString.length(), ' ');
-
-        for (std::uint32_t i = firstIndex; i < NUM_SCREENS; i++)
-        {
-            ret[i] = priceString[i];
-        }
-    }
-    else
-    {
-        std::string stringValue = std::to_string(marketCap);
-        size_t mcLength = stringValue.length();
-        size_t leadingSpaces = (3 - mcLength % 3) % 3;
-        stringValue = std::string(leadingSpaces, ' ') + stringValue;
-
-        std::uint32_t groups = (mcLength + leadingSpaces) / 3;
-
-        if (groups < NUM_SCREENS)
-        {
-            firstIndex = 1;
-        }
-
-        for (int i = firstIndex; i < NUM_SCREENS - groups - 1; i++)
-        {
-            ret[i] = "";
-        }
-
-        ret[NUM_SCREENS - groups - 1] = std::string(" ") + currencySymbol + " ";
-        for (std::uint32_t i = 0; i < groups; i++)
-        {
-            ret[(NUM_SCREENS - groups + i)] = stringValue.substr(i * 3, 3).c_str();
-        }
+    if (groups < NUM_SCREENS) {
+      firstIndex = 1;
     }
 
-    return ret;
+    for (int i = firstIndex; i < NUM_SCREENS - groups - 1; i++) {
+      ret[i] = "";
+    }
+
+    ret[NUM_SCREENS - groups - 1] = std::string(" ") + currencySymbol + " ";
+    for (std::uint32_t i = 0; i < groups; i++) {
+      ret[(NUM_SCREENS - groups + i)] = stringValue.substr(i * 3, 3).c_str();
+    }
+  }
+
+  return ret;
 }
 
 #ifdef __EMSCRIPTEN__
-emscripten::val arrayToStringArray(const std::array<std::string, NUM_SCREENS> &arr)
-{
-    emscripten::val jsArray = emscripten::val::array();
-    for (const auto &str : arr)
-    {
-        jsArray.call<void>("push", str);
-    }
-    return jsArray;
+emscripten::val
+arrayToStringArray(const std::array<std::string, NUM_SCREENS> &arr) {
+  emscripten::val jsArray = emscripten::val::array();
+  for (const auto &str : arr) {
+    jsArray.call<void>("push", str);
+  }
+  return jsArray;
 }
 
-emscripten::val vectorToStringArray(const std::vector<std::string> &vec)
-{
-    emscripten::val jsArray = emscripten::val::array();
-    for (size_t i = 0; i < vec.size(); ++i)
-    {
-        jsArray.set(i, vec[i]);
-    }
-    return jsArray;
+emscripten::val vectorToStringArray(const std::vector<std::string> &vec) {
+  emscripten::val jsArray = emscripten::val::array();
+  for (size_t i = 0; i < vec.size(); ++i) {
+    jsArray.set(i, vec[i]);
+  }
+  return jsArray;
 }
 
-emscripten::val parseBlockHeightArray(std::uint32_t blockHeight)
-{
-    return arrayToStringArray(parseBlockHeight(blockHeight));
+emscripten::val parseBlockHeightArray(std::uint32_t blockHeight) {
+  return arrayToStringArray(parseBlockHeight(blockHeight));
 }
 
-emscripten::val parsePriceDataArray(std::uint32_t price, const std::string &currencySymbol, bool useSuffixFormat = false, bool mowMode = false, bool shareDot = false)
-{
-    return arrayToStringArray(parsePriceData(price, currencySymbol[0], useSuffixFormat, mowMode, shareDot));
+emscripten::val parsePriceDataArray(std::uint32_t price,
+                                    const std::string &currencySymbol,
+                                    bool useSuffixFormat = false,
+                                    bool mowMode = false,
+                                    bool shareDot = false) {
+  return arrayToStringArray(parsePriceData(price, currencySymbol[0],
+                                           useSuffixFormat, mowMode, shareDot));
 }
 
-emscripten::val parseHalvingCountdownArray(std::uint32_t blockHeight, bool asBlocks)
-{
-    return arrayToStringArray(parseHalvingCountdown(blockHeight, asBlocks));
+emscripten::val parseHalvingCountdownArray(std::uint32_t blockHeight,
+                                           bool asBlocks) {
+  return arrayToStringArray(parseHalvingCountdown(blockHeight, asBlocks));
 }
 
-emscripten::val parseMarketCapArray(std::uint32_t blockHeight, std::uint32_t price, const std::string &currencySymbol, bool bigChars)
-{
-    return arrayToStringArray(parseMarketCap(blockHeight, price, currencySymbol[0], bigChars));
+emscripten::val parseMarketCapArray(std::uint32_t blockHeight,
+                                    std::uint32_t price,
+                                    const std::string &currencySymbol,
+                                    bool bigChars) {
+  return arrayToStringArray(
+      parseMarketCap(blockHeight, price, currencySymbol[0], bigChars));
 }
 
-emscripten::val parseBitcoinSupplyArray(std::uint32_t blockHeight, bool bigChars, bool showPercentage)
-{
-    return arrayToStringArray(parseBitcoinSupply(blockHeight, bigChars, showPercentage));
+emscripten::val parseBitcoinSupplyArray(std::uint32_t blockHeight,
+                                        bool bigChars, bool showPercentage) {
+  return arrayToStringArray(
+      parseBitcoinSupply(blockHeight, bigChars, showPercentage));
 }
 
-emscripten::val parseBlockFeesArray(float blockFees)
-{
-    return arrayToStringArray(parseBlockFees(blockFees));
+emscripten::val parseBlockFeesArray(float blockFees) {
+  return arrayToStringArray(parseBlockFees(blockFees));
 }
 
-emscripten::val parseSatsPerCurrencyArray(std::uint32_t price, const std::string &currencySymbol, bool withSatsSymbol, bool useMscwTime)
-{
-    return arrayToStringArray(parseSatsPerCurrency(price, currencySymbol[0], withSatsSymbol, useMscwTime));
+emscripten::val parseSatsPerCurrencyArray(std::uint32_t price,
+                                          const std::string &currencySymbol,
+                                          bool withSatsSymbol,
+                                          bool useMscwTime) {
+  return arrayToStringArray(parseSatsPerCurrency(price, currencySymbol[0],
+                                                 withSatsSymbol, useMscwTime));
 }
 
-EMSCRIPTEN_BINDINGS(my_module)
-{
-    //    emscripten::register_vector<std::string>("StringList");
+EMSCRIPTEN_BINDINGS(my_module) {
+  //    emscripten::register_vector<std::string>("StringList");
 
-    emscripten::function("parseBlockHeight", &parseBlockHeightArray);
-    emscripten::function("parseHalvingCountdown", &parseHalvingCountdownArray);
-    emscripten::function("parseMarketCap", &parseMarketCapArray);
-    emscripten::function("parseBitcoinSupply", &parseBitcoinSupplyArray);
-    emscripten::function("parseBlockFees", &parseBlockFeesArray);
-    emscripten::function("parseSatsPerCurrency", &parseSatsPerCurrencyArray);
-    emscripten::function("parsePriceData", &parsePriceDataArray);
+  emscripten::function("parseBlockHeight", &parseBlockHeightArray);
+  emscripten::function("parseHalvingCountdown", &parseHalvingCountdownArray);
+  emscripten::function("parseMarketCap", &parseMarketCapArray);
+  emscripten::function("parseBitcoinSupply", &parseBitcoinSupplyArray);
+  emscripten::function("parseBlockFees", &parseBlockFeesArray);
+  emscripten::function("parseSatsPerCurrency", &parseSatsPerCurrencyArray);
+  emscripten::function("parsePriceData", &parsePriceDataArray);
 
-    emscripten::function("arrayToStringArray", &arrayToStringArray);
-    emscripten::function("vectorToStringArray", &vectorToStringArray);
+  emscripten::function("arrayToStringArray", &arrayToStringArray);
+  emscripten::function("vectorToStringArray", &vectorToStringArray);
 }
 #endif

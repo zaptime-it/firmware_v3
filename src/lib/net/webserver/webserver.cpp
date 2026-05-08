@@ -16,10 +16,10 @@ const char *const JSON_CONTENT = "application/json";
 // and the device panicked. Running the delay + restart on a separate task
 // keeps interrupts enabled and lets the AsyncTCP task finish cleanly before
 // reboot.
-void scheduleDelayedRestart(uint32_t delayMs)
-{
+void scheduleDelayedRestart(uint32_t delayMs) {
   static volatile bool s_restartScheduled = false;
-  if (s_restartScheduled) return;
+  if (s_restartScheduled)
+    return;
   s_restartScheduled = true;
 
   xTaskCreate(
@@ -34,32 +34,30 @@ void scheduleDelayedRestart(uint32_t delayMs)
 
 // Centralised HTTP auth gate used by sensitive endpoints. Returns true and
 // has already sent a 401/auth prompt if the caller is not authenticated.
-bool requireHttpAuth(AsyncWebServerRequest *request)
-{
+bool requireHttpAuth(AsyncWebServerRequest *request) {
   if (!preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED)) {
     return false;
   }
   if (!request->authenticate(
-          preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME).c_str(),
-          preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD).c_str()))
-  {
+          preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME)
+              .c_str(),
+          preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD)
+              .c_str())) {
     request->requestAuthentication();
     return true;
   }
   return false;
 }
 
-void notifyEventSourceStatus()
-{
-  if (eventSourceTaskHandle != NULL) xTaskNotifyGive(eventSourceTaskHandle);
+void notifyEventSourceStatus() {
+  if (eventSourceTaskHandle != NULL)
+    xTaskNotifyGive(eventSourceTaskHandle);
 }
 
-static void onNotFound(AsyncWebServerRequest *request)
-{
+static void onNotFound(AsyncWebServerRequest *request) {
   // CORS preflight: 200 with the default CORS headers is enough for the
   // browser to then make the real request.
-  if (request->method() == HTTP_OPTIONS)
-  {
+  if (request->method() == HTTP_OPTIONS) {
     request->send(HTTP_OK);
     return;
   }
@@ -70,17 +68,14 @@ static void onNotFound(AsyncWebServerRequest *request)
   request->send(HTTP_NOT_FOUND);
 }
 
-static void eventSourceTask(void *pvParameters)
-{
-  for (;;)
-  {
+static void eventSourceTask(void *pvParameters) {
+  for (;;) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     eventSourceUpdate();
   }
 }
 
-void setupWebserver()
-{
+void setupWebserver() {
   events.onConnect([](AsyncEventSourceClient *client) {
     client->send("welcome", NULL, millis(), 1000);
   });
@@ -92,10 +87,11 @@ void setupWebserver()
   server.rewrite("/convert", "/");
   server.rewrite("/api", "/");
 
-  if (preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED))
-  {
-    String authUser = preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);
-    String authPass = preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD);
+  if (preferences.getBool("httpAuthEnabled", DEFAULT_HTTP_AUTH_ENABLED)) {
+    String authUser =
+        preferences.getString("httpAuthUser", DEFAULT_HTTP_AUTH_USERNAME);
+    String authPass =
+        preferences.getString("httpAuthPass", DEFAULT_HTTP_AUTH_PASSWORD);
     staticHandler.setAuthentication(authUser, authPass);
     // EventSource / SSE is just a long-lived GET; when HTTP auth is on,
     // the stream leaks live device status to unauthenticated clients
@@ -136,12 +132,10 @@ void setupWebserver()
 
   server.begin();
 
-  if (preferences.getBool("mdnsEnabled", DEFAULT_MDNS_ENABLED))
-  {
+  if (preferences.getBool("mdnsEnabled", DEFAULT_MDNS_ENABLED)) {
     // Must not hang the whole device if mDNS fails to start (see prior
     // bug); one attempt, log on failure, continue.
-    if (MDNS.begin(getMyHostname()))
-    {
+    if (MDNS.begin(getMyHostname())) {
       MDNS.addService("http", "tcp", 80);
       MDNS.addServiceTxt("http", "tcp", "model", "BTClock");
       MDNS.addServiceTxt("http", "tcp", "version", "3.0");

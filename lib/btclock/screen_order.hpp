@@ -40,4 +40,4 @@ std::string serializeScreenOrder(const std::vector<int> &order);
 std::vector<int> mergeScreenOrder(const std::vector<int> &stored,
                                   const std::vector<int> &catalog);
 
-}  // namespace btclock
+} // namespace btclock

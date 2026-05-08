@@ -6,8 +6,8 @@
 #include <freertos/task.h>
 #include <memory>
 
-#include "lib/system/shared.hpp"
 #include "lib/net/webserver/webserver.hpp"
+#include "lib/system/shared.hpp"
 
 #ifndef NEOPIXEL_PIN
 #define NEOPIXEL_PIN 34
@@ -42,94 +42,94 @@ const int LED_POWER_TEST = 999;
 
 // Do Not Disturb mode settings
 struct DNDTimeRange {
-    uint8_t startHour;
-    uint8_t startMinute;
-    uint8_t endHour;
-    uint8_t endMinute;
+  uint8_t startHour;
+  uint8_t startMinute;
+  uint8_t endHour;
+  uint8_t endMinute;
 };
 
 class LedHandler {
 public:
-    static LedHandler& getInstance();
-    
-    // Delete copy constructor and assignment operator
-    LedHandler(const LedHandler&) = delete;
-    LedHandler& operator=(const LedHandler&) = delete;
+  static LedHandler &getInstance();
 
-    void setup();
-    void setupTask();
-    bool queueEffect(uint effect);
-    void clear();
-    void setLights(int r, int g, int b);
-    void setLights(uint32_t color);
-    void saveLedState();
-    void restoreLedState();
-    QueueHandle_t getTaskQueue() const { return ledTaskQueue; }
-    Adafruit_NeoPixel& getPixels() { return pixels; }
+  // Delete copy constructor and assignment operator
+  LedHandler(const LedHandler &) = delete;
+  LedHandler &operator=(const LedHandler &) = delete;
 
-    // DND methods
-    void setDNDEnabled(bool enabled);
-    void setDNDTimeBasedEnabled(bool enabled);
-    void setDNDTimeRange(uint8_t startHour, uint8_t startMinute, uint8_t endHour, uint8_t endMinute);
-    bool isDNDActive() const;
-    bool isTimeInDNDRange(uint8_t hour, uint8_t minute) const;
-    
-    // DND getters
-    bool isDNDEnabled() const { return dndEnabled; }
-    bool isDNDTimeBasedEnabled() const { return dndTimeBasedEnabled; }
-    uint8_t getDNDStartHour() const { return dndTimeRange.startHour; }
-    uint8_t getDNDStartMinute() const { return dndTimeRange.startMinute; }
-    uint8_t getDNDEndHour() const { return dndTimeRange.endHour; }
-    uint8_t getDNDEndMinute() const { return dndTimeRange.endMinute; }
+  void setup();
+  void setupTask();
+  bool queueEffect(uint effect);
+  void clear();
+  void setLights(int r, int g, int b);
+  void setLights(uint32_t color);
+  void saveLedState();
+  void restoreLedState();
+  QueueHandle_t getTaskQueue() const { return ledTaskQueue; }
+  Adafruit_NeoPixel &getPixels() { return pixels; }
 
-    // Effect methods
-    void rainbow(int wait);
-    void theaterChase(uint32_t color, int wait);
-    void theaterChaseRainbow(int wait);
-    void lightningStrike();
-    void blinkDelay(int d, int times);
-    void blinkDelayColor(int d, int times, uint r, uint g, uint b);
-    void blinkDelayTwoColor(int d, int times, const uint32_t& c1, const uint32_t& c2);
+  // DND methods
+  void setDNDEnabled(bool enabled);
+  void setDNDTimeBasedEnabled(bool enabled);
+  void setDNDTimeRange(uint8_t startHour, uint8_t startMinute, uint8_t endHour,
+                       uint8_t endMinute);
+  bool isDNDActive() const;
+  bool isTimeInDNDRange(uint8_t hour, uint8_t minute) const;
+
+  // DND getters
+  bool isDNDEnabled() const { return dndEnabled; }
+  bool isDNDTimeBasedEnabled() const { return dndTimeBasedEnabled; }
+  uint8_t getDNDStartHour() const { return dndTimeRange.startHour; }
+  uint8_t getDNDStartMinute() const { return dndTimeRange.startMinute; }
+  uint8_t getDNDEndHour() const { return dndTimeRange.endHour; }
+  uint8_t getDNDEndMinute() const { return dndTimeRange.endMinute; }
+
+  // Effect methods
+  void rainbow(int wait);
+  void theaterChase(uint32_t color, int wait);
+  void theaterChaseRainbow(int wait);
+  void lightningStrike();
+  void blinkDelay(int d, int times);
+  void blinkDelayColor(int d, int times, uint r, uint g, uint b);
+  void blinkDelayTwoColor(int d, int times, const uint32_t &c1,
+                          const uint32_t &c2);
 
 #ifdef HAS_FRONTLIGHT
-    void frontlightFlash(int flDelayTime);
-    void frontlightFadeInAll();
-    void frontlightFadeOutAll();
-    void frontlightFadeIn(uint num);
-    void frontlightFadeOut(uint num);
-    std::vector<uint16_t> frontlightGetStatus();
-    void frontlightSetBrightness(uint brightness);
-    bool frontlightIsOn() const { return frontlightOn; }
-    void frontlightFadeInAll(int flDelayTime, bool staggered = false);
-    void frontlightFadeOutAll(int flDelayTime, bool staggered = false);
-    void frontlightFadeIn(uint num, int flDelayTime);
-    void frontlightFadeOut(uint num, int flDelayTime);
-    void initializeFrontlight();
+  void frontlightFlash(int flDelayTime);
+  void frontlightFadeInAll();
+  void frontlightFadeOutAll();
+  void frontlightFadeIn(uint num);
+  void frontlightFadeOut(uint num);
+  std::vector<uint16_t> frontlightGetStatus();
+  void frontlightSetBrightness(uint brightness);
+  bool frontlightIsOn() const { return frontlightOn; }
+  void frontlightFadeInAll(int flDelayTime, bool staggered = false);
+  void frontlightFadeOutAll(int flDelayTime, bool staggered = false);
+  void frontlightFadeIn(uint num, int flDelayTime);
+  void frontlightFadeOut(uint num, int flDelayTime);
+  void initializeFrontlight();
 #endif
 
 private:
-    LedHandler();  // Private constructor for singleton
-    void loadDNDSettings();
-    static void ledTask(void* pvParameters);
+  LedHandler(); // Private constructor for singleton
+  void loadDNDSettings();
+  static void ledTask(void *pvParameters);
 
-    Adafruit_NeoPixel pixels;
-    TaskHandle_t ledTaskHandle;
-    QueueHandle_t ledTaskQueue;
-    uint ledTaskParams;
+  Adafruit_NeoPixel pixels;
+  TaskHandle_t ledTaskHandle;
+  QueueHandle_t ledTaskQueue;
+  uint ledTaskParams;
 
-    // DND members
-    bool dndEnabled;
-    bool dndTimeBasedEnabled;
-    DNDTimeRange dndTimeRange;
+  // DND members
+  bool dndEnabled;
+  bool dndTimeBasedEnabled;
+  DNDTimeRange dndTimeRange;
 
 #ifdef HAS_FRONTLIGHT
-    static constexpr uint16_t FL_FADE_STEP = 25;
-    bool frontlightOn;
-    bool flInTransition;
+  static constexpr uint16_t FL_FADE_STEP = 25;
+  bool frontlightOn;
+  bool flInTransition;
 #endif
 };
 
 // Global accessor function
-inline LedHandler& getLedHandler() {
-    return LedHandler::getInstance();
-}
+inline LedHandler &getLedHandler() { return LedHandler::getInstance(); }

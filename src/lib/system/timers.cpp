@@ -9,8 +9,12 @@ esp_timer_handle_t minuteTimer;
 static volatile TaskHandle_t s_bitaxeIsrHandle = nullptr;
 static volatile TaskHandle_t s_miningPoolIsrHandle = nullptr;
 
-void setBitaxeTaskHandleForIsr(TaskHandle_t handle) { s_bitaxeIsrHandle = handle; }
-void setMiningPoolTaskHandleForIsr(TaskHandle_t handle) { s_miningPoolIsrHandle = handle; }
+void setBitaxeTaskHandleForIsr(TaskHandle_t handle) {
+  s_bitaxeIsrHandle = handle;
+}
+void setMiningPoolTaskHandleForIsr(TaskHandle_t handle) {
+  s_miningPoolIsrHandle = handle;
+}
 
 void setupTimeUpdateTimer(void *pvParameters) {
   const esp_timer_create_args_t minuteTimerConfig = {
@@ -50,7 +54,9 @@ void setupScreenRotateTimer(void *pvParameters) {
   vTaskDelete(NULL);
 }
 
-uint getTimerSeconds() { return preferences.getUInt("timerSeconds", DEFAULT_TIMER_SECONDS); }
+uint getTimerSeconds() {
+  return preferences.getUInt("timerSeconds", DEFAULT_TIMER_SECONDS);
+}
 
 // Hardware esp_timer state is the source of truth; the NVS `timerActive`
 // flag is only the persisted last-user-intent consulted on boot by
@@ -71,16 +77,17 @@ void setTimerActive(bool status) {
     preferences.putBool("timerActive", false);
   }
 
-  if (eventSourceTaskHandle != NULL) xTaskNotifyGive(eventSourceTaskHandle);
+  if (eventSourceTaskHandle != NULL)
+    xTaskNotifyGive(eventSourceTaskHandle);
 }
 
 void toggleTimerActive() { setTimerActive(!isTimerActive()); }
 
 void resetScreenRotateTimer() {
-  if (!esp_timer_is_active(screenRotateTimer)) return;
+  if (!esp_timer_is_active(screenRotateTimer))
+    return;
   esp_timer_stop(screenRotateTimer);
-  esp_timer_start_periodic(screenRotateTimer,
-                           getTimerSeconds() * usPerSecond);
+  esp_timer_start_periodic(screenRotateTimer, getTimerSeconds() * usPerSecond);
 }
 
 void IRAM_ATTR minuteTimerISR(void *arg) {

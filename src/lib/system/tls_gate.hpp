@@ -24,10 +24,9 @@
 // contention-free.
 namespace tls_gate {
 
-inline std::mutex& mutex()
-{
-    static std::mutex m;
-    return m;
+inline std::mutex &mutex() {
+  static std::mutex m;
+  return m;
 }
 
-}  // namespace tls_gate
+} // namespace tls_gate

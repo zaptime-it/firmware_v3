@@ -5,6 +5,6 @@
 
 #include <Arduino.h>
 
-extern const unsigned char* epd_icons_allArray[];
+extern const unsigned char *epd_icons_allArray[];
 
 #endif // ICONS_H

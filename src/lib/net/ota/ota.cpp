@@ -8,12 +8,8 @@ TaskHandle_t taskOtaHandle = NULL;
 bool isOtaUpdating = false;
 QueueHandle_t otaQueue;
 
-
-
-void setupOTA()
-{
-  if (preferences.getBool("otaEnabled", DEFAULT_OTA_ENABLED))
-  {
+void setupOTA() {
+  if (preferences.getBool("otaEnabled", DEFAULT_OTA_ENABLED)) {
     ArduinoOTA.onStart(onOTAStart);
 
     ArduinoOTA.onProgress(onOTAProgress);
@@ -34,49 +30,39 @@ void setupOTA()
     // downloadUpdate();
     otaQueue = xQueueCreate(1, sizeof(UpdateMessage));
 
-    xTaskCreate(handleOTATask, "handleOTA", 8192, NULL, 20,
-                &taskOtaHandle);
+    xTaskCreate(handleOTATask, "handleOTA", 8192, NULL, 20, &taskOtaHandle);
   }
 }
 
-void onOTAProgress(unsigned int progress, unsigned int total)
-{
+void onOTAProgress(unsigned int progress, unsigned int total) {
   // Guard against div-by-zero: if total is < 100 the previous expression
   // `total / 100` evaluated to 0 and triggered a panic.
   uint percentage = 0;
-  if (total >= 100)
-  {
+  if (total >= 100) {
     percentage = progress / (total / 100);
-  }
-  else if (total > 0)
-  {
+  } else if (total > 0) {
     percentage = (progress * 100) / total;
   }
-  auto& ledHandler = getLedHandler();
-  auto& pixels = ledHandler.getPixels();
-  
+  auto &ledHandler = getLedHandler();
+  auto &pixels = ledHandler.getPixels();
+
   pixels.fill(pixels.Color(0, 255, 0));
-  if (percentage < 100)
-  {
+  if (percentage < 100) {
     pixels.setPixelColor(0, pixels.Color(0, 0, 0));
   }
-  if (percentage < 75)
-  {
+  if (percentage < 75) {
     pixels.setPixelColor(1, pixels.Color(0, 0, 0));
   }
-  if (percentage < 50)
-  {
+  if (percentage < 50) {
     pixels.setPixelColor(2, pixels.Color(0, 0, 0));
   }
-  if (percentage < 25)
-  {
+  if (percentage < 25) {
     pixels.setPixelColor(3, pixels.Color(0, 0, 0));
   }
   pixels.show();
 }
 
-void onOTAStart()
-{
+void onOTAStart() {
   EPDManager::getInstance().forceFullRefresh();
   std::array<String, NUM_SCREENS> epdContent = {"U", "P", "D", "A",
                                                 "T", "E", "!"};
@@ -94,18 +80,15 @@ void onOTAStart()
   ButtonHandler::suspendTask();
 
   // stopWebServer();
-  auto& blockNotify = BlockNotify::getInstance();
+  auto &blockNotify = BlockNotify::getInstance();
   blockNotify.stop();
 }
 
-void handleOTATask(void *parameter)
-{
+void handleOTATask(void *parameter) {
   UpdateMessage msg;
 
-  for (;;)
-  {
-    if (xQueueReceive(otaQueue, &msg, 0) == pdTRUE)
-    {
+  for (;;) {
+    if (xQueueReceive(otaQueue, &msg, 0) == pdTRUE) {
       if (msg.updateType == UPDATE_ALL) {
         isOtaUpdating = true;
         getLedHandler().queueEffect(LED_FLASH_UPDATE);
@@ -128,29 +111,27 @@ void handleOTATask(void *parameter)
   }
 }
 
-ReleaseInfo getLatestRelease(const String &fileToDownload)
-{
+ReleaseInfo getLatestRelease(const String &fileToDownload) {
   String releaseUrl = preferences.getString("gitReleaseUrl");
   ReleaseInfo info = {"", ""};
 
   auto http = HttpHelper::beginScoped(releaseUrl);
-  if (!http) return info;
+  if (!http)
+    return info;
 
   int httpCode = http->GET();
-  if (httpCode != HTTP_CODE_OK) return info;
+  if (httpCode != HTTP_CODE_OK)
+    return info;
 
   JsonDocument doc;
-  if (deserializeJson(doc, http->getString()) != DeserializationError::Ok) return info;
+  if (deserializeJson(doc, http->getString()) != DeserializationError::Ok)
+    return info;
 
-  for (JsonObject asset : doc["assets"].as<JsonArray>())
-  {
+  for (JsonObject asset : doc["assets"].as<JsonArray>()) {
     String assetName = asset["name"].as<String>();
-    if (assetName == fileToDownload)
-    {
+    if (assetName == fileToDownload) {
       info.fileUrl = asset["browser_download_url"].as<String>();
-    }
-    else if (assetName == fileToDownload + ".sha256")
-    {
+    } else if (assetName == fileToDownload + ".sha256") {
       info.checksumUrl = asset["browser_download_url"].as<String>();
     }
     if (!info.fileUrl.isEmpty() && !info.checksumUrl.isEmpty())
@@ -160,12 +141,10 @@ ReleaseInfo getLatestRelease(const String &fileToDownload)
   return info;
 }
 
-int downloadUpdateHandler(char updateType)
-{
+int downloadUpdateHandler(char updateType) {
   ReleaseInfo latestRelease;
 
-  switch (updateType)
-  {
+  switch (updateType) {
   case UPDATE_FIRMWARE:
     latestRelease = getLatestRelease(getFirmwareFilename());
     break;
@@ -174,27 +153,28 @@ int downloadUpdateHandler(char updateType)
     break;
   }
 
-  if (latestRelease.fileUrl.isEmpty() || latestRelease.checksumUrl.isEmpty())
-  {
+  if (latestRelease.fileUrl.isEmpty() || latestRelease.checksumUrl.isEmpty()) {
     return 503;
   }
 
   String expectedSHA256 = downloadSHA256(latestRelease.checksumUrl);
-  if (expectedSHA256.isEmpty())
-  {
+  if (expectedSHA256.isEmpty()) {
     return 503;
   }
   expectedSHA256.toLowerCase();
 
   auto http = HttpHelper::beginScoped(latestRelease.fileUrl);
-  if (!http) return 503;
+  if (!http)
+    return 503;
   http->setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
   int httpCode = http->GET();
-  if (httpCode != HTTP_CODE_OK) return 503;
+  if (httpCode != HTTP_CODE_OK)
+    return 503;
 
   int contentLength = http->getSize();
-  if (contentLength <= 0) return 503;
+  if (contentLength <= 0)
+    return 503;
 
   // Stream the payload through both mbedtls (for SHA256) and Update.write()
   // at the same time. The previous implementation malloc'd the entire
@@ -209,8 +189,7 @@ int downloadUpdateHandler(char updateType)
   mbedtls_md_starts(&shaCtx);
 
   Update.onProgress(onOTAProgress);
-  if (!Update.begin(contentLength, updateType))
-  {
+  if (!Update.begin(contentLength, updateType)) {
     mbedtls_md_free(&shaCtx);
     return 503;
   }
@@ -219,8 +198,7 @@ int downloadUpdateHandler(char updateType)
   WiFiClient *stream = http->getStreamPtr();
   uint8_t buf[1024];
   int bytesRead = 0;
-  while (bytesRead < contentLength)
-  {
+  while (bytesRead < contentLength) {
     int toRead = std::min((int)sizeof(buf), contentLength - bytesRead);
     int r = stream->readBytes(buf, toRead);
     if (r <= 0) {
@@ -242,14 +220,16 @@ int downloadUpdateHandler(char updateType)
   mbedtls_md_free(&shaCtx);
 
   char shaStr[65];
-  for (int i = 0; i < 32; i++) sprintf(shaStr + (i * 2), "%02x", shaResult[i]);
+  for (int i = 0; i < 32; i++)
+    sprintf(shaStr + (i * 2), "%02x", shaResult[i]);
   shaStr[64] = 0;
   if (expectedSHA256 != String(shaStr)) {
     Update.abort();
     return 503;
   }
 
-  if (!Update.end() || !Update.isFinished()) return 503;
+  if (!Update.end() || !Update.isFinished())
+    return 503;
   return 0;
 }
 
@@ -259,8 +239,7 @@ int downloadUpdateHandler(char updateType)
 // runUpdate(). Removed as part of the Phase 4 webserver split so there is
 // exactly one OTA code path.
 
-void onOTAError(ota_error_t error)
-{
+void onOTAError(ota_error_t error) {
   Wire.end();
   SPI.end();
   isOtaUpdating = false;
@@ -268,29 +247,27 @@ void onOTAError(ota_error_t error)
   ESP.restart();
 }
 
-void onOTAComplete()
-{
+void onOTAComplete() {
   Wire.end();
   SPI.end();
   delay(1000);
   ESP.restart();
 }
 
-bool getIsOTAUpdating()
-{
-  return isOtaUpdating;
-}
+bool getIsOTAUpdating() { return isOtaUpdating; }
 
-String downloadSHA256(const String &sha256Url)
-{
-  if (sha256Url.isEmpty()) return "";
+String downloadSHA256(const String &sha256Url) {
+  if (sha256Url.isEmpty())
+    return "";
 
   auto http = HttpHelper::beginScoped(sha256Url);
-  if (!http) return "";
+  if (!http)
+    return "";
   http->setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
 
   int httpCode = http->GET();
-  if (httpCode != HTTP_CODE_OK) return "";
+  if (httpCode != HTTP_CODE_OK)
+    return "";
 
   String sha256 = http->getString();
   sha256.trim();

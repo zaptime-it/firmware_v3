@@ -74,110 +74,112 @@
 // -----END CERTIFICATE-----
 // )EOF";
 
-
 #ifdef TEST_SCREENS
-uint8_t input_buffer[3 * input_buffer_pixels];        // up to depth 24
-uint8_t output_row_mono_buffer[max_row_width / 8];    // buffer for at least one row of b/w bits
-uint8_t output_row_color_buffer[max_row_width / 8];   // buffer for at least one row of color bits
-uint8_t mono_palette_buffer[max_palette_pixels / 8];  // palette buffer for depth <= 8 b/w
-uint8_t color_palette_buffer[max_palette_pixels / 8]; // palette buffer for depth <= 8 c/w
-uint16_t rgb_palette_buffer[max_palette_pixels];      // palette buffer for depth <= 8 for buffered graphics, needed for 7-color display
+uint8_t input_buffer[3 * input_buffer_pixels]; // up to depth 24
+uint8_t output_row_mono_buffer[max_row_width /
+                               8]; // buffer for at least one row of b/w bits
+uint8_t output_row_color_buffer[max_row_width /
+                                8]; // buffer for at least one row of color bits
+uint8_t mono_palette_buffer[max_palette_pixels /
+                            8]; // palette buffer for depth <= 8 b/w
+uint8_t color_palette_buffer[max_palette_pixels /
+                             8]; // palette buffer for depth <= 8 c/w
+uint16_t rgb_palette_buffer[max_palette_pixels]; // palette buffer for depth <=
+                                                 // 8 for buffered graphics,
+                                                 // needed for 7-color display
 #endif
 
 // Function to calculate SHA-256 hash
-String calculateSHA256(uint8_t *data, size_t len)
-{
-    byte shaResult[32];
-    mbedtls_md_context_t ctx;
-    mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
+String calculateSHA256(uint8_t *data, size_t len) {
+  byte shaResult[32];
+  mbedtls_md_context_t ctx;
+  mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
 
-    mbedtls_md_init(&ctx);
-    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 0);
-    mbedtls_md_starts(&ctx);
-    mbedtls_md_update(&ctx, data, len);
-    mbedtls_md_finish(&ctx, shaResult);
-    mbedtls_md_free(&ctx);
+  mbedtls_md_init(&ctx);
+  mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 0);
+  mbedtls_md_starts(&ctx);
+  mbedtls_md_update(&ctx, data, len);
+  mbedtls_md_finish(&ctx, shaResult);
+  mbedtls_md_free(&ctx);
 
-    char sha256_str[65];
-    for (int i = 0; i < 32; i++)
-    {
-        sprintf(sha256_str + (i * 2), "%02x", shaResult[i]);
-    }
-    sha256_str[64] = 0;
+  char sha256_str[65];
+  for (int i = 0; i < 32; i++) {
+    sprintf(sha256_str + (i * 2), "%02x", shaResult[i]);
+  }
+  sha256_str[64] = 0;
 
-    return String(sha256_str);
+  return String(sha256_str);
 }
 
 String calculateSHA256(WiFiClient *stream, size_t contentLength) {
   mbedtls_md_context_t ctx;
   mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-  
+
   mbedtls_md_init(&ctx);
   mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 0);
   mbedtls_md_starts(&ctx);
-  
+
   uint8_t buff[1024];
   size_t bytesRead = 0;
-  
+
   while (bytesRead < contentLength) {
     size_t toRead = min((size_t)(contentLength - bytesRead), sizeof(buff));
     size_t readBytes = stream->readBytes(buff, toRead);
-    
+
     if (readBytes == 0) {
       break;
     }
-    
+
     mbedtls_md_update(&ctx, buff, readBytes);
     bytesRead += readBytes;
   }
-  
+
   byte shaResult[32];
   mbedtls_md_finish(&ctx, shaResult);
   mbedtls_md_free(&ctx);
-  
+
   String result = "";
   for (int i = 0; i < sizeof(shaResult); i++) {
     char str[3];
     sprintf(str, "%02x", (int)shaResult[i]);
     result += str;
   }
-  
+
   return result;
 }
 
 // uint8_t* getOceanIcon() {
 //   zlib_turbo zt;
-//   int iUncompSize = zt.gzip_info((uint8_t *)ocean_logo_comp, ocean_logo_size);
-//   uint8_t *pUncompressed;
-//   pUncompressed = (uint8_t *)malloc(iUncompSize+4);
-//   zt.gunzip((uint8_t *)ocean_logo_comp, ocean_logo_size, pUncompressed);
+//   int iUncompSize = zt.gzip_info((uint8_t *)ocean_logo_comp,
+//   ocean_logo_size); uint8_t *pUncompressed; pUncompressed = (uint8_t
+//   *)malloc(iUncompSize+4); zt.gunzip((uint8_t *)ocean_logo_comp,
+//   ocean_logo_size, pUncompressed);
 // }
 
 WiFiClientSecure HttpHelper::secureClient;
 WiFiClient HttpHelper::insecureClient;
 bool HttpHelper::certBundleSet = false;
 
-HTTPClient* HttpHelper::begin(const String& url) {
-    HTTPClient* http = new HTTPClient();
-    
-    if (url.startsWith("https://")) {
-        if (!certBundleSet) {
-            secureClient.setCACertBundle(rootca_crt_bundle_start);
-            certBundleSet = true;
-        }
-        http->begin(secureClient, url);
-    } else {
-        http->begin(insecureClient, url);
+HTTPClient *HttpHelper::begin(const String &url) {
+  HTTPClient *http = new HTTPClient();
+
+  if (url.startsWith("https://")) {
+    if (!certBundleSet) {
+      secureClient.setCACertBundle(rootca_crt_bundle_start);
+      certBundleSet = true;
     }
-    
-    http->setUserAgent(USER_AGENT);
-    return http;
+    http->begin(secureClient, url);
+  } else {
+    http->begin(insecureClient, url);
+  }
+
+  http->setUserAgent(USER_AGENT);
+  return http;
 }
 
-void HttpHelper::end(HTTPClient* http) {
-    if (http) {
-        http->end();
-        delete http;
-    }
+void HttpHelper::end(HTTPClient *http) {
+  if (http) {
+    http->end();
+    delete http;
+  }
 }
-

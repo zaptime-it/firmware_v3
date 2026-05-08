@@ -11,11 +11,11 @@ void tearDown(void) {}
 // ---------------------------------------------------------------------------
 
 void test_TargetNonCurrencySpecific_Forward_NoReset(void) {
-    TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(false, true, 3));
+  TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(false, true, 3));
 }
 
 void test_TargetNonCurrencySpecific_Backward_NoReset(void) {
-    TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(false, false, 3));
+  TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(false, false, 3));
 }
 
 // ---------------------------------------------------------------------------
@@ -23,19 +23,19 @@ void test_TargetNonCurrencySpecific_Backward_NoReset(void) {
 // ---------------------------------------------------------------------------
 
 void test_TargetCurrencySpecific_Forward_ResetsToFirst(void) {
-    TEST_ASSERT_EQUAL_INT(0, nextCurrencyIndex(true, true, 3));
+  TEST_ASSERT_EQUAL_INT(0, nextCurrencyIndex(true, true, 3));
 }
 
 void test_TargetCurrencySpecific_Backward_ResetsToLast(void) {
-    TEST_ASSERT_EQUAL_INT(2, nextCurrencyIndex(true, false, 3));
+  TEST_ASSERT_EQUAL_INT(2, nextCurrencyIndex(true, false, 3));
 }
 
 void test_TargetCurrencySpecific_SingleCurrency_Forward(void) {
-    TEST_ASSERT_EQUAL_INT(0, nextCurrencyIndex(true, true, 1));
+  TEST_ASSERT_EQUAL_INT(0, nextCurrencyIndex(true, true, 1));
 }
 
 void test_TargetCurrencySpecific_SingleCurrency_Backward(void) {
-    TEST_ASSERT_EQUAL_INT(0, nextCurrencyIndex(true, false, 1));
+  TEST_ASSERT_EQUAL_INT(0, nextCurrencyIndex(true, false, 1));
 }
 
 // ---------------------------------------------------------------------------
@@ -43,15 +43,15 @@ void test_TargetCurrencySpecific_SingleCurrency_Backward(void) {
 // ---------------------------------------------------------------------------
 
 void test_EmptyCurrencyList_Forward_NoReset(void) {
-    TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(true, true, 0));
+  TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(true, true, 0));
 }
 
 void test_EmptyCurrencyList_Backward_NoReset(void) {
-    TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(true, false, 0));
+  TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(true, false, 0));
 }
 
 void test_NegativeCurrencyCount_NoReset(void) {
-    TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(true, true, -1));
+  TEST_ASSERT_EQUAL_INT(-1, nextCurrencyIndex(true, true, -1));
 }
 
 // ---------------------------------------------------------------------------
@@ -65,60 +65,52 @@ void test_NegativeCurrencyCount_NoReset(void) {
 // ---------------------------------------------------------------------------
 
 void test_Regression_PrevThenNext_LandsOnFirstCurrency(void) {
-    const int activeCurrencies = 3;
+  const int activeCurrencies = 3;
 
-    // Press previous: cs-screen (first currency) -> non-cs screen.
-    // Target is non-cs, so currency must not be touched.
-    int afterPrev = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/false,
-                                      /*forward=*/false,
-                                      activeCurrencies);
-    TEST_ASSERT_EQUAL_INT(-1, afterPrev);
+  // Press previous: cs-screen (first currency) -> non-cs screen.
+  // Target is non-cs, so currency must not be touched.
+  int afterPrev = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/false,
+                                    /*forward=*/false, activeCurrencies);
+  TEST_ASSERT_EQUAL_INT(-1, afterPrev);
 
-    // Press next: non-cs screen -> cs-screen. Target is cs, forward -> 0.
-    int afterNext = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/true,
-                                      /*forward=*/true,
-                                      activeCurrencies);
-    TEST_ASSERT_EQUAL_INT(0, afterNext);
+  // Press next: non-cs screen -> cs-screen. Target is cs, forward -> 0.
+  int afterNext = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/true,
+                                    /*forward=*/true, activeCurrencies);
+  TEST_ASSERT_EQUAL_INT(0, afterNext);
 }
 
 // Symmetric: next off a cs-screen at last currency, then prev back
 // onto the cs-screen should land on the last currency.
 void test_Regression_NextThenPrev_LandsOnLastCurrency(void) {
-    const int activeCurrencies = 3;
+  const int activeCurrencies = 3;
 
-    int afterNext = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/false,
-                                      /*forward=*/true,
-                                      activeCurrencies);
-    TEST_ASSERT_EQUAL_INT(-1, afterNext);
+  int afterNext = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/false,
+                                    /*forward=*/true, activeCurrencies);
+  TEST_ASSERT_EQUAL_INT(-1, afterNext);
 
-    int afterPrev = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/true,
-                                      /*forward=*/false,
-                                      activeCurrencies);
-    TEST_ASSERT_EQUAL_INT(2, afterPrev);
+  int afterPrev = nextCurrencyIndex(/*newScreenIsCurrencySpecific=*/true,
+                                    /*forward=*/false, activeCurrencies);
+  TEST_ASSERT_EQUAL_INT(2, afterPrev);
 }
 
 // ---------------------------------------------------------------------------
 
 int runUnityTests(void) {
-    UNITY_BEGIN();
-    RUN_TEST(test_TargetNonCurrencySpecific_Forward_NoReset);
-    RUN_TEST(test_TargetNonCurrencySpecific_Backward_NoReset);
-    RUN_TEST(test_TargetCurrencySpecific_Forward_ResetsToFirst);
-    RUN_TEST(test_TargetCurrencySpecific_Backward_ResetsToLast);
-    RUN_TEST(test_TargetCurrencySpecific_SingleCurrency_Forward);
-    RUN_TEST(test_TargetCurrencySpecific_SingleCurrency_Backward);
-    RUN_TEST(test_EmptyCurrencyList_Forward_NoReset);
-    RUN_TEST(test_EmptyCurrencyList_Backward_NoReset);
-    RUN_TEST(test_NegativeCurrencyCount_NoReset);
-    RUN_TEST(test_Regression_PrevThenNext_LandsOnFirstCurrency);
-    RUN_TEST(test_Regression_NextThenPrev_LandsOnLastCurrency);
-    return UNITY_END();
+  UNITY_BEGIN();
+  RUN_TEST(test_TargetNonCurrencySpecific_Forward_NoReset);
+  RUN_TEST(test_TargetNonCurrencySpecific_Backward_NoReset);
+  RUN_TEST(test_TargetCurrencySpecific_Forward_ResetsToFirst);
+  RUN_TEST(test_TargetCurrencySpecific_Backward_ResetsToLast);
+  RUN_TEST(test_TargetCurrencySpecific_SingleCurrency_Forward);
+  RUN_TEST(test_TargetCurrencySpecific_SingleCurrency_Backward);
+  RUN_TEST(test_EmptyCurrencyList_Forward_NoReset);
+  RUN_TEST(test_EmptyCurrencyList_Backward_NoReset);
+  RUN_TEST(test_NegativeCurrencyCount_NoReset);
+  RUN_TEST(test_Regression_PrevThenNext_LandsOnFirstCurrency);
+  RUN_TEST(test_Regression_NextThenPrev_LandsOnLastCurrency);
+  return UNITY_END();
 }
 
-int main(void) {
-    return runUnityTests();
-}
+int main(void) { return runUnityTests(); }
 
-extern "C" void app_main() {
-    runUnityTests();
-}
+extern "C" void app_main() { runUnityTests(); }

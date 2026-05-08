@@ -1,127 +1,144 @@
 #include "pool_factory.hpp"
 
-const char* PoolFactory::MINING_POOL_NAME_OCEAN = "ocean";
-const char* PoolFactory::MINING_POOL_NAME_NODERUNNERS = "noderunners";
-const char* PoolFactory::MINING_POOL_NAME_BRAIINS = "braiins";
-const char* PoolFactory::MINING_POOL_NAME_SATOSHI_RADIO = "satoshi_radio";
-const char* PoolFactory::MINING_POOL_NAME_PUBLIC_POOL = "public_pool";
-const char* PoolFactory::MINING_POOL_NAME_LOCAL_PUBLIC_POOL = "local_public_pool";
-const char* PoolFactory::MINING_POOL_NAME_GOBRRR_POOL = "gobrrr_pool";
-const char* PoolFactory::MINING_POOL_NAME_CKPOOL = "ckpool";
-const char* PoolFactory::MINING_POOL_NAME_EU_CKPOOL = "eu_ckpool";
-const char* PoolFactory::LOGOS_DIR = "/logos";
+const char *PoolFactory::MINING_POOL_NAME_OCEAN = "ocean";
+const char *PoolFactory::MINING_POOL_NAME_NODERUNNERS = "noderunners";
+const char *PoolFactory::MINING_POOL_NAME_BRAIINS = "braiins";
+const char *PoolFactory::MINING_POOL_NAME_SATOSHI_RADIO = "satoshi_radio";
+const char *PoolFactory::MINING_POOL_NAME_PUBLIC_POOL = "public_pool";
+const char *PoolFactory::MINING_POOL_NAME_LOCAL_PUBLIC_POOL =
+    "local_public_pool";
+const char *PoolFactory::MINING_POOL_NAME_GOBRRR_POOL = "gobrrr_pool";
+const char *PoolFactory::MINING_POOL_NAME_CKPOOL = "ckpool";
+const char *PoolFactory::MINING_POOL_NAME_EU_CKPOOL = "eu_ckpool";
+const char *PoolFactory::LOGOS_DIR = "/logos";
 
-std::unique_ptr<MiningPoolInterface> PoolFactory::createPool(const std::string& poolName) {
-    static const std::unordered_map<std::string, std::function<std::unique_ptr<MiningPoolInterface>()>> poolFactories = {
-        {MINING_POOL_NAME_OCEAN, []() { return std::make_unique<OceanPool>(); }},
-        {MINING_POOL_NAME_NODERUNNERS, []() { return std::make_unique<NoderunnersPool>(); }},
-        {MINING_POOL_NAME_BRAIINS, []() { return std::make_unique<BraiinsPool>(); }},
-        {MINING_POOL_NAME_SATOSHI_RADIO, []() { return std::make_unique<SatoshiRadioPool>(); }},
-        {MINING_POOL_NAME_PUBLIC_POOL, []() { return std::make_unique<PublicPool>(); }},
-        {MINING_POOL_NAME_LOCAL_PUBLIC_POOL, []() { return std::make_unique<LocalPublicPool>(); }},
-        {MINING_POOL_NAME_GOBRRR_POOL, []() { return std::make_unique<GoBrrrPool>(); }},
-        {MINING_POOL_NAME_CKPOOL, []() { return std::make_unique<CKPool>(); }},
-        {MINING_POOL_NAME_EU_CKPOOL, []() { return std::make_unique<EUCKPool>(); }}
-    };
-    
-    auto it = poolFactories.find(poolName);
-    if (it == poolFactories.end()) {
-        return nullptr;
-    }
-    return it->second();
+std::unique_ptr<MiningPoolInterface>
+PoolFactory::createPool(const std::string &poolName) {
+  static const std::unordered_map<
+      std::string, std::function<std::unique_ptr<MiningPoolInterface>()>>
+      poolFactories = {{MINING_POOL_NAME_OCEAN,
+                        []() { return std::make_unique<OceanPool>(); }},
+                       {MINING_POOL_NAME_NODERUNNERS,
+                        []() { return std::make_unique<NoderunnersPool>(); }},
+                       {MINING_POOL_NAME_BRAIINS,
+                        []() { return std::make_unique<BraiinsPool>(); }},
+                       {MINING_POOL_NAME_SATOSHI_RADIO,
+                        []() { return std::make_unique<SatoshiRadioPool>(); }},
+                       {MINING_POOL_NAME_PUBLIC_POOL,
+                        []() { return std::make_unique<PublicPool>(); }},
+                       {MINING_POOL_NAME_LOCAL_PUBLIC_POOL,
+                        []() { return std::make_unique<LocalPublicPool>(); }},
+                       {MINING_POOL_NAME_GOBRRR_POOL,
+                        []() { return std::make_unique<GoBrrrPool>(); }},
+                       {MINING_POOL_NAME_CKPOOL,
+                        []() { return std::make_unique<CKPool>(); }},
+                       {MINING_POOL_NAME_EU_CKPOOL,
+                        []() { return std::make_unique<EUCKPool>(); }}};
+
+  auto it = poolFactories.find(poolName);
+  if (it == poolFactories.end()) {
+    return nullptr;
+  }
+  return it->second();
 }
 
-void PoolFactory::downloadPoolLogo(const std::string& poolName, const MiningPoolInterface* poolInterface)
-{
-    const int MAX_RETRIES = 5;
-    const int RETRY_DELAY_MS = 1000;  // 1 second between retries
+void PoolFactory::downloadPoolLogo(const std::string &poolName,
+                                   const MiningPoolInterface *poolInterface) {
+  const int MAX_RETRIES = 5;
+  const int RETRY_DELAY_MS = 1000; // 1 second between retries
 
-    if (!poolInterface || !poolInterface->hasLogo()) {
-        Serial.println(F("No pool interface or logo"));
-        return;
+  if (!poolInterface || !poolInterface->hasLogo()) {
+    Serial.println(F("No pool interface or logo"));
+    return;
+  }
+
+  // Ensure logos directory exists
+  if (!LittleFS.exists(LOGOS_DIR)) {
+    LittleFS.mkdir(LOGOS_DIR);
+  }
+
+  String logoPath =
+      String(LOGOS_DIR) + "/" + String(poolName.c_str()) + "_logo.bin";
+
+  // Only download if the logo doesn't exist
+  if (!LittleFS.exists(logoPath)) {
+    // Clean up logos directory first
+    File root = LittleFS.open(LOGOS_DIR, "r");
+    if (root) {
+      File file = root.openNextFile();
+      while (file) {
+        String path = file.path();
+        file.close();
+        LittleFS.remove(path);
+        file = root.openNextFile();
+      }
+      root.close();
     }
 
-    // Ensure logos directory exists
-    if (!LittleFS.exists(LOGOS_DIR)) {
-        LittleFS.mkdir(LOGOS_DIR);
-    }
+    // Download new logo with retries
+    std::string logoUrl = poolInterface->getLogoUrl();
+    if (!logoUrl.empty()) {
+      for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        Serial.printf("Downloading pool logo (attempt %d of %d)...\n", attempt,
+                      MAX_RETRIES);
 
-    String logoPath = String(LOGOS_DIR) + "/" + String(poolName.c_str()) + "_logo.bin";
+        auto http = HttpHelper::beginScoped(logoUrl.c_str());
+        if (!http)
+          break;
+        int httpCode = http->GET();
 
-    // Only download if the logo doesn't exist
-    if (!LittleFS.exists(logoPath)) {
-        // Clean up logos directory first
-        File root = LittleFS.open(LOGOS_DIR, "r");
-        if (root) {
-            File file = root.openNextFile();
-            while (file) {
-                String path = file.path();
-                file.close();
-                LittleFS.remove(path);
-                file = root.openNextFile();
-            }
-            root.close();
+        if (httpCode == HTTP_CODE_OK) {
+          File file = LittleFS.open(logoPath, "w");
+          if (file) {
+            http->writeToStream(&file);
+            file.close();
+            Serial.println(F("Logo downloaded successfully"));
+            return;
+          }
         }
 
-        // Download new logo with retries
-        std::string logoUrl = poolInterface->getLogoUrl();
-        if (!logoUrl.empty()) {
-            for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                Serial.printf("Downloading pool logo (attempt %d of %d)...\n", attempt, MAX_RETRIES);
-
-                auto http = HttpHelper::beginScoped(logoUrl.c_str());
-                if (!http) break;
-                int httpCode = http->GET();
-
-                if (httpCode == HTTP_CODE_OK) {
-                    File file = LittleFS.open(logoPath, "w");
-                    if (file) {
-                        http->writeToStream(&file);
-                        file.close();
-                        Serial.println(F("Logo downloaded successfully"));
-                        return;
-                    }
-                }
-
-                if (attempt < MAX_RETRIES) {
-                    Serial.printf("Failed to download logo, HTTP code: %d. Retrying...\n", httpCode);
-                    vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
-                } else {
-                    Serial.printf("Failed to download logo after %d attempts\n", MAX_RETRIES);
-                }
-            }
+        if (attempt < MAX_RETRIES) {
+          Serial.printf("Failed to download logo, HTTP code: %d. Retrying...\n",
+                        httpCode);
+          vTaskDelay(pdMS_TO_TICKS(RETRY_DELAY_MS));
+        } else {
+          Serial.printf("Failed to download logo after %d attempts\n",
+                        MAX_RETRIES);
         }
-    } else {
-        Serial.println(F("Logo already exists"));
+      }
     }
+  } else {
+    Serial.println(F("Logo already exists"));
+  }
 }
 
-LogoData PoolFactory::loadLogoFromFS(const std::string& poolName, const MiningPoolInterface* poolInterface)
-{
-    LogoData logo = {nullptr, 0, 0, 0};
+LogoData PoolFactory::loadLogoFromFS(const std::string &poolName,
+                                     const MiningPoolInterface *poolInterface) {
+  LogoData logo = {nullptr, 0, 0, 0};
 
-    String logoPath = String(LOGOS_DIR) + "/" + String(poolName.c_str()) + "_logo.bin";
-    if (!LittleFS.exists(logoPath)) {
-        return logo;
-    }
-
-    logo.width = static_cast<size_t>(poolInterface->getLogoWidth());
-    logo.height = static_cast<size_t>(poolInterface->getLogoHeight());
-
-    File file = LittleFS.open(logoPath, "r");
-    if (!file) {
-        return logo;
-    }
-
-    size_t size = file.size();
-    std::shared_ptr<uint8_t[]> buffer(new uint8_t[size]);
-
-    if (file.read(buffer.get(), size) == size) {
-        logo.data = buffer;
-        logo.size = size;
-    }
-    // On short reads the shared_ptr goes out of scope and frees the buffer.
-
-    file.close();
+  String logoPath =
+      String(LOGOS_DIR) + "/" + String(poolName.c_str()) + "_logo.bin";
+  if (!LittleFS.exists(logoPath)) {
     return logo;
+  }
+
+  logo.width = static_cast<size_t>(poolInterface->getLogoWidth());
+  logo.height = static_cast<size_t>(poolInterface->getLogoHeight());
+
+  File file = LittleFS.open(logoPath, "r");
+  if (!file) {
+    return logo;
+  }
+
+  size_t size = file.size();
+  std::shared_ptr<uint8_t[]> buffer(new uint8_t[size]);
+
+  if (file.read(buffer.get(), size) == size) {
+    logo.data = buffer;
+    logo.size = size;
+  }
+  // On short reads the shared_ptr goes out of scope and frees the buffer.
+
+  file.close();
+  return logo;
 }

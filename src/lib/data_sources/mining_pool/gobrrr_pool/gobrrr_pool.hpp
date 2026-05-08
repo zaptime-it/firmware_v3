@@ -8,23 +8,15 @@
 
 class GoBrrrPool : public PublicPool {
 public:
-    std::string getApiUrl() const override;
-    bool hasLogo() const override { return true; }
-    std::string getDisplayLabel() const override { return "GOBRRR/POOL"; }
-    
-    std::string getLogoFilename() const override {
-        return "gobrrr.bin";
-    }
+  std::string getApiUrl() const override;
+  bool hasLogo() const override { return true; }
+  std::string getDisplayLabel() const override { return "GOBRRR/POOL"; }
 
-    std::string getPoolName() const override {
-        return "gobrrr_pool";
-    }
+  std::string getLogoFilename() const override { return "gobrrr.bin"; }
 
-    int getLogoWidth() const override {
-        return 122;
-    }
+  std::string getPoolName() const override { return "gobrrr_pool"; }
 
-    int getLogoHeight() const override {
-        return 122;
-    }
+  int getLogoWidth() const override { return 122; }
+
+  int getLogoHeight() const override { return 122; }
 };

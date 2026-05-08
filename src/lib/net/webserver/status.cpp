@@ -7,16 +7,14 @@
 // stream and /api/status both fold the LED array into their top-level
 // response under "leds"; keeping the builder next to them avoids an include
 // cycle where status.cpp would depend on lights.cpp.
-JsonDocument buildLedStatusJson()
-{
-  auto& ledHandler = getLedHandler();
-  auto& pixels = ledHandler.getPixels();
+JsonDocument buildLedStatusJson() {
+  auto &ledHandler = getLedHandler();
+  auto &pixels = ledHandler.getPixels();
 
   JsonDocument root;
   JsonArray colors = root["data"].to<JsonArray>();
 
-  for (uint i = 0; i < pixels.numPixels(); i++)
-  {
+  for (uint i = 0; i < pixels.numPixels(); i++) {
     uint32_t pixColor = pixels.getPixelColor(pixels.numPixels() - i - 1);
     uint red = (pixColor >> 16) & 0xFF;
     uint green = (pixColor >> 8) & 0xFF;
@@ -39,26 +37,25 @@ JsonDocument buildLedStatusJson()
 // copies of this logic, one in onApiStatus() and one in eventSourceUpdate(),
 // which meant new status fields had to be added in both places and were
 // routinely forgotten in one.
-JsonDocument buildStatusJson()
-{
-  auto& ledHandler = getLedHandler();
+JsonDocument buildStatusJson() {
+  auto &ledHandler = getLedHandler();
   JsonDocument root;
 
   root["currentScreen"] = ScreenHandler::getCurrentScreen();
-  root["numScreens"]    = NUM_SCREENS;
-  root["timerRunning"]  = isTimerActive();
+  root["numScreens"] = NUM_SCREENS;
+  root["timerRunning"] = isTimerActive();
   root["isOTAUpdating"] = getIsOTAUpdating();
-  root["espUptime"]     = esp_timer_get_time() / 1000000;
-  root["espFreeHeap"]   = ESP.getFreeHeap();
-  root["espHeapSize"]   = ESP.getHeapSize();
+  root["espUptime"] = esp_timer_get_time() / 1000000;
+  root["espFreeHeap"] = ESP.getFreeHeap();
+  root["espHeapSize"] = ESP.getHeapSize();
 
   JsonObject conStatus = root["connectionStatus"].to<JsonObject>();
-  conStatus["price"]  = isPriceNotifyConnected();
+  conStatus["price"] = isPriceNotifyConnected();
   conStatus["blocks"] = BlockNotify::getInstance().isConnected();
-  conStatus["V2"]     = V2Notify::isV2NotifyConnected();
-  conStatus["nostr"]  = nostrConnected();
+  conStatus["V2"] = V2Notify::isV2NotifyConnected();
+  conStatus["nostr"] = nostrConnected();
 
-  root["rssi"]     = WiFi.RSSI();
+  root["rssi"] = WiFi.RSSI();
   root["currency"] = getCurrencyCode(ScreenHandler::getCurrentCurrency());
 
 #ifdef HAS_FRONTLIGHT
@@ -69,11 +66,12 @@ JsonDocument buildStatusJson()
   JsonArray fl = root["flStatus"].to<JsonArray>();
   copyArray(arr, fl);
 
-  if (hasLightLevel()) root["lightLevel"] = getLightLevel();
+  if (hasLightLevel())
+    root["lightLevel"] = getLightLevel();
 #endif
 
   JsonObject dnd = root["dnd"].to<JsonObject>();
-  dnd["enabled"]        = ledHandler.isDNDEnabled();
+  dnd["enabled"] = ledHandler.isDNDEnabled();
   dnd["dndTimeEnabled"] = ledHandler.isDNDTimeBasedEnabled();
   dnd["startTime"] = String(ledHandler.getDNDStartHour()) + ":" +
                      (ledHandler.getDNDStartMinute() < 10 ? "0" : "") +
@@ -88,14 +86,15 @@ JsonDocument buildStatusJson()
   std::array<String, NUM_SCREENS> epdContent =
       EPDManager::getInstance().getCurrentContent();
   JsonArray data = root["data"].to<JsonArray>();
-  for (const auto &content : epdContent) data.add(content);
+  for (const auto &content : epdContent)
+    data.add(content);
 
   return root;
 }
 
-void eventSourceUpdate()
-{
-  if (!events.count()) return;
+void eventSourceUpdate() {
+  if (!events.count())
+    return;
 
   JsonDocument root = buildStatusJson();
 
@@ -104,36 +103,35 @@ void eventSourceUpdate()
   events.send(buffer.c_str(), "status");
 }
 
-static void onApiStatus(AsyncWebServerRequest *request)
-{
-  if (requireHttpAuth(request)) return;
+static void onApiStatus(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request))
+    return;
   AsyncResponseStream *response = request->beginResponseStream(JSON_CONTENT);
   JsonDocument root = buildStatusJson();
   serializeJson(root, *response);
   request->send(response);
 }
 
-static void onApiSystemStatus(AsyncWebServerRequest *request)
-{
-  if (requireHttpAuth(request)) return;
+static void onApiSystemStatus(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request))
+    return;
   AsyncResponseStream *response = request->beginResponseStream(JSON_CONTENT);
 
   JsonDocument root;
-  root["espFreeHeap"]  = ESP.getFreeHeap();
-  root["espHeapSize"]  = ESP.getHeapSize();
+  root["espFreeHeap"] = ESP.getFreeHeap();
+  root["espHeapSize"] = ESP.getHeapSize();
   root["espFreePsram"] = ESP.getFreePsram();
   root["espPsramSize"] = ESP.getPsramSize();
-  root["fsUsedBytes"]  = LittleFS.usedBytes();
+  root["fsUsedBytes"] = LittleFS.usedBytes();
   root["fsTotalBytes"] = LittleFS.totalBytes();
-  root["rssi"]         = WiFi.RSSI();
-  root["txPower"]      = WiFi.getTxPower();
+  root["rssi"] = WiFi.RSSI();
+  root["txPower"] = WiFi.getTxPower();
 
   serializeJson(root, *response);
   request->send(response);
 }
 
-void registerStatusRoutes()
-{
+void registerStatusRoutes() {
   server.on("/api/status", HTTP_GET, onApiStatus);
   server.on("/api/system_status", HTTP_GET, onApiSystemStatus);
 }

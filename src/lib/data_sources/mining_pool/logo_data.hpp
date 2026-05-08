@@ -9,8 +9,8 @@
 // loader hands back. Before this, `data` was a raw pointer that no one ever
 // freed.
 struct LogoData {
-    std::shared_ptr<uint8_t[]> data;
-    size_t width;
-    size_t height;
-    size_t size;
+  std::shared_ptr<uint8_t[]> data;
+  size_t width;
+  size_t height;
+  size_t size;
 };

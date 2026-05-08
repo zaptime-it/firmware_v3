@@ -12,9 +12,9 @@ namespace data_source_policy {
 //
 // With this gate the data-source effect only fires when WiFi is actually
 // up (meaning the server-side or network-path is the real culprit).
-inline bool shouldFlashDataSourceError(int disconnectCount, bool wifiConnected)
-{
-    return disconnectCount > 1 && wifiConnected;
+inline bool shouldFlashDataSourceError(int disconnectCount,
+                                       bool wifiConnected) {
+  return disconnectCount > 1 && wifiConnected;
 }
 
-}  // namespace data_source_policy
+} // namespace data_source_policy

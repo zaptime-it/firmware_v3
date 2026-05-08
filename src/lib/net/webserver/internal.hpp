@@ -16,9 +16,9 @@
 // HTTP status literals. Previously open-coded as raw integers in every
 // handler. Put them here so the status discipline is obvious and any new
 // handler trivially gets the standard set.
-#define HTTP_OK                  200
-#define HTTP_BAD_REQUEST         400
-#define HTTP_NOT_FOUND           404
+#define HTTP_OK 200
+#define HTTP_BAD_REQUEST 400
+#define HTTP_NOT_FOUND 404
 #define HTTP_SERVICE_UNAVAILABLE 503
 
 extern const char *const JSON_CONTENT;

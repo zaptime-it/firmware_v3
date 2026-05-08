@@ -21,8 +21,7 @@
 
 namespace btclock {
 
-bool isTimeInDNDRange(uint8_t hour, uint8_t minute,
-                      uint8_t startHour, uint8_t startMinute,
-                      uint8_t endHour, uint8_t endMinute);
+bool isTimeInDNDRange(uint8_t hour, uint8_t minute, uint8_t startHour,
+                      uint8_t startMinute, uint8_t endHour, uint8_t endMinute);
 
-}  // namespace btclock
+} // namespace btclock

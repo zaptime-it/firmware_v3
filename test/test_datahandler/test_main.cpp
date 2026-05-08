@@ -1,466 +1,498 @@
 #include <data_handler.hpp>
 #include <unity.h>
 
-template<size_t N>
-std::string joinArrayWithBrackets(const std::array<std::string, N>& arr, const std::string& separator = " ") {
-    std::ostringstream result;
-    for (size_t i = 0; i < N; ++i) {
-        if (i > 0) {
-            result << separator;
-        }
-        result << '[' << arr[i] << ']';
+template <size_t N>
+std::string joinArrayWithBrackets(const std::array<std::string, N> &arr,
+                                  const std::string &separator = " ") {
+  std::ostringstream result;
+  for (size_t i = 0; i < N; ++i) {
+    if (i > 0) {
+      result << separator;
     }
-    return result.str();
+    result << '[' << arr[i] << ']';
+  }
+  return result.str();
 }
 
-void setUp(void)
-{
-    // set stuff up here
+void setUp(void) {
+  // set stuff up here
 }
 
-void tearDown(void)
-{
-    // clean stuff up here
+void tearDown(void) {
+  // clean stuff up here
 }
 
-void test_CorrectSatsPerDollarConversion(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_USD, false);
-    TEST_ASSERT_EQUAL_STRING("MSCW/TIME", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("6", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
+void test_CorrectSatsPerDollarConversion(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(37253, CURRENCY_USD, false);
+  TEST_ASSERT_EQUAL_STRING("MSCW/TIME", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("6", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_SatsPerDollarAfter1B(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(120000000, CURRENCY_USD, false);
-    TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 1].c_str());
+void test_SatsPerDollarAfter1B(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(120000000, CURRENCY_USD, false);
+  TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_CorrectSatsPerPoundConversion(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_GBP, false);
-    TEST_ASSERT_EQUAL_STRING("SATS/GBP", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("6", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
+void test_CorrectSatsPerPoundConversion(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(37253, CURRENCY_GBP, false);
+  TEST_ASSERT_EQUAL_STRING("SATS/GBP", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("6", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_SixCharacterBlockHeight(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseBlockHeight(999999);
-    TEST_ASSERT_EQUAL_STRING("BLOCK/HEIGHT", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("9", output[1].c_str());
+void test_SixCharacterBlockHeight(void) {
+  std::array<std::string, NUM_SCREENS> output = parseBlockHeight(999999);
+  TEST_ASSERT_EQUAL_STRING("BLOCK/HEIGHT", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("9", output[1].c_str());
 }
 
-void test_SevenCharacterBlockHeight(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseBlockHeight(1000000);
-    TEST_ASSERT_EQUAL_STRING("1", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[1].c_str());
+void test_SevenCharacterBlockHeight(void) {
+  std::array<std::string, NUM_SCREENS> output = parseBlockHeight(1000000);
+  TEST_ASSERT_EQUAL_STRING("1", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[1].c_str());
 }
 
-void test_FeeRateDisplay(void)
-{
-    float testValue = 21.21;
-    std::array<std::string, NUM_SCREENS> output = parseBlockFees(testValue);
-    TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 2].c_str());  
-    TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
+void test_FeeRateDisplay(void) {
+  float testValue = 21.21;
+  std::array<std::string, NUM_SCREENS> output = parseBlockFees(testValue);
+  TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_FeeRateDisplay2(void)
-{
-    float testValue = 1.1;
-    std::array<std::string, NUM_SCREENS> output = parseBlockFees(testValue);
-    TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
+void test_FeeRateDisplay2(void) {
+  float testValue = 1.1;
+  std::array<std::string, NUM_SCREENS> output = parseBlockFees(testValue);
+  TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
 }
 
-
-void test_PriceOf100kusd(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(100000, '$');
-    TEST_ASSERT_EQUAL_STRING("$", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[1].c_str());
+void test_PriceOf100kusd(void) {
+  std::array<std::string, NUM_SCREENS> output = parsePriceData(100000, '$');
+  TEST_ASSERT_EQUAL_STRING("$", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[1].c_str());
 }
 
-void test_PriceOf1MillionUsd(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(1000000, '$');
-    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
+void test_PriceOf1MillionUsd(void) {
+  std::array<std::string, NUM_SCREENS> output = parsePriceData(1000000, '$');
+  TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
 
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("M", output[NUM_SCREENS - 1].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("M", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_PriceSuffixMode(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(93000, '$', true, false);
-    TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
+void test_PriceSuffixMode(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parsePriceData(93000, '$', true, false);
+  TEST_ASSERT_EQUAL_STRING("BTC/USD", output[0].c_str());
 
-    TEST_ASSERT_EQUAL_STRING("9", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("K", output[NUM_SCREENS - 1].c_str());
+  TEST_ASSERT_EQUAL_STRING("9", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING("3", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("K", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_PriceSuffixModeCompact1(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(100000, '$', true, false, true);
+void test_PriceSuffixModeCompact1(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parsePriceData(100000, '$', true, false, true);
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(),
+                                   joined.c_str());
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("1", output[NUM_SCREENS - 5].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0.", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("K", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("1", output[NUM_SCREENS - 5].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0.", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("K", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_PriceSuffixModeCompact2(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(1000000, '$', true, false, true);
+void test_PriceSuffixModeCompact2(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parsePriceData(1000000, '$', true, false, true);
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("BTC/USD", output[0].c_str(),
+                                   joined.c_str());
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("1.", output[NUM_SCREENS - 5].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("1.", output[NUM_SCREENS - 5].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_PriceSuffixModeMow(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(93600, '$', true, true);
+void test_PriceSuffixModeMow(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parsePriceData(93600, '$', true, true);
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[0].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[0].c_str(), joined.c_str());
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 5].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("3", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 5].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("3", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_PriceSuffixModeMowCompact(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parsePriceData(93600, '$', true, true, true);
+void test_PriceSuffixModeMowCompact(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parsePriceData(93600, '$', true, true, true);
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("MOW/UNITS", output[0].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("MOW/UNITS", output[0].c_str(),
+                                   joined.c_str());
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0.", output[NUM_SCREENS - 5].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("3", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("$", output[NUM_SCREENS - 6].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0.", output[NUM_SCREENS - 5].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("3", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_McapLowerUsd(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseMarketCap(810000, 26000, '$', true);
-    TEST_ASSERT_EQUAL_STRING("USD/MCAP", output[0].c_str());
+void test_McapLowerUsd(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseMarketCap(810000, 26000, '$', true);
+  TEST_ASSERT_EQUAL_STRING("USD/MCAP", output[0].c_str());
 
-    //    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS-6].c_str());
-    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING("5", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("7", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("B", output[NUM_SCREENS - 1].c_str());
+  //    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS-6].c_str());
+  TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING("5", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("7", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("B", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_Mcap1TrillionUsd(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseMarketCap(831000, 52000, '$', true);
-    TEST_ASSERT_EQUAL_STRING("USD/MCAP", output[0].c_str());
+void test_Mcap1TrillionUsd(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseMarketCap(831000, 52000, '$', true);
+  TEST_ASSERT_EQUAL_STRING("USD/MCAP", output[0].c_str());
 
-    TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 6].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("T", output[NUM_SCREENS - 1].c_str());
+  TEST_ASSERT_EQUAL_STRING("$", output[NUM_SCREENS - 6].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("T", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_Mcap1TrillionUsdSmallChars(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseMarketCap(831000, 52000, '$', false);
-    TEST_ASSERT_EQUAL_STRING("USD/MCAP", output[0].c_str());
+void test_Mcap1TrillionUsdSmallChars(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseMarketCap(831000, 52000, '$', false);
+  TEST_ASSERT_EQUAL_STRING("USD/MCAP", output[0].c_str());
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
+  TEST_ASSERT_EQUAL_STRING_MESSAGE(" $ ", output[NUM_SCREENS - 6].c_str(),
+                                   joined.c_str());
 
-
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(" $ ", output[NUM_SCREENS - 6].c_str(), joined.c_str());
-
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("  1", output[NUM_SCREENS - 5].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("020", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("825", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("  1", output[NUM_SCREENS - 5].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("020", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("825", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_Mcap1TrillionEur(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseMarketCap(831000, 52000, CURRENCY_EUR, true);
-    TEST_ASSERT_EQUAL_STRING("EUR/MCAP", output[0].c_str());
-    TEST_ASSERT_TRUE(CURRENCY_EUR == output[NUM_SCREENS - 6].c_str()[0]);
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("T", output[NUM_SCREENS - 1].c_str());
+void test_Mcap1TrillionEur(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseMarketCap(831000, 52000, CURRENCY_EUR, true);
+  TEST_ASSERT_EQUAL_STRING("EUR/MCAP", output[0].c_str());
+  TEST_ASSERT_TRUE(CURRENCY_EUR == output[NUM_SCREENS - 6].c_str()[0]);
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("T", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_Mcap1TrillionEurSmallChars(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseMarketCap(831000, 52000, CURRENCY_EUR, false);
-    TEST_ASSERT_EQUAL_STRING("EUR/MCAP", output[0].c_str());
+void test_Mcap1TrillionEurSmallChars(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseMarketCap(831000, 52000, CURRENCY_EUR, false);
+  TEST_ASSERT_EQUAL_STRING("EUR/MCAP", output[0].c_str());
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    char result[4];
-    snprintf(result, sizeof(result), " %c ", CURRENCY_EUR);
-    TEST_ASSERT_EQUAL_STRING(result, output[NUM_SCREENS - 6].c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("  1", output[NUM_SCREENS - 5].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("020", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("825", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  char result[4];
+  snprintf(result, sizeof(result), " %c ", CURRENCY_EUR);
+  TEST_ASSERT_EQUAL_STRING(result, output[NUM_SCREENS - 6].c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("  1", output[NUM_SCREENS - 5].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("020", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("825", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("000", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_Mcap1TrillionJpy(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseMarketCap(831000, 52000, CURRENCY_JPY, true);
-    TEST_ASSERT_EQUAL_STRING("JPY/MCAP", output[0].c_str());
-    TEST_ASSERT_TRUE(CURRENCY_JPY == output[NUM_SCREENS - 6].c_str()[0]);
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("T", output[NUM_SCREENS - 1].c_str());
+void test_Mcap1TrillionJpy(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseMarketCap(831000, 52000, CURRENCY_JPY, true);
+  TEST_ASSERT_EQUAL_STRING("JPY/MCAP", output[0].c_str());
+  TEST_ASSERT_TRUE(CURRENCY_JPY == output[NUM_SCREENS - 6].c_str()[0]);
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING(".", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("T", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_Mcap1TrillionJpySmallChars(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseMarketCap(831000, 52000, CURRENCY_JPY, false);
-    TEST_ASSERT_EQUAL_STRING("JPY/MCAP", output[0].c_str());
+void test_Mcap1TrillionJpySmallChars(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseMarketCap(831000, 52000, CURRENCY_JPY, false);
+  TEST_ASSERT_EQUAL_STRING("JPY/MCAP", output[0].c_str());
 
-    char result[4];
-    snprintf(result, sizeof(result), " %c ", CURRENCY_JPY);
-    TEST_ASSERT_EQUAL_STRING(result, output[NUM_SCREENS - 6].c_str());
-    TEST_ASSERT_EQUAL_STRING("  1", output[NUM_SCREENS - 5].c_str());
-    TEST_ASSERT_EQUAL_STRING("020", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("825", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("000", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("000", output[NUM_SCREENS - 1].c_str());
+  char result[4];
+  snprintf(result, sizeof(result), " %c ", CURRENCY_JPY);
+  TEST_ASSERT_EQUAL_STRING(result, output[NUM_SCREENS - 6].c_str());
+  TEST_ASSERT_EQUAL_STRING("  1", output[NUM_SCREENS - 5].c_str());
+  TEST_ASSERT_EQUAL_STRING("020", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("825", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("000", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("000", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_BitcoinSupply(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseBitcoinSupply(831000, true, false);
+void test_BitcoinSupply(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseBitcoinSupply(831000, true, false);
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("6", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("6", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("M", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_BitcoinSupplyPercentage(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseBitcoinSupply(831000, true, true);
+void test_BitcoinSupplyPercentage(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseBitcoinSupply(831000, true, true);
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
 
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 6].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("3", output[NUM_SCREENS - 5].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 4].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("4", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("8", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(" % ", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 6].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("3", output[NUM_SCREENS - 5].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE(".", output[NUM_SCREENS - 4].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("4", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("8", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE(" % ", output[NUM_SCREENS - 1].c_str(),
+                                   joined.c_str());
 }
 
-void test_BitcoinSupplySmallChars(void)
-{
-    std::array<std::string, NUM_SCREENS> output = parseBitcoinSupply(655987, false, false);
+void test_BitcoinSupplySmallChars(void) {
+  std::array<std::string, NUM_SCREENS> output =
+      parseBitcoinSupply(655987, false, false);
 
-    std::string joined = joinArrayWithBrackets(output);
+  std::string joined = joinArrayWithBrackets(output);
 
-    TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE(" 18", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    TEST_ASSERT_EQUAL_STRING_MESSAGE("537", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    // TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 3].c_str(), joined.c_str());
-    // TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 2].c_str(), joined.c_str());
-    // TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS - 1].c_str(), joined.c_str());
+  TEST_ASSERT_EQUAL_STRING("BTC/SUPPLY", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE(" 18", output[NUM_SCREENS - 3].c_str(),
+                                   joined.c_str());
+  TEST_ASSERT_EQUAL_STRING_MESSAGE("537", output[NUM_SCREENS - 2].c_str(),
+                                   joined.c_str());
+  // TEST_ASSERT_EQUAL_STRING_MESSAGE("0", output[NUM_SCREENS - 3].c_str(),
+  // joined.c_str()); TEST_ASSERT_EQUAL_STRING_MESSAGE("9", output[NUM_SCREENS -
+  // 2].c_str(), joined.c_str()); TEST_ASSERT_EQUAL_STRING_MESSAGE("9",
+  // output[NUM_SCREENS - 1].c_str(), joined.c_str());
 }
 
 // ---------------------------------------------------------------------------
-// Regression tests for bounds / div-by-zero in parseSatsPerCurrency and friends.
+// Regression tests for bounds / div-by-zero in parseSatsPerCurrency and
+// friends.
 // ---------------------------------------------------------------------------
 
-void test_SatsPerCurrency_PriceZero(void)
-{
-    // Regression: 1/float(0) -> inf, int(inf) is UB.
-    // parseSatsPerCurrency must handle a 0 price without crashing and return a
-    // placeholder array.
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(0, CURRENCY_USD, false);
-    // Must not crash. Label should be present so the UI shows *something*.
-    TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+void test_SatsPerCurrency_PriceZero(void) {
+  // Regression: 1/float(0) -> inf, int(inf) is UB.
+  // parseSatsPerCurrency must handle a 0 price without crashing and return a
+  // placeholder array.
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(0, CURRENCY_USD, false);
+  // Must not crash. Label should be present so the UI shows *something*.
+  TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
 }
 
-void test_SatsPerCurrency_PriceZero_WithSymbol(void)
-{
-    // Regression: withSatsSymbol=true must not write out-of-bounds when the
-    // insertSatSymbol index underflows (size_t/uint8_t wrap).
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(0, CURRENCY_USD, true);
-    TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+void test_SatsPerCurrency_PriceZero_WithSymbol(void) {
+  // Regression: withSatsSymbol=true must not write out-of-bounds when the
+  // insertSatSymbol index underflows (size_t/uint8_t wrap).
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(0, CURRENCY_USD, true);
+  TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
 }
 
-void test_SatsPerCurrency_LowPriceWithSymbol(void)
-{
-    // Regression: price=100 -> sats/USD ~1e6 (7 digit string). With NUM_SCREENS=7
-    // the old insertSatSymbol index would be -1 and wrap around to 255 as
-    // uint8_t, triggering an OOB write. Must stay in-bounds.
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(100, CURRENCY_USD, true);
-    TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
-    // No element should ever be the literal "STS" at an impossible position;
-    // simply surviving the call is the main assertion.
+void test_SatsPerCurrency_LowPriceWithSymbol(void) {
+  // Regression: price=100 -> sats/USD ~1e6 (7 digit string). With NUM_SCREENS=7
+  // the old insertSatSymbol index would be -1 and wrap around to 255 as
+  // uint8_t, triggering an OOB write. Must stay in-bounds.
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(100, CURRENCY_USD, true);
+  TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+  // No element should ever be the literal "STS" at an impossible position;
+  // simply surviving the call is the main assertion.
 }
 
-void test_SatsPerDollar_NoMscwTime(void)
-{
-    // useMscwTime=false forces USD to use the generic "SATS/USD" header
-    // instead of "MSCW/TIME", matching the non-USD currency format.
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_USD, false, false);
-    TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("6", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
+void test_SatsPerDollar_NoMscwTime(void) {
+  // useMscwTime=false forces USD to use the generic "SATS/USD" header
+  // instead of "MSCW/TIME", matching the non-USD currency format.
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(37253, CURRENCY_USD, false, false);
+  TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("2", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("6", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("8", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("4", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_SatsPerDollar_MscwTime_Explicit(void)
-{
-    // Explicit useMscwTime=true matches the legacy default-arg behavior.
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_USD, false, true);
-    TEST_ASSERT_EQUAL_STRING("MSCW/TIME", output[0].c_str());
+void test_SatsPerDollar_MscwTime_Explicit(void) {
+  // Explicit useMscwTime=true matches the legacy default-arg behavior.
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(37253, CURRENCY_USD, false, true);
+  TEST_ASSERT_EQUAL_STRING("MSCW/TIME", output[0].c_str());
 }
 
-void test_SatsPerPound_IgnoresMscwTimeFlag(void)
-{
-    // The flag is USD-only; non-USD currencies always render as "SATS/<code>"
-    // regardless of the flag's value.
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(37253, CURRENCY_GBP, false, false);
-    TEST_ASSERT_EQUAL_STRING("SATS/GBP", output[0].c_str());
+void test_SatsPerPound_IgnoresMscwTimeFlag(void) {
+  // The flag is USD-only; non-USD currencies always render as "SATS/<code>"
+  // regardless of the flag's value.
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(37253, CURRENCY_GBP, false, false);
+  TEST_ASSERT_EQUAL_STRING("SATS/GBP", output[0].c_str());
 }
 
-void test_SatsPerCurrency_PriceZero_NoMscwTime(void)
-{
-    // Div-by-zero guard must also respect the useMscwTime flag.
-    std::array<std::string, NUM_SCREENS> output = parseSatsPerCurrency(0, CURRENCY_USD, false, false);
-    TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
+void test_SatsPerCurrency_PriceZero_NoMscwTime(void) {
+  // Div-by-zero guard must also respect the useMscwTime flag.
+  std::array<std::string, NUM_SCREENS> output =
+      parseSatsPerCurrency(0, CURRENCY_USD, false, false);
+  TEST_ASSERT_EQUAL_STRING("SATS/USD", output[0].c_str());
 }
 
-void test_BlockFees_HighRate(void)
-{
-    // Fee rate of 150 -> "150" (3 chars). Ensure nothing is lost/clobbered.
-    std::array<std::string, NUM_SCREENS> output = parseBlockFees(150.0f);
-    TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 4].c_str());
-    TEST_ASSERT_EQUAL_STRING("5", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
+void test_BlockFees_HighRate(void) {
+  // Fee rate of 150 -> "150" (3 chars). Ensure nothing is lost/clobbered.
+  std::array<std::string, NUM_SCREENS> output = parseBlockFees(150.0f);
+  TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 4].c_str());
+  TEST_ASSERT_EQUAL_STRING("5", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
 }
 
-void test_BlockFees_BoundaryTen(void)
-{
-    // Exactly at the >= 10.0 boundary.
-    std::array<std::string, NUM_SCREENS> output = parseBlockFees(10.0f);
-    TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
-    TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 3].c_str());
-    TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
-    TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
+void test_BlockFees_BoundaryTen(void) {
+  // Exactly at the >= 10.0 boundary.
+  std::array<std::string, NUM_SCREENS> output = parseBlockFees(10.0f);
+  TEST_ASSERT_EQUAL_STRING("FEE/RATE", output[0].c_str());
+  TEST_ASSERT_EQUAL_STRING("1", output[NUM_SCREENS - 3].c_str());
+  TEST_ASSERT_EQUAL_STRING("0", output[NUM_SCREENS - 2].c_str());
+  TEST_ASSERT_EQUAL_STRING("sat/vB", output[NUM_SCREENS - 1].c_str());
 }
 
 // not needed when using generate_test_runner.rb
-int runUnityTests(void)
-{
-    UNITY_BEGIN();
-    RUN_TEST(test_CorrectSatsPerDollarConversion);
-    RUN_TEST(test_CorrectSatsPerPoundConversion);
-    RUN_TEST(test_SatsPerDollarAfter1B);
-    RUN_TEST(test_SixCharacterBlockHeight);
-    RUN_TEST(test_SevenCharacterBlockHeight);
-    RUN_TEST(test_FeeRateDisplay);
-    RUN_TEST(test_FeeRateDisplay2);
-    RUN_TEST(test_PriceOf100kusd);
-    RUN_TEST(test_McapLowerUsd);
-    RUN_TEST(test_Mcap1TrillionUsd);
-    RUN_TEST(test_Mcap1TrillionUsdSmallChars);
-    RUN_TEST(test_Mcap1TrillionEur);
-    RUN_TEST(test_Mcap1TrillionEurSmallChars);
-    RUN_TEST(test_Mcap1TrillionJpy);
-    RUN_TEST(test_Mcap1TrillionJpySmallChars);
-    RUN_TEST(test_PriceSuffixMode);
-    RUN_TEST(test_PriceSuffixModeCompact1);
-    RUN_TEST(test_PriceSuffixModeCompact2);
-    RUN_TEST(test_PriceSuffixModeMow);
-    RUN_TEST(test_PriceSuffixModeMowCompact);
-    RUN_TEST(test_BitcoinSupply);
-    RUN_TEST(test_BitcoinSupplySmallChars);
-    RUN_TEST(test_BitcoinSupplyPercentage);
-    RUN_TEST(test_SatsPerCurrency_PriceZero);
-    RUN_TEST(test_SatsPerCurrency_PriceZero_WithSymbol);
-    RUN_TEST(test_SatsPerCurrency_LowPriceWithSymbol);
-    RUN_TEST(test_SatsPerDollar_NoMscwTime);
-    RUN_TEST(test_SatsPerDollar_MscwTime_Explicit);
-    RUN_TEST(test_SatsPerPound_IgnoresMscwTimeFlag);
-    RUN_TEST(test_SatsPerCurrency_PriceZero_NoMscwTime);
-    RUN_TEST(test_BlockFees_HighRate);
-    RUN_TEST(test_BlockFees_BoundaryTen);
-    return UNITY_END();
+int runUnityTests(void) {
+  UNITY_BEGIN();
+  RUN_TEST(test_CorrectSatsPerDollarConversion);
+  RUN_TEST(test_CorrectSatsPerPoundConversion);
+  RUN_TEST(test_SatsPerDollarAfter1B);
+  RUN_TEST(test_SixCharacterBlockHeight);
+  RUN_TEST(test_SevenCharacterBlockHeight);
+  RUN_TEST(test_FeeRateDisplay);
+  RUN_TEST(test_FeeRateDisplay2);
+  RUN_TEST(test_PriceOf100kusd);
+  RUN_TEST(test_McapLowerUsd);
+  RUN_TEST(test_Mcap1TrillionUsd);
+  RUN_TEST(test_Mcap1TrillionUsdSmallChars);
+  RUN_TEST(test_Mcap1TrillionEur);
+  RUN_TEST(test_Mcap1TrillionEurSmallChars);
+  RUN_TEST(test_Mcap1TrillionJpy);
+  RUN_TEST(test_Mcap1TrillionJpySmallChars);
+  RUN_TEST(test_PriceSuffixMode);
+  RUN_TEST(test_PriceSuffixModeCompact1);
+  RUN_TEST(test_PriceSuffixModeCompact2);
+  RUN_TEST(test_PriceSuffixModeMow);
+  RUN_TEST(test_PriceSuffixModeMowCompact);
+  RUN_TEST(test_BitcoinSupply);
+  RUN_TEST(test_BitcoinSupplySmallChars);
+  RUN_TEST(test_BitcoinSupplyPercentage);
+  RUN_TEST(test_SatsPerCurrency_PriceZero);
+  RUN_TEST(test_SatsPerCurrency_PriceZero_WithSymbol);
+  RUN_TEST(test_SatsPerCurrency_LowPriceWithSymbol);
+  RUN_TEST(test_SatsPerDollar_NoMscwTime);
+  RUN_TEST(test_SatsPerDollar_MscwTime_Explicit);
+  RUN_TEST(test_SatsPerPound_IgnoresMscwTimeFlag);
+  RUN_TEST(test_SatsPerCurrency_PriceZero_NoMscwTime);
+  RUN_TEST(test_BlockFees_HighRate);
+  RUN_TEST(test_BlockFees_BoundaryTen);
+  return UNITY_END();
 }
 
-int main(void)
-{
-    return runUnityTests();
-}
+int main(void) { return runUnityTests(); }
 
-extern "C" void app_main()
-{
-    runUnityTests();
-}
+extern "C" void app_main() { runUnityTests(); }

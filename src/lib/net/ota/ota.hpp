@@ -10,9 +10,9 @@
 #ifndef UPDATE_MESSAGE_HPP
 #define UPDATE_MESSAGE_HPP
 typedef struct {
-    char updateType;
+  char updateType;
 } UpdateMessage;
-#endif 
+#endif
 
 extern QueueHandle_t otaQueue;
 
@@ -29,9 +29,8 @@ void onOTAProgress(unsigned int progress, unsigned int total);
 void onOTAError(ota_error_t error);
 void onOTAComplete();
 int downloadUpdateHandler(char updateType);
-ReleaseInfo getLatestRelease(const String& fileToDownload);
+ReleaseInfo getLatestRelease(const String &fileToDownload);
 
 bool getIsOTAUpdating();
 
-String downloadSHA256(const String& filename);
-
+String downloadSHA256(const String &filename);

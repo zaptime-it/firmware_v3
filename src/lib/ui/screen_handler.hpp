@@ -4,9 +4,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include <data_handler.hpp>
-#include <bitaxe_handler.hpp>
 #include "lib/data_sources/mining_pool/mining_pool_stats_handler.hpp"
+#include <bitaxe_handler.hpp>
+#include <data_handler.hpp>
 
 #include "lib/drivers/epd/epd.hpp"
 #include "lib/system/shared.hpp"
@@ -33,21 +33,21 @@ typedef struct {
 
 class ScreenHandler {
 private:
-    static uint currentScreen;
-    static uint currentCurrency;
+  static uint currentScreen;
+  static uint currentCurrency;
 
 public:
-    static uint getCurrentScreen() { return currentScreen; }
-    static uint getCurrentCurrency() { return currentCurrency; }
-    static void setCurrentScreen(uint newScreen);
-    static void setCurrentCurrency(char currency);
-    static void nextScreen();
-    static void previousScreen();
-    static void showSystemStatusScreen();
-    static bool isCurrencySpecific(uint screen);
-    static bool handleCurrencyRotation(bool forward);
-    static int findNextVisibleScreen(int currentScreen, bool forward);
-    static void resetCurrencyForScreen(uint targetScreen, bool forward);
+  static uint getCurrentScreen() { return currentScreen; }
+  static uint getCurrentCurrency() { return currentCurrency; }
+  static void setCurrentScreen(uint newScreen);
+  static void setCurrentCurrency(char currency);
+  static void nextScreen();
+  static void previousScreen();
+  static void showSystemStatusScreen();
+  static bool isCurrencySpecific(uint screen);
+  static bool handleCurrencyRotation(bool forward);
+  static int findNextVisibleScreen(int currentScreen, bool forward);
+  static void resetCurrencyForScreen(uint targetScreen, bool forward);
 };
 
 // Keep as free functions since they deal with FreeRTOS tasks

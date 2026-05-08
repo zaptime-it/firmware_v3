@@ -1,34 +1,34 @@
 #pragma once
 
-#include <MCP23017.h>
 #include <Arduino.h>
+#include <MCP23017.h>
 #include <Preferences.h>
 #include <WiFiClientSecure.h>
 #include <WiFiManager.h>
 #include <base64.h>
 #include <esp_task_wdt.h>
-#include <nvs_flash.h>
 #include <map>
+#include <nvs_flash.h>
 
 #include "lib/data_sources/block_notify.hpp"
 #include "lib/drivers/buttons/button_handler.hpp"
 #include "lib/drivers/epd/epd.hpp"
 // #include "lib/improv.hpp"
-#include "lib/drivers/leds/led_handler.hpp"
-#include "lib/net/ota/ota.hpp"
-#include "lib/data_sources/nostr_notify.hpp"
 #include "lib/data_sources/bitaxe_fetch.hpp"
 #include "lib/data_sources/mining_pool_stats_fetch.hpp"
+#include "lib/data_sources/nostr_notify.hpp"
+#include "lib/drivers/leds/led_handler.hpp"
+#include "lib/net/ota/ota.hpp"
 
 #include "lib/data_sources/v2_notify.hpp"
 
 #include "lib/data_sources/price_notify.hpp"
-#include "lib/ui/screen_handler.hpp"
-#include "lib/system/shared.hpp"
 #include "lib/net/webserver/webserver.hpp"
+#include "lib/system/shared.hpp"
+#include "lib/ui/screen_handler.hpp"
 #ifdef HAS_FRONTLIGHT
-#include "PCA9685.h"
 #include "BH1750.h"
+#include "PCA9685.h"
 #endif
 
 #include "defaults.hpp"
@@ -37,7 +37,6 @@
 #ifndef MCP_DEV_ADDR
 #define MCP_DEV_ADDR 0x20
 #endif
-
 
 void setup();
 void syncTime();
@@ -68,7 +67,7 @@ std::vector<std::string> getLocalUrl();
 // void improv_set_state(improv::State state);
 // void improv_send_response(std::vector<uint8_t> &response);
 // void improv_set_error(improv::Error error);
-//void addCurrencyMappings(const std::vector<std::string>& currencies);
+// void addCurrencyMappings(const std::vector<std::string>& currencies);
 std::vector<std::string> getActiveCurrencies();
 std::vector<std::string> getAvailableCurrencies();
 
@@ -81,7 +80,7 @@ String getFsRev();
 
 bool debugLogEnabled();
 
-void addScreenMapping(int value, const char* name);
+void addScreenMapping(int value, const char *name);
 // void addScreenMapping(int value, const String& name);
 // void addScreenMapping(int value, const std::string& name);
 
@@ -92,8 +91,8 @@ void rebuildScreenMappings();
 
 int findScreenIndexByValue(int value);
 String replaceAmbiguousChars(String input);
-const char* getFirmwareFilename();
-const char* getWebUiFilename();
+const char *getFirmwareFilename();
+const char *getWebUiFilename();
 // void loadIcons();
 
 extern Preferences preferences;

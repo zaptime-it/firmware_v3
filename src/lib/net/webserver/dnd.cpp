@@ -10,13 +10,13 @@
 // PATCH /api/settings ("dnd" object), which is the path the UI actually
 // uses.
 
-static void onApiDNDStatus(AsyncWebServerRequest *request)
-{
-  if (requireHttpAuth(request)) return;
+static void onApiDNDStatus(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request))
+    return;
   auto &ledHandler = getLedHandler();
 
   JsonDocument doc;
-  doc["enabled"]        = ledHandler.isDNDEnabled();
+  doc["enabled"] = ledHandler.isDNDEnabled();
   doc["dndTimeEnabled"] = ledHandler.isDNDTimeBasedEnabled();
   doc["startTime"] = String(ledHandler.getDNDStartHour()) + ":" +
                      (ledHandler.getDNDStartMinute() < 10 ? "0" : "") +
@@ -31,25 +31,24 @@ static void onApiDNDStatus(AsyncWebServerRequest *request)
   request->send(HTTP_OK, "application/json", response);
 }
 
-static void onApiDNDEnable(AsyncWebServerRequest *request)
-{
-  if (requireHttpAuth(request)) return;
+static void onApiDNDEnable(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request))
+    return;
   getLedHandler().setDNDEnabled(true);
   request->send(HTTP_OK);
   notifyEventSourceStatus();
 }
 
-static void onApiDNDDisable(AsyncWebServerRequest *request)
-{
-  if (requireHttpAuth(request)) return;
+static void onApiDNDDisable(AsyncWebServerRequest *request) {
+  if (requireHttpAuth(request))
+    return;
   getLedHandler().setDNDEnabled(false);
   request->send(HTTP_OK);
   notifyEventSourceStatus();
 }
 
-void registerDndRoutes()
-{
-  server.on("/api/dnd/status",  HTTP_GET,  onApiDNDStatus);
-  server.on("/api/dnd/enable",  HTTP_POST, onApiDNDEnable);
+void registerDndRoutes() {
+  server.on("/api/dnd/status", HTTP_GET, onApiDNDStatus);
+  server.on("/api/dnd/enable", HTTP_POST, onApiDNDEnable);
   server.on("/api/dnd/disable", HTTP_POST, onApiDNDDisable);
 }

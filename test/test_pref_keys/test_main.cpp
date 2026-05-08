@@ -12,10 +12,10 @@
 // in src/lib/system/pref_keys.hpp, so adding a new NVS key can never silently
 // regress on a different platform build.
 
-#include <unity.h>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <unity.h>
 
 #include "../../src/lib/system/pref_keys.hpp"
 
@@ -28,11 +28,11 @@ namespace {
 // this list the compiler errors out on the static_assert-equivalent
 // TEST_ASSERT below, and a CI failure is the signal to add it.
 struct PrefKeyEntry {
-    const char *name;
-    const char *value;
+  const char *name;
+  const char *value;
 };
 
-#define PK(name) { #name, PrefKeys::name }
+#define PK(name) {#name, PrefKeys::name}
 
 // Deduced-size array: if a key is added to pref_keys.hpp and the test
 // reviewer forgets to add the corresponding PK() entry here, the test
@@ -128,7 +128,7 @@ constexpr PrefKeyEntry kAllKeys[] = {
 
 constexpr size_t kNumKeys = sizeof(kAllKeys) / sizeof(kAllKeys[0]);
 
-}  // namespace
+} // namespace
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -141,79 +141,67 @@ static constexpr size_t kNvsMaxKeyLen = 15;
 // number when intentionally adding a new key to both places.
 static constexpr size_t kExpectedNumKeys = 82;
 
-void test_KeyTableMatchesHeader(void)
-{
-    // The upstream count can be read with:
-    //   grep -cE '^inline constexpr' src/lib/system/pref_keys.hpp
-    // (the anchored version excludes the `inline constexpr` mention inside
-    // the file header comment). The two must stay in sync.
-    TEST_ASSERT_EQUAL_MESSAGE(kExpectedNumKeys, kNumKeys,
-        "Keys listed in test_pref_keys table do not match the header. "
-        "Update both test_pref_keys/test_main.cpp AND kExpectedNumKeys.");
+void test_KeyTableMatchesHeader(void) {
+  // The upstream count can be read with:
+  //   grep -cE '^inline constexpr' src/lib/system/pref_keys.hpp
+  // (the anchored version excludes the `inline constexpr` mention inside
+  // the file header comment). The two must stay in sync.
+  TEST_ASSERT_EQUAL_MESSAGE(
+      kExpectedNumKeys, kNumKeys,
+      "Keys listed in test_pref_keys table do not match the header. "
+      "Update both test_pref_keys/test_main.cpp AND kExpectedNumKeys.");
 }
 
-void test_AllKeysRespectNvsLengthCap(void)
-{
-    for (size_t i = 0; i < kNumKeys; ++i) {
-        const auto &entry = kAllKeys[i];
-        const size_t len = std::strlen(entry.value);
-        if (len > kNvsMaxKeyLen) {
-            char msg[128];
-            snprintf(msg, sizeof(msg),
-                     "PrefKeys::%s = \"%s\" is %zu chars (NVS caps at %zu)",
-                     entry.name, entry.value, len, kNvsMaxKeyLen);
-            TEST_FAIL_MESSAGE(msg);
-        }
+void test_AllKeysRespectNvsLengthCap(void) {
+  for (size_t i = 0; i < kNumKeys; ++i) {
+    const auto &entry = kAllKeys[i];
+    const size_t len = std::strlen(entry.value);
+    if (len > kNvsMaxKeyLen) {
+      char msg[128];
+      snprintf(msg, sizeof(msg),
+               "PrefKeys::%s = \"%s\" is %zu chars (NVS caps at %zu)",
+               entry.name, entry.value, len, kNvsMaxKeyLen);
+      TEST_FAIL_MESSAGE(msg);
     }
+  }
 }
 
-void test_AllKeysNonEmpty(void)
-{
-    for (size_t i = 0; i < kNumKeys; ++i) {
-        const auto &entry = kAllKeys[i];
-        if (std::strlen(entry.value) == 0) {
-            char msg[128];
-            snprintf(msg, sizeof(msg),
-                     "PrefKeys::%s is empty", entry.name);
-            TEST_FAIL_MESSAGE(msg);
-        }
+void test_AllKeysNonEmpty(void) {
+  for (size_t i = 0; i < kNumKeys; ++i) {
+    const auto &entry = kAllKeys[i];
+    if (std::strlen(entry.value) == 0) {
+      char msg[128];
+      snprintf(msg, sizeof(msg), "PrefKeys::%s is empty", entry.name);
+      TEST_FAIL_MESSAGE(msg);
     }
+  }
 }
 
-void test_AllKeyValuesUnique(void)
-{
-    for (size_t i = 0; i < kNumKeys; ++i) {
-        for (size_t j = i + 1; j < kNumKeys; ++j) {
-            if (std::strcmp(kAllKeys[i].value, kAllKeys[j].value) == 0) {
-                char msg[160];
-                snprintf(msg, sizeof(msg),
-                         "PrefKeys::%s and PrefKeys::%s both map to \"%s\"",
-                         kAllKeys[i].name, kAllKeys[j].name,
-                         kAllKeys[i].value);
-                TEST_FAIL_MESSAGE(msg);
-            }
-        }
+void test_AllKeyValuesUnique(void) {
+  for (size_t i = 0; i < kNumKeys; ++i) {
+    for (size_t j = i + 1; j < kNumKeys; ++j) {
+      if (std::strcmp(kAllKeys[i].value, kAllKeys[j].value) == 0) {
+        char msg[160];
+        snprintf(msg, sizeof(msg),
+                 "PrefKeys::%s and PrefKeys::%s both map to \"%s\"",
+                 kAllKeys[i].name, kAllKeys[j].name, kAllKeys[i].value);
+        TEST_FAIL_MESSAGE(msg);
+      }
     }
+  }
 }
 
 // ---------------------------------------------------------------------------
 
-int runUnityTests(void)
-{
-    UNITY_BEGIN();
-    RUN_TEST(test_KeyTableMatchesHeader);
-    RUN_TEST(test_AllKeysRespectNvsLengthCap);
-    RUN_TEST(test_AllKeysNonEmpty);
-    RUN_TEST(test_AllKeyValuesUnique);
-    return UNITY_END();
+int runUnityTests(void) {
+  UNITY_BEGIN();
+  RUN_TEST(test_KeyTableMatchesHeader);
+  RUN_TEST(test_AllKeysRespectNvsLengthCap);
+  RUN_TEST(test_AllKeysNonEmpty);
+  RUN_TEST(test_AllKeyValuesUnique);
+  return UNITY_END();
 }
 
-int main(void)
-{
-    return runUnityTests();
-}
+int main(void) { return runUnityTests(); }
 
-extern "C" void app_main()
-{
-    runUnityTests();
-}
+extern "C" void app_main() { runUnityTests(); }

@@ -20,8 +20,7 @@ namespace btclock {
 // go back to non-cs, then forward again" flow: the forward press
 // lands on a cs-screen and must restart at the first currency even
 // though the previous press silently walked currency state.
-int nextCurrencyIndex(bool newScreenIsCurrencySpecific,
-                      bool forward,
+int nextCurrencyIndex(bool newScreenIsCurrencySpecific, bool forward,
                       int activeCurrenciesSize);
 
-}  // namespace btclock
+} // namespace btclock

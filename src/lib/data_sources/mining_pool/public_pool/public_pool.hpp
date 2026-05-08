@@ -8,8 +8,8 @@
 
 class PublicPool : public NoderunnersPool {
 public:
-    std::string getApiUrl() const override;
-    bool hasLogo() const override { return false; }
-    std::string getDisplayLabel() const override { return "PUBLIC/POOL"; }
-    PoolStats parseResponse(const JsonDocument& doc) const override;
+  std::string getApiUrl() const override;
+  bool hasLogo() const override { return false; }
+  std::string getDisplayLabel() const override { return "PUBLIC/POOL"; }
+  PoolStats parseResponse(const JsonDocument &doc) const override;
 };

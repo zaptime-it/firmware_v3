@@ -9,19 +9,19 @@
 // NOTE: include order here matters. WebServer.h must come before
 // ESPAsyncWebServer.h, otherwise the latter pulls in the wrong symbols and
 // the build breaks with "redefinition of 'class WebServer'".
-#include "WebServer.h"
-#include "ESPAsyncWebServer.h"
-#include <ArduinoJson.h>
-#include <LittleFS.h>
-#include <ESPmDNS.h>
 #include "AsyncJson.h"
+#include "ESPAsyncWebServer.h"
+#include "WebServer.h"
+#include <ArduinoJson.h>
+#include <ESPmDNS.h>
+#include <LittleFS.h>
 #include <iostream>
 
+#include "OneParamRewrite.hpp"
 #include "lib/data_sources/block_notify.hpp"
+#include "lib/data_sources/mining_pool/pool_factory.hpp"
 #include "lib/data_sources/price_notify.hpp"
 #include "lib/ui/screen_handler.hpp"
-#include "OneParamRewrite.hpp"
-#include "lib/data_sources/mining_pool/pool_factory.hpp"
 
 // FreeRTOS task that fans the /api/status JSON out over SSE whenever any
 // state-changing component calls xTaskNotifyGive(eventSourceTaskHandle).

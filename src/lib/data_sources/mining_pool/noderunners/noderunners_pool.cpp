@@ -3,46 +3,40 @@
 
 #include <cstdlib>
 
-void NoderunnersPool::prepareRequest(HTTPClient &http) const
-{
-    // Empty as Noderunners doesn't need special headers
+void NoderunnersPool::prepareRequest(HTTPClient &http) const {
+  // Empty as Noderunners doesn't need special headers
 }
 
-std::string NoderunnersPool::getApiUrl() const
-{
-    return "https://pool.noderunners.network/api/v1/users/" + poolUser;
+std::string NoderunnersPool::getApiUrl() const {
+  return "https://pool.noderunners.network/api/v1/users/" + poolUser;
 }
 
-std::string NoderunnersPool::getGlobalStatsUrl() const
-{
-    return "https://pool.noderunners.network/api/v1/pool";
+std::string NoderunnersPool::getGlobalStatsUrl() const {
+  return "https://pool.noderunners.network/api/v1/pool";
 }
 
-PoolStats NoderunnersPool::parseResponse(const JsonDocument &doc) const
-{
-    const PoolStats fallback{"0", std::nullopt};
+PoolStats NoderunnersPool::parseResponse(const JsonDocument &doc) const {
+  const PoolStats fallback{"0", std::nullopt};
 
-    std::string hashrateStr = doc["hashrate1m"].as<std::string>();
-    if (hashrateStr.empty() || hashrateStr == "0") {
-        return fallback;
-    }
+  std::string hashrateStr = doc["hashrate1m"].as<std::string>();
+  if (hashrateStr.empty() || hashrateStr == "0") {
+    return fallback;
+  }
 
-    char unit = hashrateStr.back();
-    std::string value = hashrateStr.substr(0, hashrateStr.size() - 1);
+  char unit = hashrateStr.back();
+  std::string value = hashrateStr.substr(0, hashrateStr.size() - 1);
 
-    char *endp = nullptr;
-    double parsed = std::strtod(value.c_str(), &endp);
-    if (endp == value.c_str()) {
-        return fallback;
-    }
+  char *endp = nullptr;
+  double parsed = std::strtod(value.c_str(), &endp);
+  if (endp == value.c_str()) {
+    return fallback;
+  }
 
-    int multiplier = getHashrateMultiplier(unit);
-    double hashrate = parsed * std::pow(10, multiplier);
+  int multiplier = getHashrateMultiplier(unit);
+  double hashrate = parsed * std::pow(10, multiplier);
 
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%.0f", hashrate);
+  char buffer[32];
+  snprintf(buffer, sizeof(buffer), "%.0f", hashrate);
 
-    return PoolStats{
-        .hashrate = buffer,
-        .dailyEarnings = std::nullopt};
+  return PoolStats{.hashrate = buffer, .dailyEarnings = std::nullopt};
 }
