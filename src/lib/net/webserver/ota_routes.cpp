@@ -144,9 +144,9 @@ void registerOtaRoutes() {
   if (!preferences.getBool("otaEnabled", DEFAULT_OTA_ENABLED))
     return;
 
-  server.on("/upload/firmware", HTTP_POST, onFirmwareUpdate,
+  server.on("/upload/firmware", AsyncWebRequestMethod::HTTP_POST, onFirmwareUpdate,
             asyncFirmwareUpdateHandler);
-  server.on("/upload/webui", HTTP_POST, onFirmwareUpdate,
+  server.on("/upload/webui", AsyncWebRequestMethod::HTTP_POST, onFirmwareUpdate,
             asyncWebuiUpdateHandler);
-  server.on("/api/firmware/auto_update", HTTP_POST, onAutoUpdateFirmware);
+  server.on("/api/firmware/auto_update", AsyncWebRequestMethod::HTTP_POST, onAutoUpdateFirmware);
 }

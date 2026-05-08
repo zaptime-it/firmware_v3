@@ -57,7 +57,7 @@ void notifyEventSourceStatus() {
 static void onNotFound(AsyncWebServerRequest *request) {
   // CORS preflight: 200 with the default CORS headers is enough for the
   // browser to then make the real request.
-  if (request->method() == HTTP_OPTIONS) {
+  if (request->method() == AsyncWebRequestMethod::HTTP_OPTIONS) {
     request->send(HTTP_OK);
     return;
   }

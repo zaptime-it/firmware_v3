@@ -10,8 +10,9 @@
 // ESPAsyncWebServer.h, otherwise the latter pulls in the wrong symbols and
 // the build breaks with "redefinition of 'class WebServer'".
 #include "AsyncJson.h"
-#include "ESPAsyncWebServer.h"
 #include "WebServer.h"
+#define ASYNCWEBSERVER_NO_GLOBAL_HTTP_METHODS 1
+#include "ESPAsyncWebServer.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
 #include <LittleFS.h>

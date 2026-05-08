@@ -477,12 +477,12 @@ static void onApiSettingsPatch(AsyncWebServerRequest *request,
 }
 
 void registerSettingsRoutes() {
-  server.on("/api/settings", HTTP_GET, onApiSettingsGet);
+  server.on("/api/settings", AsyncWebRequestMethod::HTTP_GET, onApiSettingsGet);
 
   // PATCH /api/settings replaces the old POST-ish /api/json/settings so the
   // settings endpoint pair (GET read / PATCH write) lives on a single URL.
   AsyncCallbackJsonWebHandler *settingsPatchHandler =
       new AsyncCallbackJsonWebHandler("/api/settings", onApiSettingsPatch);
-  settingsPatchHandler->setMethod(HTTP_PATCH);
+  settingsPatchHandler->setMethod(AsyncWebRequestMethod::HTTP_PATCH);
   server.addHandler(settingsPatchHandler);
 }

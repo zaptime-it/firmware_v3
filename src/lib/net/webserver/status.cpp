@@ -132,6 +132,6 @@ static void onApiSystemStatus(AsyncWebServerRequest *request) {
 }
 
 void registerStatusRoutes() {
-  server.on("/api/status", HTTP_GET, onApiStatus);
-  server.on("/api/system_status", HTTP_GET, onApiSystemStatus);
+  server.on("/api/status", AsyncWebRequestMethod::HTTP_GET, onApiStatus);
+  server.on("/api/system_status", AsyncWebRequestMethod::HTTP_GET, onApiSystemStatus);
 }
