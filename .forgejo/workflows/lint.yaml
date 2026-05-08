@@ -54,6 +54,8 @@ jobs:
             'lib/**/*.c' 'lib/**/*.cpp' 'lib/**/*.h' 'lib/**/*.hpp' \
             'include/**/*.h' 'include/**/*.hpp' \
             'test/**/*.c' 'test/**/*.cpp' 'test/**/*.h' 'test/**/*.hpp' || true)"
+          # Exclude generated font blobs (massive data arrays).
+          files="$(echo "$files" | rg -v '^src/fonts/' || true)"
           if [ -z "$files" ]; then
             echo "No source files found for formatting gate."
             exit 0
