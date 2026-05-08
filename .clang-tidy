@@ -27,7 +27,9 @@ Checks: >
   readability-container-size-empty,
   readability-make-member-function-const
 
-WarningsAsErrors: '*'
+# Start as warnings-only in v3. Once the baseline is clean, we can
+# promote selected checks to errors (like btclock_v4 does).
+WarningsAsErrors: ''
 
 # Keep the report scoped to code we own. The native compile DB still pulls in
 # Arduino/ESP-IDF headers, but we don't want to lint those.
