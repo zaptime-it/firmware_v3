@@ -1,0 +1,37 @@
+# Curated check set (mirrors btclock_v4). We keep it focused on high-signal
+# bug-finding checks; broader style suites tend to produce noise for embedded
+# code and ESP-IDF/Arduino APIs.
+#
+# clang-tidy errors if no checks are enabled, so this file is required for the
+# CI lint workflow.
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-narrowing-conversions,
+  modernize-use-nullptr,
+  modernize-use-override,
+  modernize-use-equals-default,
+  modernize-use-equals-delete,
+  modernize-loop-convert,
+  modernize-deprecated-headers,
+  modernize-use-emplace,
+  performance-*,
+  -performance-avoid-endl,
+  readability-redundant-string-cstr,
+  readability-redundant-string-init,
+  readability-redundant-control-flow,
+  readability-static-definition-in-anonymous-namespace,
+  readability-misleading-indentation,
+  readability-simplify-boolean-expr,
+  readability-container-size-empty,
+  readability-make-member-function-const
+
+WarningsAsErrors: '*'
+
+# Keep the report scoped to code we own. The native compile DB still pulls in
+# Arduino/ESP-IDF headers, but we don't want to lint those.
+HeaderFilterRegex: '^.*/(src|lib|test)/.*\\.(h|hpp)$'
+
+FormatStyle: file
+
