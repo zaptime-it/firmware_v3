@@ -86,7 +86,7 @@ static void asyncFileUpdateHandler(AsyncWebServerRequest *request,
       const esp_partition_t *fsPart = esp_partition_find_first(
           ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_SPIFFS, NULL);
       if (fsPart)
-        fsSize = fsPart->size & ~(SPI_FLASH_SEC_SIZE - 1);
+        fsSize = fsPart->size & ~(0x1000U - 1U);
       s_fsCapSize = fsSize;
       s_fsWritten = 0;
 

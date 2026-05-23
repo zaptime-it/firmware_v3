@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rom/miniz.h"
+#include "miniz.h"
 #include <Arduino.h>
 
 class GzipDecompressor {

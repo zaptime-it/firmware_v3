@@ -1,4 +1,5 @@
 #include "config.hpp"
+#include "esp_mac.h"
 #include "lib/data_sources/live_service.hpp"
 #include "lib/drivers/leds/led_handler.hpp"
 #include "lib/system/pref_keys.hpp"
@@ -226,7 +227,6 @@ void setupWifi() {
   //   Serial.printf("Failed to set country: %d\n", err);
   // }
 
-  WiFi.setAutoConnect(true);
   WiFi.setAutoReconnect(true);
   WiFi.begin();
 

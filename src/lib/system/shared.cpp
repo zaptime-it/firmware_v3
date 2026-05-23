@@ -165,7 +165,8 @@ HTTPClient *HttpHelper::begin(const String &url) {
 
   if (url.startsWith("https://")) {
     if (!certBundleSet) {
-      secureClient.setCACertBundle(rootca_crt_bundle_start);
+      secureClient.setCACertBundle(rootca_crt_bundle_start,
+                                   rootca_crt_bundle_end - rootca_crt_bundle_start);
       certBundleSet = true;
     }
     http->begin(secureClient, url);

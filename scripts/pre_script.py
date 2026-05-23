@@ -129,3 +129,121 @@ def _force_websockets_rx_internal(env):
 
 
 _force_websockets_rx_internal(env)
+
+
+def _guard_ubitcoin_esp_random(env):
+    """Make uBitcoin's trezor/rand.c compile against ESP-IDF v5.x.
+
+    `esp_random()` used to be declared in <esp_system.h> on IDF v4.x;
+    v5.x moved it to <esp_random.h> and <esp_system.h> no longer brings
+    it in transitively. uBitcoin (pulled in via nostrduino) still only
+    includes <esp_system.h>, producing
+    `implicit declaration of function 'esp_random'`.
+
+    Idempotent: sentinel-guarded.
+    """
+    import glob
+
+    project_dir = env["PROJECT_DIR"]
+    libdeps_dir = env.subst("$PROJECT_LIBDEPS_DIR")
+    piobuildenv = env["PIOENV"]
+    env_libdeps = os.path.join(libdeps_dir, piobuildenv)
+    if not os.path.isdir(env_libdeps):
+        return
+
+    # uBitcoin lives at top-level for some envs (lolin_s3_mini, btclock_rev_b)
+    # but nested under Nostrduino/src/ for others (lolin_s3_mini_*_epd,
+    # btclock_v8_213epd). Glob covers both layouts.
+    candidates = glob.glob(
+        os.path.join(env_libdeps, "**", "trezor", "rand.c"),
+        recursive=True,
+    )
+
+    SENTINEL = "/* patched by pre_script.py for IDF v5 esp_random move */"
+    target = "  #include <esp_system.h>"
+    replacement = (
+        SENTINEL + "\n"
+        "  #include <esp_system.h>\n"
+        "  #include <esp_random.h>"
+    )
+    for src_path in candidates:
+        with open(src_path, "r") as f:
+            src = f.read()
+        if SENTINEL in src:
+            continue
+        new_src = src.replace(target, replacement, 1)
+        if new_src == src:
+            continue
+        with open(src_path, "w") as f:
+            f.write(new_src)
+        print(
+            f"[pre_script] patched {os.path.relpath(src_path, project_dir)} "
+            f"to include <esp_random.h> for IDF v5"
+        )
+
+
+_guard_ubitcoin_esp_random(env)
+
+
+def _guard_gxepd2_for_modern_gcc(env):
+    """Patch the dsbaars/GxEPD2#universal_pin fork for GCC 11+.
+
+    The fork replaces `int` pin members with `UniversalPin*` but missed
+    several `if (_rst >= 0)` style checks where the operand is now a
+    pointer. Newer GCC (shipped with IDF v5.5 toolchain) rejects that
+    ordered comparison of pointer with integer zero as an error, not a
+    warning. Replace the bare `>= 0` checks with `!= nullptr` -- the
+    fork's intent is "is a pin assigned?", which on the pointer model
+    means non-null.
+
+    Also injects `#include <stdexcept>` into GxEPD2_EPD.cpp where
+    `std::runtime_error` is used but never included (worked transitively
+    on older libstdc++ headers).
+
+    Idempotent per-file via sentinel marker at top.
+    """
+    import re
+
+    project_dir = env["PROJECT_DIR"]
+    libdeps_dir = env.subst("$PROJECT_LIBDEPS_DIR")
+    piobuildenv = env["PIOENV"]
+    root = os.path.join(libdeps_dir, piobuildenv, "GxEPD2", "src")
+    if not os.path.isdir(root):
+        return
+
+    SENTINEL = "// patched by pre_script.py: GxEPD2 fork pin>=0 -> != nullptr"
+    PIN_RE = re.compile(r"\bif \((_(rst|dc|cs|busy))\s*>=\s*0\)")
+
+    patched = 0
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for fname in filenames:
+            if not fname.endswith((".cpp", ".h")):
+                continue
+            fpath = os.path.join(dirpath, fname)
+            with open(fpath, "r") as f:
+                src = f.read()
+            if SENTINEL in src:
+                continue
+            new_src = PIN_RE.sub(r"if (\1 != nullptr)", src)
+            if fname == "GxEPD2_EPD.cpp" and "<stdexcept>" not in new_src:
+                # std::runtime_error used at line ~163 but never included.
+                new_src = new_src.replace(
+                    "#include \"GxEPD2_EPD.h\"",
+                    "#include \"GxEPD2_EPD.h\"\n#include <stdexcept>",
+                    1,
+                )
+            if new_src == src:
+                continue
+            new_src = SENTINEL + "\n" + new_src
+            with open(fpath, "w") as f:
+                f.write(new_src)
+            patched += 1
+
+    if patched:
+        print(
+            f"[pre_script] patched {patched} GxEPD2 file(s) for modern GCC "
+            f"(pin pointer-vs-int + std::runtime_error)"
+        )
+
+
+_guard_gxepd2_for_modern_gcc(env)

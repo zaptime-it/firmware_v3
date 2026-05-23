@@ -2,7 +2,7 @@
 
 #include <Adafruit_GFX.h>
 #include <Arduino.h>
-#include <rom/miniz.h>
+#include <miniz.h>
 
 // Font metadata structure
 struct FontData {
