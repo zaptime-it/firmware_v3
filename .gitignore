@@ -36,6 +36,11 @@ idf-build/spiffs/
 /build_*/
 /compile_commands.json
 
+# Host-test CMake build trees (tests/CMakeLists.txt). The scaffold
+# itself under tests/ IS tracked.
+/build-tests/
+/build-tests-asan/
+
 # Font/asset conversion byproducts that used to end up at the repo root
 # while experimenting with tools/ helpers. The real source files live
 # under data/ or src/fonts/; nothing at the root needs to be tracked.
