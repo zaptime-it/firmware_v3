@@ -2,134 +2,170 @@
 
 ## Prerequisites
 
-- PlatformIO Core ≥ 6.x. The easiest way is `pipx install platformio` or
-  the PlatformIO VS Code / Cursor extension, which ships its own `pio`
-  under `~/.platformio/penv/bin/`.
-- Python ≥ 3.9 (used by the pre- and post-build scripts in `scripts/`).
-- Git, and a clone that also pulls the `data/` submodule:
+- **ESP-IDF v5.5** with the esp32s3 toolchain. Install via:
+
+  ```bash
+  git clone --depth 1 --branch v5.5 --recurse-submodules \
+    --shallow-submodules https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+  ~/esp/esp-idf/install.sh esp32s3
+  source ~/esp/esp-idf/export.sh
+  ```
+
+  Once installed, run `source ~/esp/esp-idf/export.sh` in every fresh
+  shell that needs `idf.py`.
+
+- **Node + pnpm** (for the WebUI build).
+- **Python 3** (already pulled in by ESP-IDF) plus
+  `littlefs-python==0.15.0` and `esptool` on the IDF venv:
+
+  ```bash
+  pip install --upgrade littlefs-python==0.15.0 esptool
+  ```
+
+- **Git** with submodules, so the `data/` WebUI submodule comes along:
 
   ```bash
   git clone --recurse-submodules https://git.btclock.dev/btclock/btclock_v3.git
   cd btclock_v3
-  ```
-
-  If you cloned without `--recurse-submodules`:
-
-  ```bash
+  # or, after a non-recursive clone:
   git submodule update --init --recursive
   ```
 
-The `data/` submodule is the SvelteKit WebUI. It is built separately and
-its output is consumed by the firmware via `data_dir = data/build_gz` in
-`platformio.ini`.
+The `data/` submodule is the SvelteKit WebUI. It builds to
+`data/build_gz/www/` (gzipped per file) and is packed into a LittleFS
+image at build-release time.
 
 ## Hardware variants
 
 The project targets three physical devices. The firmware auto-selects
-the right driver for each via `-D` compile flags set in `platformio.ini`.
+the right driver via `-D` compile flags from
+`firmware/main/CMakeLists.txt`, keyed off the `BTCLOCK_VARIANT` CMake
+variable.
 
-| Variant             | Board            | RAM      | PSRAM | Flash | Screens | Frontlight | Flag            |
-| ------------------- | ---------------- | -------- | ----- | ----- | ------- | ---------- | --------------- |
-| Lolin S3 Mini (v1) | `lolin_s3_mini`  | 320 KB   | 2 MB  | 4 MB  | 7       | no         | `IS_HW_REV_A`   |
-| BTClock Rev B       | `btclock_rev_b`  | 320 KB   | 8 MB  | 8 MB  | 7       | yes (PCA9685 + BH1750) | `IS_HW_REV_B` |
-| BTClock V8 (proto) | `btclock_v8`     | 320 KB   | 8 MB  | 16 MB | 8       | no         | *(none)*        |
+| Variant            | Board            | RAM    | PSRAM | Flash | Screens | Frontlight             | Flag            |
+| ------------------ | ---------------- | ------ | ----- | ----- | ------- | ---------------------- | --------------- |
+| Lolin S3 Mini (v1) | `lolin_s3_mini`  | 320 KB | 2 MB  | 4 MB  | 7       | no                     | `IS_HW_REV_A`   |
+| BTClock Rev B      | `btclock_rev_b`  | 320 KB | 8 MB  | 8 MB  | 7       | yes (PCA9685 + BH1750) | `IS_HW_REV_B`   |
+| BTClock V8 (proto) | `btclock_v8`     | 320 KB | 8 MB  | 16 MB | 8       | no                     | `IS_BTCLOCK_V8` |
 
 The V8 board routes the e-paper CS / BUSY / RESET pins through two
 MCP23017 expanders instead of native GPIO. That means I2C contention
 on `mcpMutex` is more expensive there; see
 [ARCHITECTURE.md#v8-caveat](ARCHITECTURE.md#v8-caveat-8-panel-prototype).
 
-## Environments
+## Variants
 
-Every shipping variant has a PlatformIO environment; the display size
-(213 = 2.13", 29 = 2.9") is part of the env name.
+Each shipping variant has its own `firmware/sdkconfig.defaults.<variant>`
+plus a `BTCLOCK_VARIANT` selector that picks the right pin defines:
 
-| Env                    | Hardware       | EPD size | Default |
-| ---------------------- | -------------- | -------- | ------- |
-| `lolin_s3_mini_213epd` | Lolin S3 Mini  | 2.13"    | yes     |
-| `lolin_s3_mini_29epd`  | Lolin S3 Mini  | 2.9"     | yes     |
-| `btclock_rev_b_213epd` | BTClock Rev B  | 2.13"    | yes     |
-| `btclock_rev_b_29epd`  | BTClock Rev B  | 2.9"     | no      |
-| `btclock_v8_213epd`    | BTClock V8     | 2.13"    | yes     |
-| `native_test_only`     | host           | n/a      | no      |
+| Variant                | Hardware       | EPD size | CI default |
+| ---------------------- | -------------- | -------- | ---------- |
+| `lolin_s3_mini_213epd` | Lolin S3 Mini  | 2.13"    | yes        |
+| `lolin_s3_mini_29epd`  | Lolin S3 Mini  | 2.9"     | yes        |
+| `btclock_rev_b_213epd` | BTClock Rev B  | 2.13"    | yes        |
+| `btclock_v8_213epd`    | BTClock V8     | 2.13"    | yes        |
 
-`platformio.ini`'s `default_envs` covers the four shipping targets, so
-`pio run` without `-e` builds all four. `native_test_only` is excluded
-from the default build list — it's only picked up by `pio test`
-([TESTING.md](TESTING.md)).
-
-All environments share a single `[btclock_base]` block that pins the
-espressif32 platform version, the `arduino, espidf` frameworks, the
-littlefs filesystem, and a single copy of `platform_packages` and
-`lib_deps`. Before 3.4.0 most of that was duplicated per env and a few
-versions had drifted; if you need to bump any shared dependency, bump
-it in `[btclock_base]` and nowhere else.
+A shared `firmware/sdkconfig.defaults` carries the cross-variant size
+trim (Mozilla CMN cert bundle, mbedtls / WiFi / Arduino-selective trims,
+assertions silent, etc.). Per-variant defaults chain on top of it via
+the `SDKCONFIG_DEFAULTS` argument the build helpers pass.
 
 ## Building
 
+The wrapper scripts in `firmware/` are the canonical entry point.
+They cd into the IDF project, drop the stale per-build `sdkconfig`
+checkpoint so the chained defaults take effect, and run `idf.py` with
+the right arguments.
+
 ```bash
-pio run                          # all four default envs
-pio run -e lolin_s3_mini_213epd  # just one
-pio run -t clean                 # clean all default envs
-pio run -e btclock_rev_b_213epd -t upload  # flash over USB
-pio run -e btclock_rev_b_213epd -t uploadfs # flash LittleFS (WebUI)
+# Build every shipping variant in turn; binaries land in build_<variant>/
+./firmware/build.sh
+
+# Build one variant
+./firmware/build.sh lolin_s3_mini_213epd
+
+# Build + flash (PORT must point at a board in download mode)
+PORT=/dev/cu.usbmodem8331401 ./firmware/build.sh btclock_rev_b_213epd flash
+
+# Build + LittleFS image + esptool merge_bin (release flow, used by CI)
+./firmware/build-release.sh btclock_v8_213epd
+# Artifacts land in release-stage/<variant>/.
 ```
 
-If `pio` isn't on your `$PATH` because you installed it via the IDE:
+If you want to call `idf.py` directly:
 
 ```bash
-export PATH="$HOME/.platformio/penv/bin:$PATH"
+source ~/esp/esp-idf/export.sh
+cd firmware
+# One-time, idempotent: vendor the Arduino libraries listed in
+# arduino_libraries.json into firmware/arduino_libraries/<name>/.
+python3 fetch_arduino_libs.py
+idf.py -B ../build_lolin_s3_mini_213epd \
+       -DSDKCONFIG_DEFAULTS='sdkconfig.defaults;sdkconfig.defaults.lolin_s3_mini_213epd' \
+       -DBTCLOCK_VARIANT=lolin_s3_mini_213epd \
+       -DIDF_TARGET=esp32s3 \
+       build
 ```
 
 ## Partition layout
 
 Each hardware variant has its own partition table to match its flash
-size. All three share the same OTA-slot layout (two equal app slots +
-one LittleFS) so the OTA path is the same regardless of target.
+size. All three share the same OTA-slot layout (two equal app slots
+plus one LittleFS for the WebUI) so the OTA path is the same regardless
+of target.
 
-| Variant        | Partition file       | OTA slot size | LittleFS (WebUI) |
-| -------------- | -------------------- | ------------- | ---------------- |
-| Lolin S3 Mini  | `partition.csv`      | 1.75 MB       | 411 KB           |
-| BTClock Rev B  | `partition_8mb.csv`  | 3.44 MB       | 820 KB           |
-| BTClock V8     | `partition_16mb.csv` | 6.94 MB       | 2 MB             |
+| Variant       | Partition file                  | OTA slot size | LittleFS (WebUI) |
+| ------------- | ------------------------------- | ------------- | ---------------- |
+| Lolin S3 Mini | `firmware/partition.csv`        | 1.72 MB       | 411 KB           |
+| BTClock Rev B | `firmware/partition_8mb.csv`    | 3.44 MB       | 820 KB           |
+| BTClock V8    | `firmware/partition_16mb.csv`   | 6.94 MB       | 2 MB             |
 
-When firmware size starts creeping, the Lolin 4 MB variant is the one
-that hits the ceiling first — CI pins a size guard against
-`lolin_s3_mini_213epd` precisely for this reason
-([TESTING.md#firmware-size-guard](TESTING.md#firmware-size-guard)).
+The Lolin 4 MB variant is the one that hits the OTA-slot ceiling first
+(currently ~3% free on `lolin_s3_mini_213epd`). When firmware size
+creeps, that's the one to watch.
 
 ## Uploading the WebUI
 
-The WebUI lives in the `data/` submodule and is built separately. The
-top-level `data_dir = data/build_gz` in `platformio.ini` means the
-LittleFS image PlatformIO packages is whatever is in that directory at
-build time.
+The WebUI lives in the `data/` submodule and is built separately;
+`firmware/build-release.sh` consumes the already-built output.
 
 ```bash
 cd data
-npm ci
-npm run build            # emits into build_gz/
-cd ..
-pio run -e lolin_s3_mini_213epd -t uploadfs
+CI=true pnpm install --frozen-lockfile
+pnpm build
+python3 gzip_build.py          # repacks dist/ into build_gz/www/*.gz
 ```
 
-The in-place "update WebUI from Git release" button in the device UI
-does the same thing over HTTP using the `/api/ota/webui` endpoint
-([API.md](API.md)).
+After that, either:
+
+- The WebUI "update from release" button on the device pulls the
+  matching `littlefs_<size>.bin` over HTTP, or
+- Flash `release-stage/<variant>/littlefs_<size>.bin` directly via the
+  device's `/upload/webui` endpoint (see [API.md](API.md)) or esptool:
+
+  ```bash
+  source ~/esp/esp-idf/export.sh
+  python -m esptool --chip esp32s3 -p $PORT write_flash \
+    <spiffs_offset> release-stage/<variant>/littlefs_<size>.bin
+  ```
+
+`build-release.sh` autodetects the spiffs offset from the built
+partition table — don't hardcode `0x380000` from older docs; on Lolin
+boards app1 rounds up to a 64 KB boundary so the actual offset is
+`0x388000`.
 
 ## OTA
 
 Two OTA transports are supported:
 
 - **Web-driven streamed download** via `/api/ota/update` and
-  `/api/ota/webui`. The handler streams the HTTP response straight into
-  `Update.write()` and computes the SHA-256 on the fly, so the whole
-  firmware image never has to fit in heap. This is what the WebUI "Check
-  for update" flow uses.
+  `/api/ota/webui`. The handler streams the HTTP response straight
+  into `Update.write()` and computes the SHA-256 on the fly, so the
+  whole firmware image never has to fit in heap. This is what the
+  WebUI "Check for update" flow uses.
 - **ArduinoOTA push** on the standard mDNS port. When the NVS key
   `otaPass` is non-empty, it is applied via `ArduinoOTA.setPassword()`
-  before `ArduinoOTA.begin()`. Push upload from `pio run -t upload` over
-  the network requires you to supply this password to `espota.py`.
+  before `ArduinoOTA.begin()`.
 
 ## Build-time configuration
 
@@ -142,19 +178,27 @@ Almost every defaulted setting lives in
 
 ### Third-party library patches
 
-Some third-party Arduino libraries hard-code values that need to vary
-across our targets. Rather than fork them, [`scripts/pre_script.py`](../scripts/pre_script.py)
-patches the affected header in-place at build time. Each patch is
-idempotent via a sentinel comment, so it's safe against `pio run -t
-clean` and library reinstalls.
+Some vendored Arduino libraries hard-code values that need to vary
+across our targets. Rather than fork them, `firmware/fetch_arduino_libs.py`
+patches the affected files in-place at fetch time. Each patch is
+idempotent via a sentinel comment, so re-running the fetcher (or
+`./firmware/build.sh`, which calls it transitively the first time)
+won't double-apply.
 
-- **`WebSockets.h`** (Links2004 WebSockets library) — wraps
-  `#define WEBSOCKETS_MAX_DATA_SIZE (15 * 1024)` in an `#ifndef` guard
-  so the `-D WEBSOCKETS_MAX_DATA_SIZE=32768` build flag in
-  `[btclock_base]` actually wins. Needed because `mempool.space` pushes
-  an ~18 KB initial `blocks` history burst right after our subscription;
-  the upstream 15 KB cap would otherwise issue close code 1009
-  ("message too big") and park the WS in a reconnect loop.
+Currently patched:
+
+- **WebSockets.h** (Links2004) — wraps the `WEBSOCKETS_MAX_DATA_SIZE`
+  default in an `#ifndef` guard so our `-D WEBSOCKETS_MAX_DATA_SIZE=32768`
+  override actually wins. Needed because mempool.space pushes an ~18 KB
+  initial `blocks` history burst right after our subscription; the
+  upstream 15 KB cap would otherwise issue close code 1009 and park
+  the WS in a reconnect loop.
+- **WebSockets** RX buffer DRAM placement — keeps the buffer out of
+  PSRAM so the WS task doesn't stall on the cross-bus access.
+- **GxEPD2** modern-GCC fix-ups (`if (_rst >= 0)` → `if (_rst != nullptr)`
+  for the universal_pin fork, plus a `<stdexcept>` include).
+- **uBitcoin** `esp_random` shim so the host build can resolve the
+  IDF-provided symbol.
 
 If you add a new patch, keep it behind a sentinel comment, log "patched
 …" when the patch actually applies, and document the upstream fact
@@ -162,15 +206,22 @@ that motivated it.
 
 ## Troubleshooting
 
-- **`pio: command not found`.** Prepend `~/.platformio/penv/bin` to
-  `$PATH` as shown above.
+- **`idf.py: command not found`.** You haven't sourced ESP-IDF in this
+  shell. Run `source ~/esp/esp-idf/export.sh`.
+- **`Build directory '…' configured for project '…' not '…'`.** A
+  stale `build_<variant>/` CMake cache from before a rename. Delete it
+  (`rm -rf build_<variant>`) and rerun.
 - **`fatal: no submodule mapping found`.** You cloned without
   `--recurse-submodules`; run `git submodule update --init --recursive`.
+- **`partition.csv missing`.** You're still on a tree from before the
+  PIO removal — the file moved to `firmware/partition.csv`. Update
+  your branch.
 - **`Linker error: section ... overflows`.** The firmware no longer
   fits in the 4 MB OTA slot. Either drop a feature flag, or build
-  against `btclock_rev_b_*` / `btclock_v8_213epd` which have bigger
-  slots. CI will catch this before merge via the firmware-size guard.
-- **`Update failed: heap too small`.** Pre-3.4.0 the OTA handler would
-  `malloc()` the whole image; the streamed path from 3.4.0 onwards
-  removes this failure mode. If you still see it, you are running a
-  backport on an older branch.
+  against `btclock_rev_b_213epd` / `btclock_v8_213epd` which have
+  larger slots. CI catches this at the partition-size check before
+  the artifact uploads.
+- **`Update failed: heap too small`** during web OTA. Pre-3.4.0 the
+  OTA handler `malloc()`'d the whole image; the streamed path from
+  3.4.0 onwards removes this failure mode. If you still see it, you
+  are running a backport on an older branch.

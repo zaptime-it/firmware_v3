@@ -10,18 +10,23 @@ See [BUILD.md](BUILD.md) for the full toolchain install. TL;DR:
 ```bash
 git clone --recurse-submodules https://git.btclock.dev/btclock/btclock_v3.git
 cd btclock_v3
-pipx install platformio
-export PATH="$HOME/.platformio/penv/bin:$PATH"
-pio test -e native_test_only   # sanity check
-pio run                        # build all four default envs
+# ESP-IDF v5.5 (one-time):
+git clone --depth 1 --branch v5.5 --recurse-submodules --shallow-submodules \
+  https://github.com/espressif/esp-idf.git ~/esp/esp-idf
+~/esp/esp-idf/install.sh esp32s3
+source ~/esp/esp-idf/export.sh
+# Sanity:
+cmake -G Ninja -B build-tests -S tests && cmake --build build-tests -j && \
+  ctest --test-dir build-tests --output-on-failure
+./firmware/build.sh                  # build all four shipping variants
 ```
 
 ## Before you push
 
 ```bash
-pio test -e native_test_only
-pio run -e lolin_s3_mini_213epd     # the tightest flash budget
-pio run                             # the other three default envs
+ctest --test-dir build-tests --output-on-failure   # host tests
+./firmware/build.sh lolin_s3_mini_213epd           # tightest flash budget
+./firmware/build.sh                                # the other three variants
 ```
 
 If you changed a handler, a header, or a setting, also manually
@@ -82,7 +87,7 @@ API changes are breaking if they touch any URL, verb, query parameter,
 or JSON shape the WebUI reads. When you make one:
 
 1. Change the firmware route.
-2. Update `data/static/swagger.yml` *and* `data/static/swagger.json`.
+2. Update `data/static/openapi.yml` *and* `data/static/openapi.json`.
 3. Update the matching WebUI types and client in `data/src/lib/api/`.
 4. Update the relevant section of [API.md](API.md).
 5. If you retired a key, remove its `PrefKeys::` constant and any

@@ -12,7 +12,7 @@ source.
 > [`src/lib/system/pref_keys.hpp`](../src/lib/system/pref_keys.hpp).**
 > Never inline a `"stringLiteral"` key in firmware code.
 
-The unit test [`test/test_pref_keys/test_main.cpp`](../test/test_pref_keys/test_main.cpp)
+The unit test [`tests/test_pref_keys/test_main.cpp`](../tests/test_pref_keys/test_main.cpp)
 enforces three properties on every `PrefKeys::…` constant:
 
 1. **Length cap.** Every key is ≤ 15 characters. The ESP-IDF NVS library
@@ -47,7 +47,7 @@ When you add a new setting, add:
    that reads it.
 4. A branch in `onApiSettingsPatch()` that writes it (if the user is
    allowed to change it).
-5. A bump to the expected count in `test/test_pref_keys/test_main.cpp`.
+5. A bump to the expected count in `tests/test_pref_keys/test_main.cpp`.
 6. A matching field in `data/static/swagger.yml` and the WebUI types.
 
 ## WebUI compatibility contract

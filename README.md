@@ -73,7 +73,7 @@ repo.
   and the generic "SATS/USD" used by the other currencies, and more.
 - **Multi-language WebUI** — English, Dutch, German, Spanish.
 - **Over-the-air updates** — ESP OTA via the WebUI, and ArduinoOTA for
-  push updates from PlatformIO.
+  push updates over the network.
 - **mDNS** discovery so you can reach the device by hostname.
 
 **Security**: the device is meant to run on a trusted private network. Since
@@ -83,9 +83,19 @@ mechanism can be password-protected too.
 
 ## Building
 
-Use PlatformIO to build it yourself. Make sure you fetch the
-[WebUI](https://git.btclock.dev/btclock/webui) submodule. Full build
-instructions are in [`docs/BUILD.md`](docs/BUILD.md).
+Built with ESP-IDF 5.5 and arduino-esp32 as a managed component. The
+short version:
+
+```bash
+git clone --recurse-submodules https://git.btclock.dev/btclock/btclock_v3.git
+cd btclock_v3
+source ~/esp/esp-idf/export.sh    # IDF v5.5 installed at ~/esp/esp-idf
+./firmware/build.sh               # all four shipping variants
+```
+
+Full build, flash, and OTA instructions are in
+[`docs/BUILD.md`](docs/BUILD.md). Tests are in
+[`docs/TESTING.md`](docs/TESTING.md).
 
 ## Mining pool stats
 
