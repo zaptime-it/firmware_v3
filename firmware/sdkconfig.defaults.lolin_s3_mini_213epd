@@ -4,7 +4,7 @@
 # in the variant section below.
 
 CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="../partition.csv"
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partition.csv"
 
 # 4 MB onboard flash, no octal PSRAM.
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y

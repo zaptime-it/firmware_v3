@@ -1,52 +1,48 @@
-.pio
+# IDE / OS
 .vscode/.browse.c_cpp.db*
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-managed_components
-data/build/*
+.DS_Store
+
+# Node / webui
+node_modules
 data/build
+data/build/*
 data/.yarn
 data/node_modules
-node_modules
-.DS_Store
-*.bin
-ci/cache
 
-# PlatformIO drops per-env sdkconfig.* checkpoints at the repo root, which
-# pollute `git status`. Keep the shared sdkconfig.defaults but exclude the
-# env-specific generated ones. Per-variant sdkconfig.defaults.<variant>
-# files under idf-build/ ARE tracked though — they're the per-board source
-# of truth for the IDF-as-build flow, not generated.
-sdkconfig.*
-!sdkconfig.defaults
-!sdkconfig.defaults.*
+# IDF managed components are downloaded under firmware/managed_components/
+# by the Component Manager on every configure — never tracked.
+managed_components
 
-# IDF-as-build flow (idf-build/) generated artefacts. The handwritten
-# scaffold (CMakeLists.txt, main/, sdkconfig.defaults*, arduino_libraries.json,
-# fetch_arduino_libs.py, partition.csv, dependencies.lock) IS tracked.
-idf-build/build_*/
-idf-build/arduino_libraries/
-idf-build/sdkconfig
-idf-build/spiffs/
-
-# Top-level build outputs produced by `idf.py -B ../build_<variant>`
-# when run from idf-build/, and the CMake-emitted compile DB used by IDEs.
+# IDF builds. Each variant lands in build_<variant>/ at repo root
+# because firmware/build.sh invokes `idf.py -B ../build_<variant>`.
 /build/
 /build_*/
 /compile_commands.json
 
-# Host-test CMake build trees (tests/CMakeLists.txt). The scaffold
-# itself under tests/ IS tracked.
+# IDF-as-build flow generated artefacts under firmware/. The tracked
+# scaffold (CMakeLists.txt, main/, sdkconfig.defaults*, arduino_libraries.json,
+# fetch_arduino_libs.py, partition*.csv, dependencies.lock, build*.sh)
+# is the firmware build's single source of truth; everything below is
+# regenerated on demand.
+firmware/build_*/
+firmware/arduino_libraries/
+firmware/sdkconfig
+firmware/spiffs/
+
+# Host-test CMake build trees (configured from tests/CMakeLists.txt).
+# Plain and sanitize variants both regenerate on every configure.
 /build-tests/
 /build-tests-asan/
 
-# CI release staging dir produced by idf-build/build-release.sh
+# CI release staging dir produced by firmware/build-release.sh
 /release-stage/
 
-# Font/asset conversion byproducts that used to end up at the repo root
-# while experimenting with tools/ helpers. The real source files live
-# under data/ or src/fonts/; nothing at the root needs to be tracked.
+# Font/asset conversion byproducts that end up at the repo root while
+# experimenting with tools/ helpers. The real source files live under
+# data/ or src/fonts/; nothing at the root needs to be tracked.
 /*.c
 /*.c.gz
 /*.bin.gz
@@ -65,5 +61,5 @@ settings.csv
 /verify_timezone_data.py
 
 # tools/ is a scratch area for local asset/font/timezone helpers that
-# are not part of the build. The real build-time scripts live under scripts/.
+# aren't part of the build.
 /tools/

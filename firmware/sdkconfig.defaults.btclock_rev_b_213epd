@@ -5,7 +5,7 @@
 # REQUIRES so dead-code elimination keeps them out of the Rev A image.
 
 CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="../partition_8mb.csv"
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partition_8mb.csv"
 
 # 8 MB flash, QIO mode (matches boards/btclock_rev_b.json).
 CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y

@@ -10,7 +10,7 @@ The patch logic is ported from scripts/pre_script.py so the IDF flow
 doesn't depend on PlatformIO being installed. Each patch is
 idempotent via a sentinel marker.
 
-Run from idf-build/:
+Run from firmware/:
 
     python3 fetch_arduino_libs.py
 

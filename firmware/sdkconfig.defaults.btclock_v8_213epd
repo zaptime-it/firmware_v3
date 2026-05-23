@@ -3,7 +3,7 @@
 # + [env:btclock_v8_213epd] build from platformio.ini.
 
 CONFIG_PARTITION_TABLE_CUSTOM=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="../partition_16mb.csv"
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partition_16mb.csv"
 
 # 16 MB flash, QIO mode (matches boards/btclock_v8.json).
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y

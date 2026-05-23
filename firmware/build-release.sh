@@ -34,15 +34,15 @@ data_root="${repo_root}/data/build_gz/www"
 case "$variant" in
     lolin_s3_mini_213epd|lolin_s3_mini_29epd)
         flash_size=4MB
-        partition_table="${repo_root}/idf-build/partition.csv"
+        partition_table="${repo_root}/firmware/partition.csv"
         ;;
     btclock_rev_b_213epd)
         flash_size=8MB
-        partition_table="${repo_root}/idf-build/partition_8mb.csv"
+        partition_table="${repo_root}/firmware/partition_8mb.csv"
         ;;
     btclock_v8_213epd)
         flash_size=16MB
-        partition_table="${repo_root}/idf-build/partition_16mb.csv"
+        partition_table="${repo_root}/firmware/partition_16mb.csv"
         ;;
     *)
         echo "Unknown variant '$variant'" >&2
@@ -51,7 +51,7 @@ case "$variant" in
 esac
 
 # ---- 1. Build the firmware ----
-( cd "${repo_root}/idf-build" && ./build.sh "$variant" )
+( cd "${repo_root}/firmware" && ./build.sh "$variant" )
 
 # ---- 2. Build the LittleFS image ----
 # Parse the spiffs partition size from the matching CSV (in case the
@@ -87,7 +87,7 @@ littlefs-python create "$data_root" "$fs_bin" -v \
     --block-size=4096
 
 # ---- 3. Copy IDF outputs with PIO-equivalent names ----
-cp "${build_dir}/btclock_v3_lts.bin"                      "${stage_dir}/firmware.bin"
+cp "${build_dir}/btclock_v3.bin"                      "${stage_dir}/firmware.bin"
 cp "${build_dir}/bootloader/bootloader.bin"               "${stage_dir}/bootloader.bin"
 cp "${build_dir}/partition_table/partition-table.bin"     "${stage_dir}/partitions.bin"
 cp "${build_dir}/ota_data_initial.bin"                    "${stage_dir}/ota_data_initial.bin"

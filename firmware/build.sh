@@ -54,7 +54,7 @@ if [[ $# -eq 0 ]]; then
         build_one "$v"
     done
     echo
-    echo "All variants built. Binaries under ../build_<variant>/btclock_v3_lts.bin"
+    echo "All variants built. Binaries under ../build_<variant>/btclock_v3.bin"
 else
     build_one "$1" "${2:-build}"
 fi
