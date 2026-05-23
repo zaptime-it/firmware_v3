@@ -6,14 +6,57 @@ on:
       - main
 
 jobs:
-  build:
+  host-tests:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      checks: write
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: "Install and build"
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build
+      - name: Configure + build host tests (plain)
+        run: |
+          cmake -G Ninja -B build-tests -S tests
+          cmake --build build-tests -j
+      - name: Configure + build host tests (ASan + UBSan)
+        run: |
+          cmake -G Ninja -B build-tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON
+          cmake --build build-tests-asan -j
+      - name: Run plain tests
+        run: ctest --test-dir build-tests --output-on-failure --output-junit junit-plain.xml
+      - name: Run sanitize tests
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir build-tests-asan --output-on-failure --output-junit junit-asan.xml
+      - name: Publish test report
+        if: success() || failure()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: 'build-tests*/junit-*.xml'
+          detailed_summary: true
+
+  firmware:
+    runs-on: ubuntu-latest
+    # Mirror the PR subset the Forgejo workflow runs (Rev A + Rev B only).
+    # V8 and lolin_s3_mini_29epd run on release tags via tagging.yml.
+    strategy:
+      matrix:
+        variant: [lolin_s3_mini_213epd, btclock_rev_b_213epd]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: "Install IDF + build helpers"
         uses: ./.github/actions/install-build
+      - name: Build ${{ matrix.variant }}
+        shell: bash
+        run: . $IDF_PATH/export.sh && ./idf-build/build-release.sh ${{ matrix.variant }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-build-${{ matrix.variant }}
+          path: |
+            release-stage/${{ matrix.variant }}/*.bin
+            release-stage/${{ matrix.variant }}/*.sha256
+          retention-days: 7

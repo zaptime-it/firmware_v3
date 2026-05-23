@@ -2,10 +2,12 @@ name: "Lint"
 
 # Mirrors btclock_v4's lint gates:
 # - clang-format check over the whole codebase
-# - clang-tidy over the host-test/native compilation set
+# - clang-tidy over the host-test compilation set
 #
-# We use PlatformIO's native env to get a tractable include graph for tidy
-# (similar to v4's host_tests-only tidy).
+# We use the host-test CMake project (tests/CMakeLists.txt with
+# CMAKE_EXPORT_COMPILE_COMMANDS=ON) to get a tractable include graph for
+# tidy. This used to use PlatformIO's native_test_only env compiledb,
+# but we removed PlatformIO with Phase 3 of the IDF-as-build migration.
 
 on:
   push:
@@ -81,7 +83,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             wget gnupg lsb-release software-properties-common ca-certificates git \
-            build-essential python3 python3-venv jq ripgrep
+            build-essential cmake ninja-build jq ripgrep
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
             | gpg --dearmor -o /usr/share/keyrings/llvm.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-${CLANG_VERSION} main" \
@@ -89,37 +91,35 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             "clang-tidy-${CLANG_VERSION}" "clang-${CLANG_VERSION}"
-          # PEP 668: avoid installing Python packages into the system
-          # environment. Use a venv for PlatformIO.
-          python3 -m venv /opt/pio-venv
-          /opt/pio-venv/bin/pip install --upgrade pip
-          /opt/pio-venv/bin/pip install --upgrade platformio
 
-      - name: Generate compile_commands.json (native env)
+      - name: Generate compile_commands.json (host-test CMake project)
         shell: bash
         run: |
           set -euo pipefail
-          /opt/pio-venv/bin/pio run -e native_test_only -t compiledb
-          # PlatformIO writes compile_commands.json into the project root.
-          # Ensure it exists so clang-tidy doesn't silently fall back to
-          # guesswork.
+          # CMAKE_EXPORT_COMPILE_COMMANDS=ON is baked into tests/CMakeLists.txt.
+          # Configure-only is enough to produce the DB; no need to actually build.
+          cmake -G Ninja -B build-tests -S tests
+          # Symlink to repo root so `clang-tidy -p .` finds it (matches the
+          # legacy PIO behaviour that wrote compile_commands.json there).
+          ln -sf build-tests/compile_commands.json compile_commands.json
           test -f compile_commands.json
 
-      - name: Run clang-tidy (native compilation set)
+      - name: Run clang-tidy (host-test compilation set)
         shell: bash
         run: |
           set -euo pipefail
-          # Only run tidy on translation units that appear in the
-          # PlatformIO-generated compile_commands.json. This keeps the
-          # include graph consistent with the native env and avoids
-          # pulling in ESP32-only Arduino/IDF headers that aren't
-          # available to the host toolchain.
+          # Only run tidy on translation units that appear in the CMake-
+          # generated compile_commands.json. This keeps the include graph
+          # consistent with the host-test env and avoids pulling in
+          # ESP32-only Arduino/IDF headers that aren't available to the
+          # host toolchain.
           files="$(jq -r '.[].file' compile_commands.json | sort -u || true)"
-          # PlatformIO's native env compiledb may still contain firmware TUs
-          # under src/ that depend on Arduino/ESP-IDF headers not available
-          # to the host toolchain. Exclude those so clang-tidy can run
-          # deterministically on the host-compilable subset.
-          files="$(echo "$files" | rg -v '^src/' || true)"
+          # CMake writes absolute paths into compile_commands.json (unlike
+          # the legacy PIO compiledb which used repo-relative paths). The
+          # host-test scaffold only globs lib/btclock/*.cpp + test/*/test_main.cpp
+          # so no firmware-only src/*.cpp ever lands in the DB. Belt-and-
+          # braces: exclude anything under <repo>/src/.
+          files="$(echo "$files" | rg -v '/src/' || true)"
           if [ -z "$files" ]; then
             echo "No .cpp files found for clang-tidy."
             exit 0

@@ -7,141 +7,68 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  host-tests:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      checks: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: "Install and build"
-        uses: ./.github/actions/install-build
-      - name: Copy bootloader to output folder
-        run: cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin .pio
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          include-hidden-files: true
-          retention-days: 1
-          name: prepared-outputs
-          path: .pio/**/*.bin
-  merge:
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build
+      - name: Build + run host tests (plain + ASan)
+        run: |
+          cmake -G Ninja -B build-tests       -S tests
+          cmake -G Ninja -B build-tests-asan  -S tests -DBTCLOCK_TEST_SANITIZE=ON
+          cmake --build build-tests      -j
+          cmake --build build-tests-asan -j
+          ctest --test-dir build-tests       --output-on-failure
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+          ctest --test-dir build-tests-asan --output-on-failure
+
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      checks: write
-    needs: build
-    continue-on-error: true
+    needs: host-tests
     strategy:
+      fail-fast: false
       matrix:
-        chip:
-          - name: lolin_s3_mini
-            version: esp32s3
-          - name: btclock_rev_b
-            version: esp32s3
-          - name: btclock_v8
-            version: esp32s3
-        epd_variant: [213epd, 29epd]
-        exclude:
-          - chip: { name: btclock_rev_b, version: esp32s3 }
-            epd_variant: 29epd
-          - chip: { name: btclock_v8, version: esp32s3 }
-            epd_variant: 29epd
+        variant:
+          - lolin_s3_mini_213epd
+          - lolin_s3_mini_29epd
+          - btclock_rev_b_213epd
+          - btclock_v8_213epd
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/checkout@v4
         with:
-          name: prepared-outputs
-          path: .pio
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install esptools.py
-        run: pip install --upgrade esptool
-      - name: Create merged firmware binary
+          submodules: recursive
+      - name: "Install IDF + build helpers"
+        uses: ./.github/actions/install-build
+      - name: Build + stage ${{ matrix.variant }}
         shell: bash
-        run: |
-          mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} 
-          if [ "${{ matrix.chip.name }}" == "btclock_v8" ]; then
-            esptool.py --chip ${{ matrix.chip.version }} merge_bin \
-            -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
-            --flash_mode dio \
-            --flash_freq 80m \
-            --flash_size 16MB \
-            0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin \
-            0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
-            0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
-            0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0xDF0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_16MB.bin
-          elif [ "${{ matrix.chip.name }}" == "btclock_rev_b" ]; then
-            esptool.py --chip ${{ matrix.chip.version }} merge_bin \
-            -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
-            --flash_mode dio \
-            --flash_freq 80m \
-            --flash_size 8MB \
-            0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin \
-            0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
-            0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
-            0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0x6F0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_8MB.bin;
-          else
-            esptool.py --chip ${{ matrix.chip.version }} merge_bin \
-            -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
-            --flash_mode dio \
-            0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin \
-            0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
-            0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
-            0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0x380000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_4MB.bin
-            # Adjust the offset for littlefs or other files as needed for the original case
-          fi
-
-      - name: Create checksum for firmware
-        run: shasum -a 256 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}_firmware.bin.sha256
-
-      - name: Create checksum for merged binary
-        run: shasum -a 256 ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin.sha256
-
-      - name: Create checksum for littlefs partition
-        shell: bash
-        run: |
-          fs_file=$(ls .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs*.bin | head -n1)
-          fs_name=$(basename "$fs_file")
-          shasum -a 256 "$fs_file" | awk '{print $1}' > "${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${fs_name}.sha256"
-
-      - name: Copy all artifacts to output folder
-        run: cp .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin .pio/boot_app0.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}
-
-      - name: Create OTA binary file
-        run: mv ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}_firmware.bin
-
-      - name: Upload artifacts
+        run: . $IDF_PATH/export.sh && ./idf-build/build-release.sh ${{ matrix.variant }}
+      - name: Upload variant artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.chip.name }}-${{ matrix.epd_variant }}
+          name: build-${{ matrix.variant }}
           path: |
-            ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin
-            ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.sha256
+            release-stage/${{ matrix.variant }}/*.bin
+            release-stage/${{ matrix.variant }}/*.sha256
+
   release:
     runs-on: ubuntu-latest
+    needs: build
     permissions:
       contents: write
-      checks: write
-    needs: merge
     steps:
-      - name: Install tools
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq coreutils
-      - name: Download matrix outputs
+      - name: Install jq + coreutils
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends jq coreutils
+      - name: Download all variant artifacts
         uses: actions/download-artifact@v5
         with:
           pattern: build-*
           merge-multiple: false
           path: temp
-      - name: Stage release assets (no collisions) + manifest
+      - name: Stage release assets + manifest
         shell: bash
         env:
           TAG: ${{ github.ref_name }}
@@ -151,49 +78,51 @@ jobs:
           set -euo pipefail
           mkdir -p release temp/manifest-fragments
 
+          # Each artifact dir is build-<variant>/ with PIO-equivalent
+          # asset names. We re-prefix per-variant artifacts to avoid
+          # bootloader.bin / partitions.bin / etc. colliding across
+          # variants while keeping the merged <variant>.bin and the
+          # OTA-facing firmware.bin / littlefs_<size>.bin names stable.
           for d in temp/build-*; do
             [ -d "$d" ] || continue
-            name="$(basename "$d")"
-            variant="${name#build-}"           # chip-epd_variant
-            chip="${variant%-*}"               # chip can contain underscores
-            epd_variant="${variant##*-}"
-            variant_id="${chip}_${epd_variant}"
+            variant_id="${d#temp/build-}"
 
-            firmware_asset="${variant_id}_firmware.bin"
-            merged_asset="${variant_id}.bin"
-            littlefs_asset=""
-
-            if [ -f "$d/${firmware_asset}" ]; then
-              cp "$d/${firmware_asset}" "release/${firmware_asset}"
+            # Merged single-flash image (release-direct).
+            if [ -f "$d/${variant_id}.bin" ]; then
+              cp "$d/${variant_id}.bin"        "release/${variant_id}.bin"
             fi
 
-            if [ -f "$d/${merged_asset}" ]; then
-              cp "$d/${merged_asset}" "release/${merged_asset}"
+            # Raw OTA app image — the WebUI's OTA upload accepts this.
+            if [ -f "$d/firmware.bin" ]; then
+              cp "$d/firmware.bin"             "release/${variant_id}_firmware.bin"
             fi
 
-            for support in bootloader.bin partitions.bin ota_data_initial.bin boot_app0.bin; do
-              if [ -f "$d/${support}" ]; then
-                cp "$d/${support}" "release/${variant_id}_${support}"
-              fi
+            # Per-variant boot/partition/OTA-selector — prefixed so the
+            # release dir holds one of each per variant.
+            for support in bootloader.bin partitions.bin ota_data_initial.bin; do
+              [ -f "$d/${support}" ] && \
+                cp "$d/${support}"             "release/${variant_id}_${support}"
             done
 
-            # Keep updater-facing LittleFS names stable (littlefs_4MB/8MB/16MB.bin).
-            for fs in "$d"/littlefs*.bin; do
+            # LittleFS image keeps its flash-size-suffixed name so the
+            # legacy updater can find it under littlefs_4MB.bin etc.
+            littlefs_asset=""
+            for fs in "$d"/littlefs_*.bin; do
               [ -f "$fs" ] || continue
               fs_name="$(basename "$fs")"
               littlefs_asset="$fs_name"
-              if [ ! -f "release/${fs_name}" ]; then
-                cp "$fs" "release/${fs_name}"
-              fi
+              [ -f "release/${fs_name}" ] || cp "$fs" "release/${fs_name}"
               break
             done
 
+            chip="${variant_id%_*}"
+            epd_variant="${variant_id##*_}"
             jq -n \
               --arg variant "$variant_id" \
               --arg chip "$chip" \
               --arg epd_variant "$epd_variant" \
-              --arg firmware "$firmware_asset" \
-              --arg merged "$merged_asset" \
+              --arg firmware "${variant_id}_firmware.bin" \
+              --arg merged "${variant_id}.bin" \
               --arg littlefs "$littlefs_asset" \
               --arg built_at "$(date -u +%FT%TZ)" \
               '{
@@ -206,7 +135,6 @@ jobs:
                 bootloader_asset: ($variant + "_bootloader.bin"),
                 partitions_asset: ($variant + "_partitions.bin"),
                 ota_data_initial_asset: ($variant + "_ota_data_initial.bin"),
-                boot_app0_asset: ($variant + "_boot_app0.bin"),
                 built_at: $built_at
               }' > "temp/manifest-fragments/${variant_id}.json"
           done
@@ -225,6 +153,7 @@ jobs:
               variants: $variants
             }' > release/manifest.json
 
+          # Per-asset sha256 for release-side verification.
           (
             cd release
             for f in *.bin manifest.json; do
@@ -240,23 +169,17 @@ jobs:
           allowUpdates: true
           removeArtifacts: true
           makeLatest: true
-        #   - name: Create release
-        #   uses: ncipollo/release-action@v1
-        #   with:
-        #     artifacts: "output/full-firmware.bin,output/full-firmware.sha256,.pio/build/lolin_s3_mini_qr/*.bin"
-        #     allowUpdates: true
-        #     removeArtifacts: true
-        #     makeLatest: true
-      - name: Pushes full-firmware.bin to web flasher
-        id: push_directory
+
+      - name: Push to web-flasher
+        if: github.ref_type == 'tag'
         uses: cpina/github-action-push-to-another-repository@main
         env:
           SSH_DEPLOY_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
         with:
-          source-directory: .
+          source-directory: release
           target-directory: firmware_v3/
           destination-github-username: "btclock"
           destination-repository-name: "web-flasher"
           target-branch: main
-          user-name: ${{github.actor}}
-          user-email: ${{github.actor}}@users.noreply.github.com
+          user-name: ${{ github.actor }}
+          user-email: ${{ github.actor }}@users.noreply.github.com
