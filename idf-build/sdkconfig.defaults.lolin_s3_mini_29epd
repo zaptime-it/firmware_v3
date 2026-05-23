@@ -1,0 +1,13 @@
+# Lolin S3 Mini (Rev A hardware) with 2.9" e-paper panels (7 panels).
+# Hardware-identical to lolin_s3_mini_213epd: same 4 MB Lolin board,
+# same partition layout, same USB-CDC console. Only the EPD driver
+# selection (VERSION_EPD_2_9) differs — handled in main/CMakeLists.txt
+# via BTCLOCK_VARIANT.
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="../partition.csv"
+
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+
+CONFIG_ESP_CONSOLE_USB_CDC=y

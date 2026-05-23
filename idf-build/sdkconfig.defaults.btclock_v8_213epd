@@ -1,0 +1,21 @@
+# BTClock V8 (custom 16 MB board, ESP32-S3 with octal PSRAM) with 2.13"
+# e-paper panels (8 panels instead of 7). Mirrors the [env:btclock_v8]
+# + [env:btclock_v8_213epd] build from platformio.ini.
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="../partition_16mb.csv"
+
+# 16 MB flash, QIO mode (matches boards/btclock_v8.json).
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHMODE="qio"
+
+# Octal SPI PSRAM (qio_opi memory_type in PIO). The Lolin/Rev B boards
+# use quad PSRAM (default); V8 wires the octal lines so it gets ~2x
+# bandwidth and we have to flip the controller mode here.
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+
+# USB-CDC on boot, same as Rev B.
+CONFIG_ESP_CONSOLE_USB_CDC=y
