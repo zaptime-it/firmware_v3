@@ -62,7 +62,7 @@ when the flag is true, and a normal input with the current effective
 default when it is false.
 
 Settings are a flat map of `NVS key → value`. The canonical key
-inventory is [`src/lib/system/pref_keys.hpp`](../src/lib/system/pref_keys.hpp);
+inventory is [`main/lib/system/pref_keys.hpp`](../main/lib/system/pref_keys.hpp);
 see [PREFERENCES.md](PREFERENCES.md). The `dnd` sub-object is the only
 nested element, and it maps onto `LedHandler`'s DND time window:
 

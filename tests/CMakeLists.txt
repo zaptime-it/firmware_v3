@@ -71,8 +71,7 @@ foreach(test_dir ${TEST_DIRS})
     )
     target_include_directories(${test_name} PRIVATE
         "${BTCLOCK_REPO_ROOT}/lib/btclock"
-        "${BTCLOCK_REPO_ROOT}/src"
-        "${BTCLOCK_REPO_ROOT}/include"
+        "${BTCLOCK_REPO_ROOT}/main"
     )
     target_compile_definitions(${test_name} PRIVATE
         UNITY_TEST

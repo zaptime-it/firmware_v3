@@ -7,7 +7,7 @@
 // A regression that flips either half of the gate silently reintroduces
 // the flash storm users report when WiFi drops.
 
-#include "../../src/lib/data_sources/data_source_policy.hpp"
+#include "../../main/lib/data_sources/data_source_policy.hpp"
 #include <unity.h>
 
 using data_source_policy::shouldFlashDataSourceError;

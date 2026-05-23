@@ -27,7 +27,7 @@ All native tests live under `tests/test_<name>/test_main.cpp`:
 
 These suites link the code under `lib/btclock/` (plus, for
 `test_pref_keys`, the `PrefKeys::` constants from
-`src/lib/system/pref_keys.hpp`) against
+`main/lib/system/pref_keys.hpp`) against
 [Unity](https://www.throwtheswitch.org/unity) and run on the host. No
 Arduino, FreeRTOS, WiFi, or MCP stack is involved, so the whole suite
 finishes in ≲ 2 s.

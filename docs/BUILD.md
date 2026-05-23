@@ -169,9 +169,9 @@ Two OTA transports are supported:
 ## Build-time configuration
 
 Almost every defaulted setting lives in
-[`src/lib/system/defaults.hpp`](../src/lib/system/defaults.hpp) as a
+[`main/lib/system/defaults.hpp`](../main/lib/system/defaults.hpp) as a
 `DEFAULT_*` constant. NVS key names live in
-[`src/lib/system/pref_keys.hpp`](../src/lib/system/pref_keys.hpp) as
+[`main/lib/system/pref_keys.hpp`](../main/lib/system/pref_keys.hpp) as
 `PrefKeys::…` constants. Don't inline string literals for either — see
 [PREFERENCES.md](PREFERENCES.md).
 

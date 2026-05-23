@@ -1,17 +1,11 @@
-# Glob the existing PIO src/ tree from one level up. Keeping all source
-# in ../src/ means the PIO build can keep using it unchanged; we just
-# point IDF's main component at the same files. INCLUDE_DIRS mirrors
-# what platformio.ini exposed implicitly through Arduino + ESP-IDF.
-
-set(SRC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../src")
-set(INC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../include")
+# Standard IDF main component: all firmware sources live next to this
+# CMakeLists.txt, plus the shared host-testable bits under ../lib/ that
+# are pulled in here so symbols (parseBlockFees, getCurrencyCode,
+# btclock::parseScreenOrder, etc.) resolve at link time.
 
 file(GLOB_RECURSE app_sources
-    "${SRC_ROOT}/*.cpp"
-    "${SRC_ROOT}/*.c"
-    # PIO built every lib/<dir>/*.cpp as a static lib via lib_extra_dirs.
-    # Pull them into main so symbols (parseBlockFees, getCurrencyCode,
-    # btclock::parseScreenOrder, etc.) resolve at link time.
+    "${CMAKE_CURRENT_LIST_DIR}/*.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/*.c"
     "${CMAKE_CURRENT_LIST_DIR}/../lib/btclock/*.cpp"
     "${CMAKE_CURRENT_LIST_DIR}/../lib/btclock/*.c"
     "${CMAKE_CURRENT_LIST_DIR}/../lib/qrcode/*.c"
@@ -20,13 +14,11 @@ file(GLOB_RECURSE app_sources
 idf_component_register(
     SRCS ${app_sources}
     INCLUDE_DIRS
-        "${SRC_ROOT}"
-        "${INC_ROOT}"
+        "${CMAKE_CURRENT_LIST_DIR}"
         "${CMAKE_CURRENT_LIST_DIR}/../lib"
-        # PIO auto-added every subdir of lib/ as an include path
-        # (each is treated as an Arduino lib root). IDF doesn't, so
-        # list them explicitly. lib/btclock holds utils.hpp; lib/qrcode
-        # is the in-tree qrcodegen vendor.
+        # IDF doesn't auto-add lib subdirs to the include path. List
+        # them explicitly so `#include <utils.hpp>` (lib/btclock) and
+        # qrcodegen.h (lib/qrcode) resolve everywhere.
         "${CMAKE_CURRENT_LIST_DIR}/../lib/btclock"
         "${CMAKE_CURRENT_LIST_DIR}/../lib/qrcode"
     # No EMBED_FILES for x509_crt_bundle: the IDF flow uses the

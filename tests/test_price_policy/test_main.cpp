@@ -8,7 +8,7 @@
 // subscription frame depends on, so a whitespace or empty-token
 // regression can't silently reintroduce "only USD".
 
-#include "../../src/lib/data_sources/price_policy.hpp"
+#include "../../main/lib/data_sources/price_policy.hpp"
 #include <unity.h>
 
 using price_policy::parseCurrencyCsv;

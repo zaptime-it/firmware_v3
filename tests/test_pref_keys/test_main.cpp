@@ -9,7 +9,7 @@
 //      PrefKeys would mask the collision from reviewers.
 //
 // These tests enforce both invariants at CI time against the full key table
-// in src/lib/system/pref_keys.hpp, so adding a new NVS key can never silently
+// in main/lib/system/pref_keys.hpp, so adding a new NVS key can never silently
 // regress on a different platform build.
 
 #include <cstddef>
@@ -17,7 +17,7 @@
 #include <cstring>
 #include <unity.h>
 
-#include "../../src/lib/system/pref_keys.hpp"
+#include "../../main/lib/system/pref_keys.hpp"
 
 namespace {
 
@@ -143,7 +143,7 @@ static constexpr size_t kExpectedNumKeys = 82;
 
 void test_KeyTableMatchesHeader(void) {
   // The upstream count can be read with:
-  //   grep -cE '^inline constexpr' src/lib/system/pref_keys.hpp
+  //   grep -cE '^inline constexpr' main/lib/system/pref_keys.hpp
   // (the anchored version excludes the `inline constexpr` mention inside
   // the file header comment). The two must stay in sync.
   TEST_ASSERT_EQUAL_MESSAGE(
