@@ -1,18 +1,17 @@
-# Host-only unit tests for BTClock v3. Replaces `pio test -e
-# native_test_only` and `pio test -e native_sanitize` from the legacy
-# PlatformIO config — the test sources under ../test/test_*/ are
-# identical (Unity assertions, no Arduino runtime).
+# Host-only unit tests for BTClock v3. The test sources alongside this
+# file (test_<name>/test_main.cpp) use Unity assertions and run on the
+# host with no Arduino / FreeRTOS / ESP-IDF runtime.
 #
-# Usage:
-#   cmake -B ../build-tests -S .                          # plain build
-#   cmake -B ../build-tests-asan -S . -DBTCLOCK_TEST_SANITIZE=ON
-#   cmake --build ../build-tests -j
-#   ctest --test-dir ../build-tests --output-on-failure
+# Usage (run from repo root):
+#   cmake -B build-tests       -S tests
+#   cmake -B build-tests-asan  -S tests -DBTCLOCK_TEST_SANITIZE=ON
+#   cmake --build build-tests -j
+#   ctest --test-dir build-tests --output-on-failure
 #
-# Each ../test/test_<name>/test_main.cpp becomes one ctest target.
-# Every test links the full lib/btclock/ pile because the headers are
-# small and entangled (utils.hpp is everywhere) and the unused symbols
-# get stripped at link time anyway.
+# Each tests/test_<name>/test_main.cpp becomes one ctest target. Every
+# test links the full lib/btclock/ pile because the headers are small
+# and entangled (utils.hpp is everywhere) and the unused symbols get
+# stripped at link time anyway.
 
 cmake_minimum_required(VERSION 3.16)
 project(btclock_v3_host_tests CXX C)
@@ -50,10 +49,10 @@ endif()
 set(BTCLOCK_REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/..")
 file(GLOB BTCLOCK_LIB_SOURCES "${BTCLOCK_REPO_ROOT}/lib/btclock/*.cpp")
 
-# Test discovery: each ../test/test_<name>/test_main.cpp becomes one
+# Test discovery: each tests/test_<name>/test_main.cpp becomes one
 # executable + ctest entry. Add new tests by dropping a new
-# test_<name>/test_main.cpp into ../test/; no edits here required.
-file(GLOB TEST_DIRS LIST_DIRECTORIES TRUE "${BTCLOCK_REPO_ROOT}/test/test_*")
+# test_<name>/test_main.cpp into tests/; no edits here required.
+file(GLOB TEST_DIRS LIST_DIRECTORIES TRUE "${CMAKE_CURRENT_LIST_DIR}/test_*")
 
 foreach(test_dir ${TEST_DIRS})
     if(NOT IS_DIRECTORY ${test_dir})
