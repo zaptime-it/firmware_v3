@@ -1,0 +1,182 @@
+# Base sdkconfig.defaults for the IDF-as-build flow. Mirrors the
+# BTClock-specific knobs from ../sdkconfig.defaults (the PIO one) plus
+# the size-trim block that pioarduino ignored.
+#
+# Per-variant overrides live in sdkconfig.defaults.<variant> and are
+# chained via -DSDKCONFIG_DEFAULTS='sdkconfig.defaults;sdkconfig.defaults.<variant>'
+
+CONFIG_IDF_TARGET="esp32s3"
+
+# ---- Carried over from PIO sdkconfig.defaults ----
+CONFIG_FREERTOS_HZ=1000
+CONFIG_COMPILER_CXX_EXCEPTIONS=y
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+
+# Hostname fallback before InitNetwork applies the user-configured one.
+CONFIG_LWIP_LOCAL_HOSTNAME="btclock"
+
+# Heap poisoning fully off: PIO ran LIGHT poisoning as a debug aid,
+# but it costs flash and a small runtime overhead. BTClock has unit
+# tests for the heap-touching code; favour size here.
+CONFIG_HEAP_POISONING_NONE=y
+
+# Silence the log path — BTClock has no serial console in production.
+CONFIG_LOG_DEFAULT_LEVEL_NONE=y
+CONFIG_LOG_DEFAULT_LEVEL=0
+CONFIG_LOG_MAXIMUM_LEVEL=0
+CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
+CONFIG_BOOTLOADER_LOG_LEVEL=0
+
+# Wi-Fi tuning carried from PIO defaults to keep parity.
+CONFIG_ESP32_WIFI_STATIC_RX_BUFFER_NUM=6
+CONFIG_ESP32_WIFI_DYNAMIC_RX_BUFFER_NUM=12
+CONFIG_ESP_WIFI_DYNAMIC_TX_BUFFER_NUM=12
+CONFIG_ESP32_WIFI_RX_BA_WIN=6
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
+
+# FreeRTOS service tasks carry mbedtls cert-bundle work — needs headroom.
+CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH=3120
+
+# ---- Size-trim block that pioarduino's precompiled libs ignored ----
+# These now actually take effect because every component is from source.
+# Exception: PSK stays on because Arduino-ESP32's NetworkClientSecure
+# (libraries/NetworkClientSecure/src/ssl_client.cpp) wraps its entire
+# body in `#if defined(MBEDTLS_KEY_EXCHANGE_*_PSK_ENABLED)`. Disabling
+# PSK silently empties the .obj and produces undefined references for
+# every ssl_init / start_ssl_client / etc. call.
+CONFIG_MBEDTLS_PSK_MODES=y
+CONFIG_MBEDTLS_KEY_EXCHANGE_PSK=y
+CONFIG_LWIP_IPV6=n
+CONFIG_ETH_ENABLED=n
+CONFIG_ETH_USE_SPI_ETHERNET=n
+CONFIG_NEWLIB_NANO_FORMAT=y
+
+# BTClock does not use BT/BLE — kill the entire stack.
+CONFIG_BT_ENABLED=n
+# With BT off, the Wi-Fi/BT coexistence shim is dead code.
+CONFIG_ESP_COEX_SW_COEXIST_ENABLE=n
+
+# ---- More size-trim: features BTClock provably does not touch ----
+# DTLS is datagram TLS (used for CoAP/QUIC-ish protocols). BTClock
+# only does HTTPS (TLS-over-TCP) to mempool.space/coinbase via the
+# Arduino NetworkClientSecure path.
+CONFIG_MBEDTLS_SSL_PROTO_DTLS=n
+# No HTTPS server. The local config UI runs over plain HTTP.
+CONFIG_ESP_HTTPS_SERVER_ENABLE=n
+# FreeRTOS introspection features: useful for profiling, dead weight
+# in production builds with logs already off.
+CONFIG_FREERTOS_USE_TRACE_FACILITY=n
+CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS=n
+# esp_timer profiling is a debug counter; no production caller.
+CONFIG_ESP_TIMER_PROFILING=n
+
+# ---- LittleFS partition for the WebUI bundle ----
+CONFIG_LITTLEFS_PARTITION_LABEL="spiffs"
+
+# ---- Arduino-ESP32 selective compilation ----
+# Without this every Arduino library (BLE/Matter/Zigbee/OpenThread/
+# ESP_SR/RainMaker/Insights/PPP/...) gets compiled and linked even
+# when BT_ENABLED=n. Opt in only to what BTClock actually uses.
+CONFIG_ARDUINO_SELECTIVE_COMPILATION=y
+# Networking stack we use directly.
+CONFIG_ARDUINO_SELECTIVE_Network=y
+CONFIG_ARDUINO_SELECTIVE_NetworkClientSecure=y
+CONFIG_ARDUINO_SELECTIVE_WiFi=y
+CONFIG_ARDUINO_SELECTIVE_WiFiProv=y
+CONFIG_ARDUINO_SELECTIVE_ESPmDNS=y
+CONFIG_ARDUINO_SELECTIVE_HTTPClient=y
+CONFIG_ARDUINO_SELECTIVE_AsyncUDP=y
+CONFIG_ARDUINO_SELECTIVE_DNSServer=y
+CONFIG_ARDUINO_SELECTIVE_WebServer=y
+# OTA + persistence + filesystem.
+CONFIG_ARDUINO_SELECTIVE_Update=y
+CONFIG_ARDUINO_SELECTIVE_Preferences=y
+CONFIG_ARDUINO_SELECTIVE_FS=y
+CONFIG_ARDUINO_SELECTIVE_LittleFS=y
+CONFIG_ARDUINO_SELECTIVE_SPIFFS=y
+# Hardware peripheral access used across drivers.
+CONFIG_ARDUINO_SELECTIVE_SPI=y
+CONFIG_ARDUINO_SELECTIVE_Wire=y
+CONFIG_ARDUINO_SELECTIVE_Ticker=y
+
+# Each of these is `default y` once SELECTIVE_COMPILATION is on, so we
+# have to opt them out explicitly. None are referenced by BTClock src/
+# or by any vendored Arduino lib in arduino_libraries/.
+CONFIG_ARDUINO_SELECTIVE_BLE=n
+CONFIG_ARDUINO_SELECTIVE_BluetoothSerial=n
+CONFIG_ARDUINO_SELECTIVE_SimpleBLE=n
+CONFIG_ARDUINO_SELECTIVE_ESP_SR=n
+CONFIG_ARDUINO_SELECTIVE_ESP_NOW=n
+CONFIG_ARDUINO_SELECTIVE_ESP_I2S=n
+CONFIG_ARDUINO_SELECTIVE_Matter=n
+CONFIG_ARDUINO_SELECTIVE_Zigbee=n
+CONFIG_ARDUINO_SELECTIVE_OpenThread=n
+CONFIG_ARDUINO_SELECTIVE_PPP=n
+CONFIG_ARDUINO_SELECTIVE_Ethernet=n
+CONFIG_ARDUINO_SELECTIVE_EEPROM=n
+CONFIG_ARDUINO_SELECTIVE_SD=n
+CONFIG_ARDUINO_SELECTIVE_SD_MMC=n
+CONFIG_ARDUINO_SELECTIVE_FFat=n
+CONFIG_ARDUINO_SELECTIVE_Hash=n
+CONFIG_ARDUINO_SELECTIVE_NetBIOS=n
+# ArduinoOTA stays on: src/lib/net/ota/ota.hpp includes ArduinoOTA.h.
+# (BTClock's actual OTA path uses Update.h via HTTPUpdateServer, but
+# ArduinoOTA is still referenced.)
+# CONFIG_ARDUINO_SELECTIVE_ArduinoOTA left at default (y)
+CONFIG_ARDUINO_SELECTIVE_Insights=n
+CONFIG_ARDUINO_SELECTIVE_RainMaker=n
+CONFIG_ARDUINO_SELECTIVE_HTTPUpdate=n
+CONFIG_ARDUINO_SELECTIVE_ESP_HostedOTA=n
+CONFIG_ARDUINO_SELECTIVE_USB=n
+CONFIG_ARDUINO_SELECTIVE_Console=n
+
+# ---- TLS: use IDF's bundled Mozilla CA bundle (no custom bundle) ----
+# Replaces the project-root x509_crt_bundle that platformio.ini used
+# to embed via board_build.embed_files. CMN = ~155 most-common roots
+# (~50 KB embedded vs FULL's ~155 KB). mempool.space and coinbase.com
+# chain to LetsEncrypt/Google Trust/DigiCert/Amazon, all in CMN.
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=n
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y
+
+# ---- mbedtls cipher/curve/key-exchange trim ----
+# Key exchanges: keep RSA + ECDHE_RSA + ECDHE_ECDSA (every public CA),
+# keep PSK (ssl_client.cpp wrapping, see above). Drop the rest:
+# - ECDH_RSA / ECDH_ECDSA are static-key TLS 1.0/1.1 holdovers
+# - ECDHE_PSK / RSA_PSK are exotic (no public BTClock target uses them)
+CONFIG_MBEDTLS_KEY_EXCHANGE_ECDHE_PSK=n
+CONFIG_MBEDTLS_KEY_EXCHANGE_RSA_PSK=n
+CONFIG_MBEDTLS_KEY_EXCHANGE_ECDH_RSA=n
+CONFIG_MBEDTLS_KEY_EXCHANGE_ECDH_ECDSA=n
+
+# ECP curves: keep SECP256R1 (universal), SECP384R1 (LetsEncrypt E1
+# intermediate uses P-384), SECP256K1 (Bitcoin keys, also in some certs)
+# and CURVE25519 (X25519 ECDHE — some servers prefer it in TLS 1.2).
+# Drop the rest. None of these are in any mainstream public CA chain.
+CONFIG_MBEDTLS_ECP_DP_SECP192R1_ENABLED=n
+CONFIG_MBEDTLS_ECP_DP_SECP224R1_ENABLED=n
+CONFIG_MBEDTLS_ECP_DP_SECP521R1_ENABLED=n
+CONFIG_MBEDTLS_ECP_DP_SECP192K1_ENABLED=n
+CONFIG_MBEDTLS_ECP_DP_SECP224K1_ENABLED=n
+CONFIG_MBEDTLS_ECP_DP_BP256R1_ENABLED=n
+CONFIG_MBEDTLS_ECP_DP_BP384R1_ENABLED=n
+CONFIG_MBEDTLS_ECP_DP_BP512R1_ENABLED=n
+
+# ---- WiFi trim ----
+# OWE = Opportunistic Wireless Encryption for open networks. BTClock
+# connects to PSK/SAE-protected home APs, not unencrypted hotspots.
+CONFIG_ESP_WIFI_ENABLE_WPA3_OWE_STA=n
+
+# ---- assert() / check string trim ----
+# Keep assert() as a runtime check (catches NULL derefs etc.) but drop
+# the file/line/expression strings from rodata. With logs already off
+# the strings would never be printed anyway. Saves a few KB across
+# the whole image. _DISABLE would also drop the runtime check itself
+# (slightly more savings, slightly less defensive) — SILENT is the
+# middle ground.
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=n
+CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT=y
+CONFIG_COMPILER_OPTIMIZATION_CHECKS_SILENT=y
+
+# ---- File descriptors: webserver + WS client + HTTPS OTA + sockets ----
+CONFIG_LWIP_MAX_SOCKETS=10

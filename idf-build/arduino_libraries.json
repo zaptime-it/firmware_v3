@@ -1,0 +1,20 @@
+{
+  "_comment": "Arduino libraries that the v3 src/ depends on. Versions match what PIO resolved in .pio/libdeps/btclock_rev_b_213epd/ as of 2026-05-23. The IDF-as-build flow vendors each into arduino_libraries/<name>/ via fetch_arduino_libs.py. The dsbaars/* forks point at branches because that is how the original platformio.ini lib_deps locked them.",
+  "libraries": [
+    {"_comment": "ArduinoJson is pulled via the IDF Component Manager (bblanchon/arduinojson in main/idf_component.yml) instead of vendored here — it is header-only and an official IDF component."},
+    {"name": "MCP23017",             "git": "https://github.com/RobTillaart/MCP23017_RT",     "ref": "0.9.3"},
+    {"name": "PCA9685",              "git": "https://github.com/RobTillaart/PCA9685_RT",      "ref": "0.7.3"},
+    {"name": "BH1750",               "git": "https://github.com/claws/BH1750",                "ref": "1.3.0"},
+    {"name": "Adafruit_NeoPixel",    "git": "https://github.com/adafruit/Adafruit_NeoPixel",  "ref": "1.15.4"},
+    {"name": "Adafruit_GFX_Library", "git": "https://github.com/adafruit/Adafruit-GFX-Library","ref": "1.11.11"},
+    {"name": "Adafruit_BusIO",       "git": "https://github.com/adafruit/Adafruit_BusIO",     "ref": "1.16.2"},
+    {"name": "WiFiManager",          "git": "https://github.com/tzapu/WiFiManager",           "ref": "v2.0.17"},
+    {"name": "WebSockets",           "git": "https://github.com/Links2004/arduinoWebSockets", "ref": "2.7.2",       "patches": ["websockets_max_data_size", "websockets_rx_internal_dram"]},
+    {"name": "AsyncTCP",             "git": "https://github.com/ESP32Async/AsyncTCP",         "ref": "v3.4.10"},
+    {"name": "ESPAsyncWebServer",    "git": "https://github.com/ESP32Async/ESPAsyncWebServer","ref": "v3.11.0"},
+    {"name": "universal_pin",        "git": "https://github.com/dsbaars/universal_pin",       "ref": "feature/mcp23017_rt", "extra_requires": ["MCP23017", "PCA9685"]},
+    {"name": "GxEPD2",               "git": "https://github.com/dsbaars/GxEPD2",              "ref": "universal_pin", "extra_requires": ["universal_pin", "Adafruit_GFX_Library", "Adafruit_BusIO"], "patches": ["gxepd2_pointer_compare", "gxepd2_stdexcept"]},
+    {"name": "Nostrduino",           "git": "https://github.com/dsbaars/nostrduino",          "ref": "feature/fix-btclock", "extra_requires": ["bblanchon__arduinojson", "uBitcoin", "WebSockets"]},
+    {"name": "uBitcoin",             "git": "https://github.com/micro-bitcoin/uBitcoin",      "ref": "v0.2.0",      "patches": ["ubitcoin_esp_random"]}
+  ]
+}
