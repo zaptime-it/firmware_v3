@@ -39,7 +39,7 @@ image at build-release time.
 
 The project targets three physical devices. The firmware auto-selects
 the right driver via `-D` compile flags from
-`firmware/main/CMakeLists.txt`, keyed off the `BTCLOCK_VARIANT` CMake
+`main/CMakeLists.txt`, keyed off the `BTCLOCK_VARIANT` CMake
 variable.
 
 | Variant            | Board            | RAM    | PSRAM | Flash | Screens | Frontlight             | Flag            |
@@ -55,7 +55,7 @@ on `mcpMutex` is more expensive there; see
 
 ## Variants
 
-Each shipping variant has its own `firmware/sdkconfig.defaults.<variant>`
+Each shipping variant has its own `sdkconfig.defaults.<variant>`
 plus a `BTCLOCK_VARIANT` selector that picks the right pin defines:
 
 | Variant                | Hardware       | EPD size | CI default |
@@ -65,42 +65,41 @@ plus a `BTCLOCK_VARIANT` selector that picks the right pin defines:
 | `btclock_rev_b_213epd` | BTClock Rev B  | 2.13"    | yes        |
 | `btclock_v8_213epd`    | BTClock V8     | 2.13"    | yes        |
 
-A shared `firmware/sdkconfig.defaults` carries the cross-variant size
+A shared `sdkconfig.defaults` carries the cross-variant size
 trim (Mozilla CMN cert bundle, mbedtls / WiFi / Arduino-selective trims,
 assertions silent, etc.). Per-variant defaults chain on top of it via
 the `SDKCONFIG_DEFAULTS` argument the build helpers pass.
 
 ## Building
 
-The wrapper scripts in `firmware/` are the canonical entry point.
-They cd into the IDF project, drop the stale per-build `sdkconfig`
+The wrapper scripts in `scripts/` are the canonical entry point.
+They cd to the repo root, drop the stale per-build `sdkconfig`
 checkpoint so the chained defaults take effect, and run `idf.py` with
 the right arguments.
 
 ```bash
 # Build every shipping variant in turn; binaries land in build_<variant>/
-./firmware/build.sh
+./scripts/build.sh
 
 # Build one variant
-./firmware/build.sh lolin_s3_mini_213epd
+./scripts/build.sh lolin_s3_mini_213epd
 
 # Build + flash (PORT must point at a board in download mode)
-PORT=/dev/cu.usbmodem8331401 ./firmware/build.sh btclock_rev_b_213epd flash
+PORT=/dev/cu.usbmodem8331401 ./scripts/build.sh btclock_rev_b_213epd flash
 
 # Build + LittleFS image + esptool merge_bin (release flow, used by CI)
-./firmware/build-release.sh btclock_v8_213epd
+./scripts/build-release.sh btclock_v8_213epd
 # Artifacts land in release-stage/<variant>/.
 ```
 
-If you want to call `idf.py` directly:
+If you want to call `idf.py` directly (from repo root):
 
 ```bash
 source ~/esp/esp-idf/export.sh
-cd firmware
 # One-time, idempotent: vendor the Arduino libraries listed in
-# arduino_libraries.json into firmware/arduino_libraries/<name>/.
-python3 fetch_arduino_libs.py
-idf.py -B ../build_lolin_s3_mini_213epd \
+# arduino_libraries.json into arduino_libraries/<name>/.
+python3 scripts/fetch_arduino_libs.py
+idf.py -B build_lolin_s3_mini_213epd \
        -DSDKCONFIG_DEFAULTS='sdkconfig.defaults;sdkconfig.defaults.lolin_s3_mini_213epd' \
        -DBTCLOCK_VARIANT=lolin_s3_mini_213epd \
        -DIDF_TARGET=esp32s3 \
@@ -116,9 +115,9 @@ of target.
 
 | Variant       | Partition file                  | OTA slot size | LittleFS (WebUI) |
 | ------------- | ------------------------------- | ------------- | ---------------- |
-| Lolin S3 Mini | `firmware/partition.csv`        | 1.72 MB       | 411 KB           |
-| BTClock Rev B | `firmware/partition_8mb.csv`    | 3.44 MB       | 820 KB           |
-| BTClock V8    | `firmware/partition_16mb.csv`   | 6.94 MB       | 2 MB             |
+| Lolin S3 Mini | `partition.csv`        | 1.72 MB       | 411 KB           |
+| BTClock Rev B | `partition_8mb.csv`    | 3.44 MB       | 820 KB           |
+| BTClock V8    | `partition_16mb.csv`   | 6.94 MB       | 2 MB             |
 
 The Lolin 4 MB variant is the one that hits the OTA-slot ceiling first
 (currently ~3% free on `lolin_s3_mini_213epd`). When firmware size
@@ -127,7 +126,7 @@ creeps, that's the one to watch.
 ## Uploading the WebUI
 
 The WebUI lives in the `data/` submodule and is built separately;
-`firmware/build-release.sh` consumes the already-built output.
+`scripts/build-release.sh` consumes the already-built output.
 
 ```bash
 cd data
@@ -179,10 +178,10 @@ Almost every defaulted setting lives in
 ### Third-party library patches
 
 Some vendored Arduino libraries hard-code values that need to vary
-across our targets. Rather than fork them, `firmware/fetch_arduino_libs.py`
+across our targets. Rather than fork them, `scripts/fetch_arduino_libs.py`
 patches the affected files in-place at fetch time. Each patch is
 idempotent via a sentinel comment, so re-running the fetcher (or
-`./firmware/build.sh`, which calls it transitively the first time)
+`./scripts/build.sh`, which calls it transitively the first time)
 won't double-apply.
 
 Currently patched:
@@ -214,7 +213,7 @@ that motivated it.
 - **`fatal: no submodule mapping found`.** You cloned without
   `--recurse-submodules`; run `git submodule update --init --recursive`.
 - **`partition.csv missing`.** You're still on a tree from before the
-  PIO removal — the file moved to `firmware/partition.csv`. Update
+  PIO removal — the file moved to `partition.csv`. Update
   your branch.
 - **`Linker error: section ... overflows`.** The firmware no longer
   fits in the 4 MB OTA slot. Either drop a feature flag, or build

@@ -10,9 +10,10 @@ The patch logic is ported from scripts/pre_script.py so the IDF flow
 doesn't depend on PlatformIO being installed. Each patch is
 idempotent via a sentinel marker.
 
-Run from firmware/:
+Run from anywhere (paths resolve relative to repo root, which is the
+parent of scripts/):
 
-    python3 fetch_arduino_libs.py
+    python3 scripts/fetch_arduino_libs.py
 
 Re-run is safe: existing lib dirs are left alone and patches skip
 themselves if already applied. Pass --force to wipe and re-fetch.
@@ -30,8 +31,9 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-CONFIG_PATH = HERE / "arduino_libraries.json"
-TARGET_DIR = HERE / "arduino_libraries"
+REPO_ROOT = HERE.parent
+CONFIG_PATH = REPO_ROOT / "arduino_libraries.json"
+TARGET_DIR = REPO_ROOT / "arduino_libraries"
 
 
 # Generic CMakeLists template injected for libs that ship none. Uses

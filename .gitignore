@@ -12,32 +12,34 @@ data/build/*
 data/.yarn
 data/node_modules
 
-# IDF managed components are downloaded under firmware/managed_components/
-# by the Component Manager on every configure — never tracked.
+# IDF managed components are downloaded under managed_components/ by the
+# Component Manager on every configure — never tracked.
 managed_components
 
-# IDF builds. Each variant lands in build_<variant>/ at repo root
-# because firmware/build.sh invokes `idf.py -B ../build_<variant>`.
+# IDF builds. Each variant lands in build_<variant>/ at repo root because
+# scripts/build.sh invokes `idf.py -B build_<variant>` from there.
 /build/
 /build_*/
 /compile_commands.json
 
-# IDF-as-build flow generated artefacts under firmware/. The tracked
-# scaffold (CMakeLists.txt, main/, sdkconfig.defaults*, arduino_libraries.json,
-# fetch_arduino_libs.py, partition*.csv, dependencies.lock, build*.sh)
-# is the firmware build's single source of truth; everything below is
-# regenerated on demand.
-firmware/build_*/
-firmware/arduino_libraries/
-firmware/sdkconfig
-firmware/spiffs/
+# Vendored Arduino libraries — fetched on demand by
+# scripts/fetch_arduino_libs.py from arduino_libraries.json. The JSON
+# spec IS tracked; the populated arduino_libraries/ tree is not.
+/arduino_libraries/
+
+# Generated IDF sdkconfig (chained from the tracked
+# sdkconfig.defaults + sdkconfig.defaults.<variant>).
+/sdkconfig
+
+# LittleFS staging dir for ad-hoc image builds.
+/spiffs/
 
 # Host-test CMake build trees (configured from tests/CMakeLists.txt).
 # Plain and sanitize variants both regenerate on every configure.
 /build-tests/
 /build-tests-asan/
 
-# CI release staging dir produced by firmware/build-release.sh
+# CI release staging dir produced by scripts/build-release.sh
 /release-stage/
 
 # Font/asset conversion byproducts that end up at the repo root while

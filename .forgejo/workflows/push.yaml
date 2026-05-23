@@ -108,7 +108,7 @@ jobs:
           python3 gzip_build.py
       - name: Build + stage ${{ matrix.variant }}
         shell: bash
-        run: . ~/esp/esp-idf/export.sh && ./firmware/build-release.sh ${{ matrix.variant }}
+        run: . ~/esp/esp-idf/export.sh && ./scripts/build-release.sh ${{ matrix.variant }}
       - name: Upload variant artifacts
         uses: https://code.forgejo.org/forgejo/upload-artifact@v4
         with:

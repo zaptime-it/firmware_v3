@@ -2,7 +2,7 @@ name: "Install IDF + build helpers"
 description: >
   Composite action used by both pull_request.yml and tagging.yml. Sets
   up ESP-IDF v5.5, pnpm/node for the webui build, and the python tools
-  needed by firmware/build-release.sh (littlefs-python, junit-xml for
+  needed by scripts/build-release.sh (littlefs-python, junit-xml for
   the host-test reporter).
 
 runs:
@@ -31,7 +31,7 @@ runs:
         target: esp32s3
         # We invoke idf.py manually in named steps; no project path to
         # auto-build here.
-        path: ./firmware
+        path: .
         command: idf.py --version
 
     # Tooling the build-release.sh / host-test runner needs on top of

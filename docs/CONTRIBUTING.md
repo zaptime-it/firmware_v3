@@ -18,15 +18,15 @@ source ~/esp/esp-idf/export.sh
 # Sanity:
 cmake -G Ninja -B build-tests -S tests && cmake --build build-tests -j && \
   ctest --test-dir build-tests --output-on-failure
-./firmware/build.sh                  # build all four shipping variants
+./scripts/build.sh                  # build all four shipping variants
 ```
 
 ## Before you push
 
 ```bash
 ctest --test-dir build-tests --output-on-failure   # host tests
-./firmware/build.sh lolin_s3_mini_213epd           # tightest flash budget
-./firmware/build.sh                                # the other three variants
+./scripts/build.sh lolin_s3_mini_213epd           # tightest flash budget
+./scripts/build.sh                                # the other three variants
 ```
 
 If you changed a handler, a header, or a setting, also manually

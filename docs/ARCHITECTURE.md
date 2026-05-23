@@ -81,16 +81,20 @@ tests/                         # Host-only Unity tests + CMake driver
 ├── test_screen_nav/           #   screen_nav.hpp
 └── test_screen_order/         #   screen_order.hpp
 
-firmware/                      # ESP-IDF project root + per-variant config
-├── CMakeLists.txt             #   IDF project file
-├── main/                      #   main component (globs ../../src + ../../lib)
-├── sdkconfig.defaults         #   cross-variant size trim + Kconfig
-├── sdkconfig.defaults.<variant>  per-variant flash/PSRAM/partition selection
-├── partition.csv, partition_8mb.csv, partition_16mb.csv
-├── arduino_libraries.json     #   vendored Arduino lib pins
-├── fetch_arduino_libs.py      #   one-shot vendor script
-├── build.sh, build-release.sh #   variant + release wrappers
-└── arduino_libraries/         #   gitignored, populated by fetch script
+# Repo root holds the IDF project files directly (standard layout):
+CMakeLists.txt                 # IDF project file
+sdkconfig.defaults             # cross-variant size trim + Kconfig
+sdkconfig.defaults.<variant>   # per-variant flash/PSRAM/partition selection
+partition.csv, partition_8mb.csv, partition_16mb.csv
+arduino_libraries.json         # vendored Arduino lib pins
+dependencies.lock              # IDF Component Manager lockfile
+main/                          # main component (globs ../src + ../lib)
+├── CMakeLists.txt
+└── idf_component.yml          # IDF Component Manager deps
+scripts/
+├── build.sh, build-release.sh # variant + release wrappers
+└── fetch_arduino_libs.py      # one-shot vendor script
+arduino_libraries/             # gitignored, populated by fetch script
 ```
 
 Things that are intentionally left flat:
@@ -98,7 +102,7 @@ Things that are intentionally left flat:
 - `src/main.cpp` is the Arduino entry point and can't move.
 - `src/fonts/` and `src/img/` are already logically grouped.
 - `lib/btclock/` holds the host-testable pieces (no Arduino / IDF deps),
-  pulled in by both the firmware (globbed from `firmware/main/CMakeLists.txt`)
+  pulled in by both the firmware (globbed from `main/CMakeLists.txt`)
   and the host tests (linked from `tests/CMakeLists.txt`). Renaming it
   would touch both build systems.
 - `lib/qrcode/` is vendored from upstream.

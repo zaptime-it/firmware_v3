@@ -90,7 +90,7 @@ short version:
 git clone --recurse-submodules https://git.btclock.dev/btclock/btclock_v3.git
 cd btclock_v3
 source ~/esp/esp-idf/export.sh    # IDF v5.5 installed at ~/esp/esp-idf
-./firmware/build.sh               # all four shipping variants
+./scripts/build.sh               # all four shipping variants
 ```
 
 Full build, flash, and OTA instructions are in

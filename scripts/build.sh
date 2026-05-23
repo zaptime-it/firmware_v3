@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Build one or all BTClock variants via the IDF-as-build flow.
 #
+# Run from anywhere; cd's to repo root automatically.
+#
 # Usage:
-#   ./build.sh                  # build all 4 production variants
-#   ./build.sh <variant>        # build one
-#   ./build.sh <variant> flash  # build + flash via idf.py (uses $PORT)
+#   ./scripts/build.sh                  # build all 4 production variants
+#   ./scripts/build.sh <variant>        # build one
+#   ./scripts/build.sh <variant> flash  # build + flash via idf.py (uses $PORT)
 #
 # Variants:
 #   lolin_s3_mini_213epd  (Rev A, 4 MB, 2.13" EPD)
@@ -14,7 +16,8 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")"
+# Repo root = directory containing this script's parent dir (scripts/).
+cd "$(dirname "$0")/.."
 
 ALL_VARIANTS=(
     lolin_s3_mini_213epd
@@ -26,7 +29,7 @@ ALL_VARIANTS=(
 build_one() {
     local variant="$1"
     local action="${2:-build}"
-    local build_dir="../build_${variant}"
+    local build_dir="build_${variant}"
 
     echo
     echo "==> $variant ($action)"
@@ -54,7 +57,7 @@ if [[ $# -eq 0 ]]; then
         build_one "$v"
     done
     echo
-    echo "All variants built. Binaries under ../build_<variant>/btclock_v3.bin"
+    echo "All variants built. Binaries under build_<variant>/btclock_v3.bin"
 else
     build_one "$1" "${2:-build}"
 fi

@@ -121,7 +121,7 @@ For local on-device smoke tests of the assembled board, flash the
 release image and prod the WebUI / API by hand:
 
 ```bash
-PORT=/dev/cu.usbmodemXXXX ./firmware/build.sh lolin_s3_mini_213epd flash
+PORT=/dev/cu.usbmodemXXXX ./scripts/build.sh lolin_s3_mini_213epd flash
 ```
 
 That gets the firmware on the board; the LittleFS image still has to
@@ -138,7 +138,7 @@ push and tag it:
 1. Checks out with submodules.
 2. Runs `host-tests`: configures `tests/CMakeLists.txt` in both plain
    and sanitize mode, builds, runs `ctest --output-on-failure`.
-3. `build` matrix runs `firmware/build-release.sh <variant>` per
+3. `build` matrix runs `scripts/build-release.sh <variant>` per
    variant. PRs build only `lolin_s3_mini_213epd` + `btclock_rev_b_213epd`
    to keep PR latency reasonable; tags + workflow_dispatch build the
    full 4-variant matrix.

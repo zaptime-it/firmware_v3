@@ -1,10 +1,10 @@
 # Glob the existing PIO src/ tree from one level up. Keeping all source
-# in ../../src/ means the PIO build can keep using it unchanged; we just
+# in ../src/ means the PIO build can keep using it unchanged; we just
 # point IDF's main component at the same files. INCLUDE_DIRS mirrors
 # what platformio.ini exposed implicitly through Arduino + ESP-IDF.
 
-set(SRC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../src")
-set(INC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../../include")
+set(SRC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../src")
+set(INC_ROOT "${CMAKE_CURRENT_LIST_DIR}/../include")
 
 file(GLOB_RECURSE app_sources
     "${SRC_ROOT}/*.cpp"
@@ -12,9 +12,9 @@ file(GLOB_RECURSE app_sources
     # PIO built every lib/<dir>/*.cpp as a static lib via lib_extra_dirs.
     # Pull them into main so symbols (parseBlockFees, getCurrencyCode,
     # btclock::parseScreenOrder, etc.) resolve at link time.
-    "${CMAKE_CURRENT_LIST_DIR}/../../lib/btclock/*.cpp"
-    "${CMAKE_CURRENT_LIST_DIR}/../../lib/btclock/*.c"
-    "${CMAKE_CURRENT_LIST_DIR}/../../lib/qrcode/*.c"
+    "${CMAKE_CURRENT_LIST_DIR}/../lib/btclock/*.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/../lib/btclock/*.c"
+    "${CMAKE_CURRENT_LIST_DIR}/../lib/qrcode/*.c"
 )
 
 idf_component_register(
@@ -22,13 +22,13 @@ idf_component_register(
     INCLUDE_DIRS
         "${SRC_ROOT}"
         "${INC_ROOT}"
-        "${CMAKE_CURRENT_LIST_DIR}/../../lib"
+        "${CMAKE_CURRENT_LIST_DIR}/../lib"
         # PIO auto-added every subdir of lib/ as an include path
         # (each is treated as an Arduino lib root). IDF doesn't, so
         # list them explicitly. lib/btclock holds utils.hpp; lib/qrcode
         # is the in-tree qrcodegen vendor.
-        "${CMAKE_CURRENT_LIST_DIR}/../../lib/btclock"
-        "${CMAKE_CURRENT_LIST_DIR}/../../lib/qrcode"
+        "${CMAKE_CURRENT_LIST_DIR}/../lib/btclock"
+        "${CMAKE_CURRENT_LIST_DIR}/../lib/qrcode"
     # No EMBED_FILES for x509_crt_bundle: the IDF flow uses the
     # default Mozilla bundle that esp-tls + mbedtls auto-generate
     # (CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y in
@@ -81,7 +81,7 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
 if(NOT DEFINED BTCLOCK_GIT_REV)
     execute_process(
         COMMAND git rev-parse --short HEAD
-        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/../.."
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
         OUTPUT_VARIABLE BTCLOCK_GIT_REV
         OUTPUT_STRIP_TRAILING_WHITESPACE
         ERROR_QUIET

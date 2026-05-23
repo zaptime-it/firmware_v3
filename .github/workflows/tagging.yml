@@ -45,7 +45,7 @@ jobs:
         uses: ./.github/actions/install-build
       - name: Build + stage ${{ matrix.variant }}
         shell: bash
-        run: . $IDF_PATH/export.sh && ./firmware/build-release.sh ${{ matrix.variant }}
+        run: . $IDF_PATH/export.sh && ./scripts/build-release.sh ${{ matrix.variant }}
       - name: Upload variant artifacts
         uses: actions/upload-artifact@v4
         with:
