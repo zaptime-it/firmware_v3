@@ -15,7 +15,7 @@
 #   - littlefs-python is on the IDF venv's PATH.
 #
 # Outputs (in repo-root release-stage/<variant>/):
-#   firmware.bin              raw OTA app image (PIO-equivalent name)
+#   firmware.bin              raw OTA app image
 #   bootloader.bin            second-stage bootloader
 #   partitions.bin            partition table
 #   ota_data_initial.bin      initial OTA selector (boots app0)
@@ -27,7 +27,7 @@ set -euo pipefail
 
 variant="${1:?variant name required}"
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-build_dir="${repo_root}/build_${variant}"
+build_dir="${repo_root}/.builds/${variant}"
 stage_dir="${repo_root}/release-stage/${variant}"
 data_root="${repo_root}/data/build_gz/www"
 
@@ -86,7 +86,7 @@ littlefs-python create "$data_root" "$fs_bin" -v \
     --name-max=64 \
     --block-size=4096
 
-# ---- 3. Copy IDF outputs with PIO-equivalent names ----
+# ---- 3. Copy IDF outputs into the staging dir ----
 cp "${build_dir}/btclock_v3.bin"                      "${stage_dir}/firmware.bin"
 cp "${build_dir}/bootloader/bootloader.bin"               "${stage_dir}/bootloader.bin"
 cp "${build_dir}/partition_table/partition-table.bin"     "${stage_dir}/partitions.bin"
@@ -118,7 +118,6 @@ if [[ -z "$fs_offset_hex" ]]; then
 fi
 
 # ---- 5. Merge into a single-flash image ----
-# Same offsets as the legacy PIO recipe in .github/workflows/tagging.yml.
 # Use `python -m esptool` with the underscore subcommand/flags spelling
 # so we work on both the older esptool that IDF 5.5 venvs ship
 # (`merge_bin` / `--flash_mode`) and newer releases that accept either.

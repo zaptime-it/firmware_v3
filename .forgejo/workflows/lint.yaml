@@ -6,8 +6,7 @@ name: "Lint"
 #
 # We use the host-test CMake project (tests/CMakeLists.txt with
 # CMAKE_EXPORT_COMPILE_COMMANDS=ON) to get a tractable include graph for
-# tidy. This used to use PlatformIO's native_test_only env compiledb,
-# but we removed PlatformIO with Phase 3 of the IDF-as-build migration.
+# tidy — firmware-only Arduino/IDF translation units aren't host-buildable.
 
 on:
   push:
@@ -50,14 +49,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Format gate on all tracked C/C++ sources/headers in src/, lib/, include/, test/.
+          # Format gate on all tracked C/C++ sources/headers in main/, lib/, tests/.
           files="$(git ls-files \
-            'src/**/*.c' 'src/**/*.cpp' 'src/**/*.h' 'src/**/*.hpp' \
+            'main/**/*.c' 'main/**/*.cpp' 'main/**/*.h' 'main/**/*.hpp' \
             'lib/**/*.c' 'lib/**/*.cpp' 'lib/**/*.h' 'lib/**/*.hpp' \
-            'include/**/*.h' 'include/**/*.hpp' \
-            'test/**/*.c' 'test/**/*.cpp' 'test/**/*.h' 'test/**/*.hpp' || true)"
+            'tests/**/*.c' 'tests/**/*.cpp' 'tests/**/*.h' 'tests/**/*.hpp' || true)"
           # Exclude generated font blobs (massive data arrays).
-          files="$(echo "$files" | rg -v '^src/fonts/' || true)"
+          files="$(echo "$files" | rg -v '^main/fonts/' || true)"
           if [ -z "$files" ]; then
             echo "No source files found for formatting gate."
             exit 0
@@ -98,10 +96,9 @@ jobs:
           set -euo pipefail
           # CMAKE_EXPORT_COMPILE_COMMANDS=ON is baked into tests/CMakeLists.txt.
           # Configure-only is enough to produce the DB; no need to actually build.
-          cmake -G Ninja -B build-tests -S tests
-          # Symlink to repo root so `clang-tidy -p .` finds it (matches the
-          # legacy PIO behaviour that wrote compile_commands.json there).
-          ln -sf build-tests/compile_commands.json compile_commands.json
+          cmake -G Ninja -B .builds/tests -S tests
+          # Symlink to repo root so `clang-tidy -p .` finds it.
+          ln -sf .builds/tests/compile_commands.json compile_commands.json
           test -f compile_commands.json
 
       - name: Run clang-tidy (host-test compilation set)
@@ -114,12 +111,10 @@ jobs:
           # ESP32-only Arduino/IDF headers that aren't available to the
           # host toolchain.
           files="$(jq -r '.[].file' compile_commands.json | sort -u || true)"
-          # CMake writes absolute paths into compile_commands.json (unlike
-          # the legacy PIO compiledb which used repo-relative paths). The
-          # host-test scaffold only globs lib/btclock/*.cpp + test/*/test_main.cpp
-          # so no firmware-only src/*.cpp ever lands in the DB. Belt-and-
-          # braces: exclude anything under <repo>/src/.
-          files="$(echo "$files" | rg -v '/src/' || true)"
+          # The host-test scaffold only globs lib/btclock/*.cpp + tests/*/test_main.cpp,
+          # so no firmware-only main/*.cpp ever lands in the DB. Belt-and-
+          # braces: exclude anything under <repo>/main/.
+          files="$(echo "$files" | rg -v '/main/' || true)"
           if [ -z "$files" ]; then
             echo "No .cpp files found for clang-tidy."
             exit 0

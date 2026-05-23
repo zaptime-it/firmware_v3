@@ -29,11 +29,13 @@ ALL_VARIANTS=(
 build_one() {
     local variant="$1"
     local action="${2:-build}"
-    local build_dir="build_${variant}"
+    local build_dir=".builds/${variant}"
 
     echo
     echo "==> $variant ($action)"
     echo
+
+    mkdir -p .builds
 
     # Drop the stale per-build sdkconfig so the chained defaults take
     # effect even if a previous run for another variant left one behind.
@@ -57,7 +59,7 @@ if [[ $# -eq 0 ]]; then
         build_one "$v"
     done
     echo
-    echo "All variants built. Binaries under build_<variant>/btclock_v3.bin"
+    echo "All variants built. Binaries under .builds/<variant>/btclock_v3.bin"
 else
     build_one "$1" "${2:-build}"
 fi

@@ -26,19 +26,19 @@ jobs:
       - name: Build host tests (plain + ASan)
         shell: bash
         run: |
-          cmake -G Ninja -B build-tests       -S tests
-          cmake -G Ninja -B build-tests-asan  -S tests -DBTCLOCK_TEST_SANITIZE=ON
-          cmake --build build-tests      -j
-          cmake --build build-tests-asan -j
+          cmake -G Ninja -B .builds/tests       -S tests
+          cmake -G Ninja -B .builds/tests-asan  -S tests -DBTCLOCK_TEST_SANITIZE=ON
+          cmake --build .builds/tests      -j
+          cmake --build .builds/tests-asan -j
       - name: Run plain tests
         shell: bash
-        run: ctest --test-dir build-tests --output-on-failure --output-junit junit-plain.xml
+        run: ctest --test-dir .builds/tests --output-on-failure --output-junit junit-plain.xml
       - name: Run sanitize tests
         shell: bash
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ctest --test-dir build-tests-asan --output-on-failure --output-junit junit-asan.xml
+        run: ctest --test-dir .builds/tests-asan --output-on-failure --output-junit junit-asan.xml
 
   set-matrix:
     runs-on: docker

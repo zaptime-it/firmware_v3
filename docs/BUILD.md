@@ -78,7 +78,7 @@ checkpoint so the chained defaults take effect, and run `idf.py` with
 the right arguments.
 
 ```bash
-# Build every shipping variant in turn; binaries land in build_<variant>/
+# Build every shipping variant in turn; binaries land in .builds/<variant>/
 ./scripts/build.sh
 
 # Build one variant
@@ -99,7 +99,7 @@ source ~/esp/esp-idf/export.sh
 # One-time, idempotent: vendor the Arduino libraries listed in
 # arduino_libraries.json into arduino_libraries/<name>/.
 python3 scripts/fetch_arduino_libs.py
-idf.py -B build_lolin_s3_mini_213epd \
+idf.py -B .builds/lolin_s3_mini_213epd \
        -DSDKCONFIG_DEFAULTS='sdkconfig.defaults;sdkconfig.defaults.lolin_s3_mini_213epd' \
        -DBTCLOCK_VARIANT=lolin_s3_mini_213epd \
        -DIDF_TARGET=esp32s3 \
@@ -208,8 +208,8 @@ that motivated it.
 - **`idf.py: command not found`.** You haven't sourced ESP-IDF in this
   shell. Run `source ~/esp/esp-idf/export.sh`.
 - **`Build directory '…' configured for project '…' not '…'`.** A
-  stale `build_<variant>/` CMake cache from before a rename. Delete it
-  (`rm -rf build_<variant>`) and rerun.
+  stale `.builds/<variant>/` CMake cache from before a rename. Delete it
+  (`rm -rf .builds/<variant>`) and rerun.
 - **`fatal: no submodule mapping found`.** You cloned without
   `--recurse-submodules`; run `git submodule update --init --recursive`.
 - **`partition.csv missing`.** You're still on a tree from before the

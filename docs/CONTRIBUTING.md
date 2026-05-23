@@ -16,15 +16,15 @@ git clone --depth 1 --branch v5.5 --recurse-submodules --shallow-submodules \
 ~/esp/esp-idf/install.sh esp32s3
 source ~/esp/esp-idf/export.sh
 # Sanity:
-cmake -G Ninja -B build-tests -S tests && cmake --build build-tests -j && \
-  ctest --test-dir build-tests --output-on-failure
+cmake -G Ninja -B .builds/tests -S tests && cmake --build .builds/tests -j && \
+  ctest --test-dir .builds/tests --output-on-failure
 ./scripts/build.sh                  # build all four shipping variants
 ```
 
 ## Before you push
 
 ```bash
-ctest --test-dir build-tests --output-on-failure   # host tests
+ctest --test-dir .builds/tests --output-on-failure   # host tests
 ./scripts/build.sh lolin_s3_mini_213epd           # tightest flash budget
 ./scripts/build.sh                                # the other three variants
 ```

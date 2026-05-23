@@ -66,10 +66,9 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -Wno-error=all
 )
 
-# ---- Build identity (replaces scripts/git_rev.py + -DLAST_BUILD_TIME=$UNIX_TIME) ----
-# Both regenerate every configure, matching PIO. If a reproducible build
-# is wanted, override on the idf.py command line with
-# -DBTCLOCK_GIT_REV="..." -DBTCLOCK_BUILD_TIME=0.
+# ---- Build identity (GIT_REV + LAST_BUILD_TIME) ----
+# Both regenerate every configure. For a reproducible build, override on
+# the idf.py command line with -DBTCLOCK_GIT_REV="..." -DBTCLOCK_BUILD_TIME=0.
 if(NOT DEFINED BTCLOCK_GIT_REV)
     execute_process(
         COMMAND git rev-parse --short HEAD
@@ -97,12 +96,10 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
 
 # ---- Variant-specific defines ----
 # Driven by the BTCLOCK_VARIANT CMake variable, set by the caller via
-#     idf.py -B ../build_<variant> \
+#     idf.py -B .builds/<variant> \
 #            -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.<variant>" \
 #            -DBTCLOCK_VARIANT=<variant> -DIDF_TARGET=esp32s3 build
-# Each block mirrors the corresponding [env:<variant>] in the legacy
-# platformio.ini so the firmware-side macros stay identical across
-# build systems while migrating.
+# scripts/build.sh wraps this for the four production variants.
 if(NOT DEFINED BTCLOCK_VARIANT)
     message(FATAL_ERROR
         "BTCLOCK_VARIANT not set. Pass -DBTCLOCK_VARIANT=<one of: "
@@ -125,7 +122,7 @@ elseif(BTCLOCK_VARIANT STREQUAL "lolin_s3_mini_29epd")
         # Same Rev A hardware as the 213epd, only the EPD changes.
         MCP_INT_PIN=8 NEOPIXEL_PIN=34 NEOPIXEL_COUNT=4 NUM_SCREENS=7
         I2C_SDA_PIN=35 I2C_SCK_PIN=36 IS_HW_REV_A
-        # 2.9" EPD variant — no 16 KB stack bump in the PIO env, so omit.
+        # 2.9" EPD variant — narrower QR path, default stack is fine.
         USE_QR VERSION_EPD_2_9 HW_REV="REV_A_EPD_2_9"
     )
 elseif(BTCLOCK_VARIANT STREQUAL "btclock_rev_b_213epd")

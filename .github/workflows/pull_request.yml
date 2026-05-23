@@ -16,24 +16,24 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build
       - name: Configure + build host tests (plain)
         run: |
-          cmake -G Ninja -B build-tests -S tests
-          cmake --build build-tests -j
+          cmake -G Ninja -B .builds/tests -S tests
+          cmake --build .builds/tests -j
       - name: Configure + build host tests (ASan + UBSan)
         run: |
-          cmake -G Ninja -B build-tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON
-          cmake --build build-tests-asan -j
+          cmake -G Ninja -B .builds/tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON
+          cmake --build .builds/tests-asan -j
       - name: Run plain tests
-        run: ctest --test-dir build-tests --output-on-failure --output-junit junit-plain.xml
+        run: ctest --test-dir .builds/tests --output-on-failure --output-junit junit-plain.xml
       - name: Run sanitize tests
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ctest --test-dir build-tests-asan --output-on-failure --output-junit junit-asan.xml
+        run: ctest --test-dir .builds/tests-asan --output-on-failure --output-junit junit-asan.xml
       - name: Publish test report
         if: success() || failure()
         uses: mikepenz/action-junit-report@v4
         with:
-          report_paths: 'build-tests*/junit-*.xml'
+          report_paths: '.builds/tests*/junit-*.xml'
           detailed_summary: true
 
   firmware:

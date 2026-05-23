@@ -3,10 +3,10 @@
 # host with no Arduino / FreeRTOS / ESP-IDF runtime.
 #
 # Usage (run from repo root):
-#   cmake -B build-tests       -S tests
-#   cmake -B build-tests-asan  -S tests -DBTCLOCK_TEST_SANITIZE=ON
-#   cmake --build build-tests -j
-#   ctest --test-dir build-tests --output-on-failure
+#   cmake -B .builds/tests       -S tests
+#   cmake -B .builds/tests-asan  -S tests -DBTCLOCK_TEST_SANITIZE=ON
+#   cmake --build .builds/tests -j
+#   ctest --test-dir .builds/tests --output-on-failure
 #
 # Each tests/test_<name>/test_main.cpp becomes one ctest target. Every
 # test links the full lib/btclock/ pile because the headers are small
@@ -18,7 +18,7 @@ project(btclock_v3_host_tests CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS ON)  # match PIO's -std=gnu++17
+set(CMAKE_CXX_EXTENSIONS ON)  # gnu++17, matches the firmware build
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 enable_testing()
@@ -36,7 +36,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(unity)
 
 # ---- Optional ASan + UBSan (BTCLOCK_TEST_SANITIZE=ON) ----
-# Mirrors [env:native_sanitize] from the legacy platformio.ini.
 option(BTCLOCK_TEST_SANITIZE "Build host tests with ASan + UBSan" OFF)
 if(BTCLOCK_TEST_SANITIZE)
     add_compile_options(-O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined)
@@ -75,11 +74,10 @@ foreach(test_dir ${TEST_DIRS})
     )
     target_compile_definitions(${test_name} PRIVATE
         UNITY_TEST
-        # Match the [env:native_test_only] pin/screen defaults from the
-        # legacy platformio.ini. NUM_SCREENS is referenced by several
-        # lib/btclock/ headers via std::array<..., NUM_SCREENS>; pin
-        # macros aren't exercised by host tests but keep them defined
-        # so any guarded code compiles.
+        # NUM_SCREENS is referenced by several lib/btclock/ headers via
+        # std::array<..., NUM_SCREENS>; the pin macros aren't exercised
+        # by host tests but keep them defined so any guarded code still
+        # compiles.
         MCP_INT_PIN=8
         NEOPIXEL_PIN=34
         NEOPIXEL_COUNT=4

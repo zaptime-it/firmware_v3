@@ -16,11 +16,16 @@ data/node_modules
 # Component Manager on every configure — never tracked.
 managed_components
 
-# IDF builds. Each variant lands in build_<variant>/ at repo root because
-# scripts/build.sh invokes `idf.py -B build_<variant>` from there.
+# All build trees land under .builds/<name>/ (firmware variants, host
+# tests, host tests with sanitizers, the lint compile_commands.json
+# project). Single hidden dir so `ls` at repo root stays clean.
+/.builds/
+/compile_commands.json
+
+# Legacy IDF build dirs from before .builds/ existed — keep ignored so
+# stragglers (or older branches) don't pollute the index.
 /build/
 /build_*/
-/compile_commands.json
 
 # Vendored Arduino libraries — fetched on demand by
 # scripts/fetch_arduino_libs.py from arduino_libraries.json. The JSON
@@ -34,13 +39,18 @@ managed_components
 # LittleFS staging dir for ad-hoc image builds.
 /spiffs/
 
-# Host-test CMake build trees (configured from tests/CMakeLists.txt).
-# Plain and sanitize variants both regenerate on every configure.
-/build-tests/
-/build-tests-asan/
-
 # CI release staging dir produced by scripts/build-release.sh
 /release-stage/
+
+# The PIO VSCode extension keeps regenerating these PIO-project
+# boilerplate files even though we have no platformio.ini and recommend
+# the IDF extension instead. Ignore so they never come back as untracked
+# noise.
+/platformio.ini
+/include/
+/test/
+/src/
+/README.md.bak
 
 # Font/asset conversion byproducts that end up at the repo root while
 # experimenting with tools/ helpers. The real source files live under

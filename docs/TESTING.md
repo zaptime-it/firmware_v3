@@ -38,25 +38,25 @@ The test harness is a stock CMake project under `tests/`. Configure
 and build once, then invoke `ctest` for fast re-runs.
 
 ```bash
-cmake -G Ninja -B build-tests -S tests
-cmake --build build-tests -j
-ctest --test-dir build-tests --output-on-failure
+cmake -G Ninja -B .builds/tests -S tests
+cmake --build .builds/tests -j
+ctest --test-dir .builds/tests --output-on-failure
 ```
 
 Filter to one suite:
 
 ```bash
-ctest --test-dir build-tests -R test_dnd_window --output-on-failure
+ctest --test-dir .builds/tests -R test_dnd_window --output-on-failure
 ```
 
 For the sanitizer build (ASan + UBSan, matches `BTCLOCK_TEST_SANITIZE=ON`):
 
 ```bash
-cmake -G Ninja -B build-tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON
-cmake --build build-tests-asan -j
+cmake -G Ninja -B .builds/tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON
+cmake --build .builds/tests-asan -j
 ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
 UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
-ctest --test-dir build-tests-asan --output-on-failure
+ctest --test-dir .builds/tests-asan --output-on-failure
 ```
 
 Unity itself is fetched at configure time via `FetchContent` (pinned
@@ -74,7 +74,7 @@ to v2.6.0 in `tests/CMakeLists.txt`); no vendored copy.
    (`TEST_ASSERT_*`, `RUN_TEST`).
 4. Re-run cmake — `tests/CMakeLists.txt` globs `test_*` so no edits
    needed there.
-5. Run with `ctest --test-dir build-tests -R test_<subject>`.
+5. Run with `ctest --test-dir .builds/tests -R test_<subject>`.
 
 If your test file doesn't define `setUp` / `tearDown`, the weak default
 stubs from `tests/unity_defaults.c` keep the linker happy.
@@ -170,4 +170,4 @@ ESP32-only headers leaking in.
   surfaced this was an off-by-one in the `test_pref_keys` array size.)
 - **Re-running cmake doesn't pick up a deleted source file**
   automatically — if a test file disappears, cmake still has a stale
-  entry. `rm -rf build-tests` and reconfigure when in doubt.
+  entry. `rm -rf .builds/tests` and reconfigure when in doubt.
