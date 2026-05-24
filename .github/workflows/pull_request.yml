@@ -1,5 +1,10 @@
 name: Pull Request Workflow
 
+# PR variant of tagging.yml. Same pipeline shape (host-tests →
+# webui-and-lfs → firmware matrix) but skips the release job and runs
+# only the two variants we ship most bugfixes against. The full 4-
+# variant matrix runs on tag pushes via tagging.yml.
+
 on:
   pull_request:
     branches:
@@ -13,14 +18,25 @@ jobs:
         with:
           submodules: recursive
       - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build ccache
+      - uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-host-tests-${{ github.sha }}
+          restore-keys: |
+            ccache-host-tests-
       - name: Configure + build host tests (plain)
         run: |
-          cmake -G Ninja -B .builds/tests -S tests
+          ccache -M 500M
+          cmake -G Ninja -B .builds/tests -S tests \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build .builds/tests -j
       - name: Configure + build host tests (ASan + UBSan)
         run: |
-          cmake -G Ninja -B .builds/tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON
+          cmake -G Ninja -B .builds/tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build .builds/tests-asan -j
       - name: Run plain tests
         run: ctest --test-dir .builds/tests --output-on-failure --output-junit junit-plain.xml
@@ -35,23 +51,124 @@ jobs:
         with:
           report_paths: '.builds/tests*/junit-*.xml'
           detailed_summary: true
+      - name: ccache stats
+        if: always()
+        run: ccache -s
 
-  firmware:
+  webui-and-lfs:
     runs-on: ubuntu-latest
-    # Mirror the PR subset the Forgejo workflow runs (Rev A + Rev B only).
-    # V8 and lolin_s3_mini_29epd run on release tags via tagging.yml.
-    strategy:
-      matrix:
-        variant: [lolin_s3_mini_213epd, btclock_rev_b_213epd]
+    container:
+      image: espressif/idf:v5.5
+    needs: host-tests
     steps:
+      - name: Install Node.js (for JS-based GitHub actions)
+        shell: bash
+        run: |
+          apt-get update
+          curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          apt-get install -y --no-install-recommends nodejs
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: "Install IDF + build helpers"
-        uses: ./.github/actions/install-build
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: data/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+      - name: Build WebUI
+        shell: bash
+        working-directory: data
+        run: |
+          CI=true pnpm install --frozen-lockfile
+          pnpm build
+          python3 gzip_build.py
+      - name: Install littlefs-python
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          pip install littlefs-python==0.15.0
+      - name: "Pack LFS images (PR subset: 4MB + 8MB)"
+        shell: bash
+        # The PR matrix only builds Rev A (4MB) + Rev B (8MB) so we skip
+        # the 16MB pack to shave a few seconds. tagging.yml packs all
+        # three sizes for release builds.
+        run: |
+          . /opt/esp/idf/export.sh
+          mkdir -p dist-lfs
+          for size in 4MB 8MB; do
+            ./scripts/pack-lfs-image.sh "$size" dist-lfs
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lfs-images
+          path: dist-lfs/*.bin
+          retention-days: 7
+
+  firmware:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.5
+    needs: webui-and-lfs
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirror the PR subset the Forgejo workflow runs (Rev A + Rev B
+        # only). V8 and lolin_s3_mini_29epd run on release tags via
+        # tagging.yml.
+        variant: [lolin_s3_mini_213epd, btclock_rev_b_213epd]
+    env:
+      IDF_CCACHE_ENABLE: "1"
+      CCACHE_DIR: /root/.ccache
+    steps:
+      - name: Install Node.js (for JS-based GitHub actions)
+        shell: bash
+        run: |
+          apt-get update
+          curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          apt-get install -y --no-install-recommends nodejs ccache
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/cache@v4
+        with:
+          path: |
+            managed_components
+            .builds/${{ matrix.variant }}
+          key: idf-v5.5-${{ matrix.variant }}-${{ hashFiles('dependencies.lock', 'sdkconfig.defaults', format('sdkconfig.defaults.{0}', matrix.variant)) }}
+          restore-keys: |
+            idf-v5.5-${{ matrix.variant }}-
+      - uses: actions/cache@v4
+        with:
+          path: /root/.ccache
+          key: ccache-idf-v5.5-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: |
+            ccache-idf-v5.5-${{ matrix.variant }}-
+            ccache-idf-v5.5-
+      - name: Install littlefs-python + esptool
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          pip install --upgrade littlefs-python==0.15.0 esptool
+      - name: Download prebuilt LFS images
+        uses: actions/download-artifact@v4
+        with:
+          name: lfs-images
+          path: dist-lfs
       - name: Build ${{ matrix.variant }}
         shell: bash
-        run: . $IDF_PATH/export.sh && ./scripts/build-release.sh ${{ matrix.variant }}
+        env:
+          BTCLOCK_USE_PREBUILT_LFS: ${{ github.workspace }}/dist-lfs
+        run: |
+          . /opt/esp/idf/export.sh
+          ccache -M 2G
+          ./scripts/build-release.sh ${{ matrix.variant }}
+      - name: ccache stats
+        if: always()
+        shell: bash
+        run: ccache -s
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
