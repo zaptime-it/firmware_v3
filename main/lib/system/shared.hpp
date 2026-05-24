@@ -155,6 +155,5 @@ public:
 
 private:
   static WiFiClientSecure secureClient;
-  static bool certBundleSet;
   static WiFiClient insecureClient;
 };

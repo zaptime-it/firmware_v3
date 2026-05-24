@@ -158,17 +158,23 @@ String calculateSHA256(WiFiClient *stream, size_t contentLength) {
 
 WiFiClientSecure HttpHelper::secureClient;
 WiFiClient HttpHelper::insecureClient;
-bool HttpHelper::certBundleSet = false;
 
 HTTPClient *HttpHelper::begin(const String &url) {
   HTTPClient *http = new HTTPClient();
 
   if (url.startsWith("https://")) {
-    if (!certBundleSet) {
-      secureClient.setCACertBundle(rootca_crt_bundle_start,
-                                   rootca_crt_bundle_end - rootca_crt_bundle_start);
-      certBundleSet = true;
-    }
+    // Re-attach the CA bundle on every request: arduino-esp32 v3.x's
+    // stop_ssl_socket() (called from HTTPClient::end -> disconnect ->
+    // client.stop()) does a `memset(sslclient, 0, sizeof(...))` on its
+    // way out, which zeroes the `bundle_attach_cb` we set here. A
+    // one-shot setCACertBundle would work for the very first request,
+    // then every subsequent HTTPS call would fail with
+    // "useRootCABundle is set, but attach_ssl_certificate_bundle was
+    // not called!" and abort the handshake. setCACertBundle is cheap
+    // (sets two global pointers + one struct field) so re-calling it
+    // each time is fine.
+    secureClient.setCACertBundle(rootca_crt_bundle_start,
+                                 rootca_crt_bundle_end - rootca_crt_bundle_start);
     http->begin(secureClient, url);
   } else {
     http->begin(insecureClient, url);
