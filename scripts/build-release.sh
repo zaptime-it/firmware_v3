@@ -10,9 +10,12 @@
 #
 # Pre-requisites assumed by the caller:
 #   - $IDF_PATH is set (idf.py available); we'll source export.sh.
-#   - The webui has already been built; data/build_gz/www/ exists
-#     (run data/pnpm build && data/python3 gzip_build.py first).
-#   - littlefs-python is on the IDF venv's PATH.
+#   - Either:
+#     * The webui has been built (data/build_gz/www/ exists) AND
+#       littlefs-python is on $PATH — we'll pack the LFS image here, or
+#     * BTCLOCK_USE_PREBUILT_LFS=<dir> points at a directory containing
+#       littlefs_<size>.bin produced by an upstream CI job — we'll copy
+#       it in and skip the LFS pack.
 #
 # Outputs (in repo-root release-stage/<variant>/):
 #   firmware.bin              raw OTA app image
@@ -79,12 +82,21 @@ fs_image_size=$(( fs_blocks * 4096 ))
 mkdir -p "$stage_dir"
 fs_bin="${stage_dir}/littlefs_${flash_size}.bin"
 
-# CONFIG_LITTLEFS_OBJ_NAME_LEN=64 in sdkconfig.defaults — the image's
-# on-disk name_max must match or runtime mount fails.
-littlefs-python create "$data_root" "$fs_bin" -v \
-    --fs-size="$fs_image_size" \
-    --name-max=64 \
-    --block-size=4096
+if [[ -n "${BTCLOCK_USE_PREBUILT_LFS:-}" ]]; then
+    prebuilt="${BTCLOCK_USE_PREBUILT_LFS}/littlefs_${flash_size}.bin"
+    if [[ ! -f "$prebuilt" ]]; then
+        echo "BTCLOCK_USE_PREBUILT_LFS set but $prebuilt is missing" >&2
+        exit 67
+    fi
+    cp "$prebuilt" "$fs_bin"
+else
+    # CONFIG_LITTLEFS_OBJ_NAME_LEN=64 in sdkconfig.defaults — the image's
+    # on-disk name_max must match or runtime mount fails.
+    littlefs-python create "$data_root" "$fs_bin" -v \
+        --fs-size="$fs_image_size" \
+        --name-max=64 \
+        --block-size=4096
+fi
 
 # ---- 3. Copy IDF outputs into the staging dir ----
 cp "${build_dir}/btclock_v3.bin"                      "${stage_dir}/firmware.bin"
