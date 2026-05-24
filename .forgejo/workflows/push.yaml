@@ -1,5 +1,24 @@
 name: "BTClock CI"
 
+# Pipeline graph:
+#
+#   push/PR/tag/dispatch
+#     ├── host-tests          (plain + sanitize unit tests, host gcc)
+#     └── webui-and-lfs       (build WebUI once; pack 4MB/8MB/16MB LFS)
+#           └── build matrix  (one row per variant, consumes prebuilt LFS)
+#                 └── release (tags + main + manual dispatch only)
+#
+# Every PR runs the full 4-variant firmware matrix as a merge gate —
+# we only skip the release publication on PRs, not the build itself.
+#
+# We use the espressif/idf:v5.5 container so the firmware jobs don't burn
+# ~8 minutes per matrix row cloning and installing ESP-IDF from scratch.
+# Same trick btclock_v4 uses with espressif/idf:v6.0.1. WebUI + the three
+# LFS images are built once and shared across the matrix — previously
+# each variant re-ran pnpm install + pnpm build + gzip_build.py +
+# littlefs-python create even though the WebUI output is identical
+# across all four variants.
+
 on:
   push:
     tags:
@@ -8,26 +27,77 @@ on:
   pull_request:
     branches:
       - main
-      
+
 jobs:
-  build:
+  host-tests:
     runs-on: docker
     container:
       image: ghcr.io/catthehacker/ubuntu:js-24.04
-    permissions:
-      contents: write
-      checks: write
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    env:
+      CCACHE_DIR: /root/.ccache
     steps:
-      - id: set-matrix
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Validate dependencies.lock has no absolute paths
+        shell: bash
+        run: ./scripts/check-deps-lock.sh
+      - name: Install build tools
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo 'matrix={"include":[{"chip":{"name":"lolin_s3_mini","version":"esp32s3"},"epd_variant":"213epd"},{"chip":{"name":"btclock_rev_b","version":"esp32s3"},"epd_variant":"213epd"}]}' >> "$GITHUB_OUTPUT"
-          else
-            echo 'matrix={"include":[{"chip":{"name":"lolin_s3_mini","version":"esp32s3"},"epd_variant":"213epd"},{"chip":{"name":"lolin_s3_mini","version":"esp32s3"},"epd_variant":"29epd"},{"chip":{"name":"btclock_rev_b","version":"esp32s3"},"epd_variant":"213epd"},{"chip":{"name":"btclock_v8","version":"esp32s3"},"epd_variant":"213epd"}]}' >> "$GITHUB_OUTPUT"
-          fi
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ ccache
+      - uses: actions/cache@v5
+        with:
+          path: /root/.ccache
+          key: ccache-host-tests-${{ github.sha }}
+          restore-keys: |
+            ccache-host-tests-
+      - name: Build host tests (plain + ASan)
+        shell: bash
+        run: |
+          ccache -M 500M
+          cmake -G Ninja -B .builds/tests       -S tests \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake -G Ninja -B .builds/tests-asan  -S tests -DBTCLOCK_TEST_SANITIZE=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build .builds/tests      -j
+          cmake --build .builds/tests-asan -j
+      - name: Run plain tests
+        shell: bash
+        run: ctest --test-dir .builds/tests --output-on-failure --output-junit junit-plain.xml
+      - name: Run sanitize tests
+        shell: bash
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir .builds/tests-asan --output-on-failure --output-junit junit-asan.xml
+      - name: ccache stats
+        if: always()
+        shell: bash
+        run: ccache -s
+
+  webui-and-lfs:
+    # Build the WebUI once, pack one LittleFS image per supported flash
+    # size, and publish them as an artifact for the firmware matrix.
+    # Output filenames (littlefs_4MB.bin / littlefs_8MB.bin /
+    # littlefs_16MB.bin) match what scripts/build-release.sh emits, so
+    # downstream consumers (release dedupe, manifest) don't care whether
+    # the image was packed in CI or locally.
+    runs-on: docker
+    container:
+      image: espressif/idf:v5.5
+    needs: host-tests
+    steps:
+      - name: Install Node.js (for JS-based Forgejo actions)
+        shell: bash
+        run: |
+          apt-get update
+          curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          apt-get install -y --no-install-recommends nodejs
       - uses: actions/checkout@v6
         with:
           submodules: recursive
@@ -39,152 +109,127 @@ jobs:
           node-version: lts/*
           cache: pnpm
           cache-dependency-path: "**/pnpm-lock.yaml"
+      - name: Build WebUI
+        shell: bash
+        working-directory: data
+        run: |
+          CI=true pnpm install --frozen-lockfile
+          pnpm build
+          python3 gzip_build.py
+      - name: Install littlefs-python
+        shell: bash
+        # The espressif/idf image's pip lives inside its managed venv —
+        # sourcing export.sh puts it on PATH.
+        run: |
+          . /opt/esp/idf/export.sh
+          pip install littlefs-python==0.17.1
+      - name: Pack LFS images (4MB / 8MB / 16MB)
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          mkdir -p dist-lfs
+          for size in 4MB 8MB 16MB; do
+            ./scripts/pack-lfs-image.sh "$size" dist-lfs
+          done
+          ls -la dist-lfs
+      - uses: https://code.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: lfs-images
+          path: dist-lfs/*.bin
+          retention-days: 14
+
+  build:
+    runs-on: docker
+    container:
+      image: espressif/idf:v5.5
+    needs: webui-and-lfs
+    permissions:
+      contents: write
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - lolin_s3_mini_213epd
+          - lolin_s3_mini_29epd
+          - btclock_rev_b_213epd
+          - btclock_v8_213epd
+    env:
+      # ccache shaves cache-miss rebuilds (sdkconfig touched but source
+      # unchanged) from ~10 min/variant to a link + a few recompiles.
+      # ESP-IDF picks it up via IDF_CCACHE_ENABLE below.
+      IDF_CCACHE_ENABLE: "1"
+      CCACHE_DIR: /root/.ccache
+    steps:
+      - name: Install Node.js (for JS-based Forgejo actions)
+        shell: bash
+        run: |
+          apt-get update
+          curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          apt-get install -y --no-install-recommends nodejs ccache
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      # Cache IDF managed_components + per-variant build dir. Key reflects
+      # the inputs that actually change the build: dependency versions
+      # and the chained sdkconfig fragments.
       - uses: actions/cache@v5
         with:
           path: |
-            ~/.cache/pip
-            ~/.platformio/.cache
-            ~/data/node_modules
-            .pio
-            data/node_modules
-          key: ${{ runner.os }}-pio
-      - uses: actions/setup-python@v6
+            managed_components
+            .builds/${{ matrix.variant }}
+          key: idf-v5.5-${{ matrix.variant }}-${{ hashFiles('dependencies.lock', 'sdkconfig.defaults', format('sdkconfig.defaults.{0}', matrix.variant)) }}
+          restore-keys: |
+            idf-v5.5-${{ matrix.variant }}-
+      # Independent ccache cache: SHA-keyed write means each commit gets
+      # a fresh save, prefix-keyed restore falls back to the most recent
+      # variant cache.
+      - uses: actions/cache@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
-      - name: Get current date
-        id: dateAndTime
+          path: /root/.ccache
+          key: ccache-idf-v5.5-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: |
+            ccache-idf-v5.5-${{ matrix.variant }}-
+            ccache-idf-v5.5-
+      - name: Install littlefs-python + esptool
         shell: bash
-        run: echo "dateAndTime=$(date +'%Y-%m-%d-%H:%M')" >> $GITHUB_OUTPUT
-      - name: Install PlatformIO Core
-        shell: bash
-        run: pip install --upgrade platformio
-      - name: Run unit tests
-        shell: bash
-        run: mkdir -p junit-reports && pio test -e native_test_only --junit-output-path junit-reports/
-      - name: Run unit tests (ASan + UBSan)
+        run: |
+          . /opt/esp/idf/export.sh
+          pip install --upgrade littlefs-python==0.17.1 esptool
+      - name: Download prebuilt LFS images
+        uses: https://code.forgejo.org/forgejo/download-artifact@v7
+        with:
+          name: lfs-images
+          path: dist-lfs
+      - name: Build + stage ${{ matrix.variant }}
         shell: bash
         env:
-          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: pio test -e native_sanitize
-      - name: Build BTClock firmware
-        shell: bash
+          BTCLOCK_USE_PREBUILT_LFS: ${{ github.workspace }}/dist-lfs
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            pio run -e lolin_s3_mini_213epd -e btclock_rev_b_213epd
-          else
-            pio run
-          fi
-      - name: Build BTClock filesystem
+          . /opt/esp/idf/export.sh
+          ccache -M 2G
+          ./scripts/build-release.sh ${{ matrix.variant }}
+      - name: ccache stats
+        if: always()
         shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            pio run --target buildfs -e lolin_s3_mini_213epd -e btclock_rev_b_213epd
-          else
-            pio run --target buildfs
-          fi
-      - name: Copy bootloader to output folder
-        run: cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin .pio
-      - name: Upload artifacts
+        run: ccache -s
+      - name: Upload variant artifacts
         uses: https://code.forgejo.org/forgejo/upload-artifact@v4
         with:
-          include-hidden-files: true
-          retention-days: 1
-          name: prepared-outputs
-          path: .pio/**/*.bin
-  merge:
+          name: build-${{ matrix.variant }}
+          path: |
+            release-stage/${{ matrix.variant }}/*.bin
+            release-stage/${{ matrix.variant }}/*.sha256
+
+  release:
     runs-on: docker
+    if: github.event_name != 'pull_request'
     container:
       image: ghcr.io/catthehacker/ubuntu:js-24.04
     permissions:
       contents: write
       checks: write
     needs: build
-    continue-on-error: true
-    strategy:
-      matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
-    steps:
-      - uses: https://code.forgejo.org/forgejo/download-artifact@v7
-        with:
-          name: prepared-outputs
-          path: .pio
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Install esptools.py
-        run: pip install --upgrade esptool
-      - name: Create merged firmware binary
-        shell: bash
-        run: |
-          mkdir -p ${{ matrix.chip.name }}_${{ matrix.epd_variant }} 
-          if [ "${{ matrix.chip.name }}" == "btclock_v8" ]; then
-            esptool --chip ${{ matrix.chip.version }} merge-bin \
-            -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
-            --flash-mode dio \
-            --flash-freq 80m \
-            --flash-size 16MB \
-            0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin \
-            0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
-            0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
-            0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0xDF0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_16MB.bin
-          elif [ "${{ matrix.chip.name }}" == "btclock_rev_b" ]; then
-            esptool --chip ${{ matrix.chip.version }} merge-bin \
-            -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
-            --flash-mode dio \
-            --flash-freq 80m \
-            --flash-size 8MB \
-            0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin \
-            0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
-            0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
-            0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0x6F0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_8MB.bin;
-          else
-            esptool --chip ${{ matrix.chip.version }} merge-bin \
-            -o ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin \
-            --flash-mode dio \
-            0x0000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/bootloader.bin \
-            0x8000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/partitions.bin \
-            0xe000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/ota_data_initial.bin \
-            0x10000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin \
-            0x380000 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs_4MB.bin
-            # Adjust the offset for littlefs or other files as needed for the original case
-          fi
-
-      - name: Create checksum for firmware
-        shell: bash
-        run: shasum -a 256 .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}_firmware.bin.sha256
-
-      - name: Create checksum for merged binary
-        shell: bash
-        run: shasum -a 256 ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin | awk '{print $1}' > ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}.bin.sha256
-
-      - name: Create checksum for littlefs partition
-        shell: bash
-        run: |
-          fs_file=$(ls .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/littlefs*.bin | head -n1)
-          fs_name=$(basename "$fs_file")
-          shasum -a 256 "$fs_file" | awk '{print $1}' > "${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${fs_name}.sha256"
-      - name: Copy all artifacts to output folder
-        run: cp .pio/build/${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin .pio/boot_app0.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}
-
-      - name: Create OTA binary file
-        run: mv ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/firmware.bin ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/${{ matrix.chip.name }}_${{ matrix.epd_variant }}_firmware.bin
-      - name: Upload artifacts
-        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
-        with:
-          name: build-${{ matrix.chip.name }}-${{ matrix.epd_variant }}
-          path: |
-            ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.bin
-            ${{ matrix.chip.name }}_${{ matrix.epd_variant }}/*.sha256
-  release:
-    runs-on: docker
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: write
-      checks: write
-    needs: merge
     steps:
       - name: Install tools
         shell: bash
@@ -197,7 +242,7 @@ jobs:
           pattern: build-*
           merge-multiple: false
           path: temp
-      - name: Stage release assets (no collisions) + manifest
+      - name: Stage release assets + manifest
         shell: bash
         env:
           TAG: ${{ github.ref_name }}
@@ -209,48 +254,36 @@ jobs:
 
           for d in temp/build-*; do
             [ -d "$d" ] || continue
-            name="$(basename "$d")"
-            variant="${name#build-}"           # chip-epd_variant
-            chip="${variant%-*}"               # chip can contain underscores
-            epd_variant="${variant##*-}"
-            variant_id="${chip}_${epd_variant}"
+            variant_id="${d#temp/build-}"
 
-            firmware_asset="${variant_id}_firmware.bin"
-            merged_asset="${variant_id}.bin"
-            littlefs_asset=""
-
-            if [ -f "$d/${firmware_asset}" ]; then
-              cp "$d/${firmware_asset}" "release/${firmware_asset}"
+            if [ -f "$d/${variant_id}.bin" ]; then
+              cp "$d/${variant_id}.bin"        "release/${variant_id}.bin"
             fi
-
-            if [ -f "$d/${merged_asset}" ]; then
-              cp "$d/${merged_asset}" "release/${merged_asset}"
+            if [ -f "$d/firmware.bin" ]; then
+              cp "$d/firmware.bin"             "release/${variant_id}_firmware.bin"
             fi
-
-            # These are target-specific; prefix to avoid cross-target overwrite.
-            for support in bootloader.bin partitions.bin ota_data_initial.bin boot_app0.bin; do
-              if [ -f "$d/${support}" ]; then
-                cp "$d/${support}" "release/${variant_id}_${support}"
-              fi
+            for support in bootloader.bin partitions.bin ota_data_initial.bin; do
+              [ -f "$d/${support}" ] && \
+                cp "$d/${support}"             "release/${variant_id}_${support}"
             done
 
-            # Keep existing LittleFS names (littlefs_4MB.bin / 8MB / 16MB) for updater compatibility.
-            for fs in "$d"/littlefs*.bin; do
+            littlefs_asset=""
+            for fs in "$d"/littlefs_*.bin; do
               [ -f "$fs" ] || continue
               fs_name="$(basename "$fs")"
               littlefs_asset="$fs_name"
-              if [ ! -f "release/${fs_name}" ]; then
-                cp "$fs" "release/${fs_name}"
-              fi
+              [ -f "release/${fs_name}" ] || cp "$fs" "release/${fs_name}"
               break
             done
 
+            chip="${variant_id%_*}"
+            epd_variant="${variant_id##*_}"
             jq -n \
               --arg variant "$variant_id" \
               --arg chip "$chip" \
               --arg epd_variant "$epd_variant" \
-              --arg firmware "$firmware_asset" \
-              --arg merged "$merged_asset" \
+              --arg firmware "${variant_id}_firmware.bin" \
+              --arg merged "${variant_id}.bin" \
               --arg littlefs "$littlefs_asset" \
               --arg built_at "$(date -u +%FT%TZ)" \
               '{
@@ -263,7 +296,6 @@ jobs:
                 bootloader_asset: ($variant + "_bootloader.bin"),
                 partitions_asset: ($variant + "_partitions.bin"),
                 ota_data_initial_asset: ($variant + "_ota_data_initial.bin"),
-                boot_app0_asset: ($variant + "_boot_app0.bin"),
                 built_at: $built_at
               }' > "temp/manifest-fragments/${variant_id}.json"
           done
@@ -282,7 +314,6 @@ jobs:
               variants: $variants
             }' > release/manifest.json
 
-          # Generate release-side checksums in a format verifiers can consume directly.
           (
             cd release
             for f in *.bin manifest.json; do
@@ -290,8 +321,9 @@ jobs:
               sha256sum "$f" > "$f.sha256"
             done
           )
+
       - name: Create release
-        uses: https://code.forgejo.org/actions/forgejo-release@v2.11.3
+        uses: https://code.forgejo.org/actions/forgejo-release@v2.12.0
         with:
           url: "https://git.btclock.dev"
           repo: "${{ github.repository }}"

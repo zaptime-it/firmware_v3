@@ -2,10 +2,11 @@ name: "Lint"
 
 # Mirrors btclock_v4's lint gates:
 # - clang-format check over the whole codebase
-# - clang-tidy over the host-test/native compilation set
+# - clang-tidy over the host-test compilation set
 #
-# We use PlatformIO's native env to get a tractable include graph for tidy
-# (similar to v4's host_tests-only tidy).
+# We use the host-test CMake project (tests/CMakeLists.txt with
+# CMAKE_EXPORT_COMPILE_COMMANDS=ON) to get a tractable include graph for
+# tidy — firmware-only Arduino/IDF translation units aren't host-buildable.
 
 on:
   push:
@@ -48,14 +49,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Format gate on all tracked C/C++ sources/headers in src/, lib/, include/, test/.
+          # Format gate on all tracked C/C++ sources/headers in main/, lib/, tests/.
           files="$(git ls-files \
-            'src/**/*.c' 'src/**/*.cpp' 'src/**/*.h' 'src/**/*.hpp' \
+            'main/**/*.c' 'main/**/*.cpp' 'main/**/*.h' 'main/**/*.hpp' \
             'lib/**/*.c' 'lib/**/*.cpp' 'lib/**/*.h' 'lib/**/*.hpp' \
-            'include/**/*.h' 'include/**/*.hpp' \
-            'test/**/*.c' 'test/**/*.cpp' 'test/**/*.h' 'test/**/*.hpp' || true)"
+            'tests/**/*.c' 'tests/**/*.cpp' 'tests/**/*.h' 'tests/**/*.hpp' || true)"
           # Exclude generated font blobs (massive data arrays).
-          files="$(echo "$files" | rg -v '^src/fonts/' || true)"
+          files="$(echo "$files" | rg -v '^main/fonts/' || true)"
           if [ -z "$files" ]; then
             echo "No source files found for formatting gate."
             exit 0
@@ -81,7 +81,7 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             wget gnupg lsb-release software-properties-common ca-certificates git \
-            build-essential python3 python3-venv jq ripgrep
+            build-essential cmake ninja-build jq ripgrep
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key \
             | gpg --dearmor -o /usr/share/keyrings/llvm.gpg
           echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/noble/ llvm-toolchain-noble-${CLANG_VERSION} main" \
@@ -89,37 +89,32 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             "clang-tidy-${CLANG_VERSION}" "clang-${CLANG_VERSION}"
-          # PEP 668: avoid installing Python packages into the system
-          # environment. Use a venv for PlatformIO.
-          python3 -m venv /opt/pio-venv
-          /opt/pio-venv/bin/pip install --upgrade pip
-          /opt/pio-venv/bin/pip install --upgrade platformio
 
-      - name: Generate compile_commands.json (native env)
+      - name: Generate compile_commands.json (host-test CMake project)
         shell: bash
         run: |
           set -euo pipefail
-          /opt/pio-venv/bin/pio run -e native_test_only -t compiledb
-          # PlatformIO writes compile_commands.json into the project root.
-          # Ensure it exists so clang-tidy doesn't silently fall back to
-          # guesswork.
+          # CMAKE_EXPORT_COMPILE_COMMANDS=ON is baked into tests/CMakeLists.txt.
+          # Configure-only is enough to produce the DB; no need to actually build.
+          cmake -G Ninja -B .builds/tests -S tests
+          # Symlink to repo root so `clang-tidy -p .` finds it.
+          ln -sf .builds/tests/compile_commands.json compile_commands.json
           test -f compile_commands.json
 
-      - name: Run clang-tidy (native compilation set)
+      - name: Run clang-tidy (host-test compilation set)
         shell: bash
         run: |
           set -euo pipefail
-          # Only run tidy on translation units that appear in the
-          # PlatformIO-generated compile_commands.json. This keeps the
-          # include graph consistent with the native env and avoids
-          # pulling in ESP32-only Arduino/IDF headers that aren't
-          # available to the host toolchain.
+          # Only run tidy on translation units that appear in the CMake-
+          # generated compile_commands.json. This keeps the include graph
+          # consistent with the host-test env and avoids pulling in
+          # ESP32-only Arduino/IDF headers that aren't available to the
+          # host toolchain.
           files="$(jq -r '.[].file' compile_commands.json | sort -u || true)"
-          # PlatformIO's native env compiledb may still contain firmware TUs
-          # under src/ that depend on Arduino/ESP-IDF headers not available
-          # to the host toolchain. Exclude those so clang-tidy can run
-          # deterministically on the host-compilable subset.
-          files="$(echo "$files" | rg -v '^src/' || true)"
+          # The host-test scaffold only globs lib/btclock/*.cpp + tests/*/test_main.cpp,
+          # so no firmware-only main/*.cpp ever lands in the DB. Belt-and-
+          # braces: exclude anything under <repo>/main/.
+          files="$(echo "$files" | rg -v '/main/' || true)"
           if [ -z "$files" ]; then
             echo "No .cpp files found for clang-tidy."
             exit 0

@@ -9,49 +9,75 @@ The firmware has two distinct test surfaces:
 
 ## Native unit tests
 
-All native tests live under `test/` in the standard PlatformIO layout —
-one subdirectory per suite, each with a `test_main.cpp`:
+All native tests live under `tests/test_<name>/test_main.cpp`:
 
-| Suite               | Scope                                                                |
-| ------------------- | -------------------------------------------------------------------- |
-| `test_utils`        | Number formatters (`formatNumberWithSuffix`, MOW mode, K/M/B/T/Q suffix), Lightning invoice amount parsing (`getAmountInSatoshis` with m/u/n/p), hash-rate helpers. |
-| `test_datahandler`  | Screen content composition in `data_handler.hpp`.                    |
-| `test_bitaxehandler`| Bitaxe JSON → screen content mapping.                                |
-| `test_nostrdisplay` | Nostr event → screen content mapping.                                |
-| `test_mining_pool`  | Pool adapters (Ocean, Braiins, Public Pool) — response shape → display. |
-| `test_dnd_window`   | Pure DND time-range algebra (`lib/btclock/dnd_window.hpp`). Same-day windows, midnight wrap, one-minute windows, whole-day-minus-one windows, `start == end` degenerate case. Added in 3.4.0. |
-| `test_pref_keys`    | NVS key inventory guard rails: 15-char cap, non-empty, uniqueness, and a guard that the test table matches the header count. Added in 3.4.0. |
+| Suite                | Scope                                                                                                                                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_utils`         | Number formatters (`formatNumberWithSuffix`, MOW mode, K/M/B/T/Q suffix), Lightning invoice amount parsing (`getAmountInSatoshis` with m/u/n/p), hash-rate helpers.                            |
+| `test_datahandler`   | Screen content composition in `data_handler.hpp`.                                                                                                                                              |
+| `test_bitaxehandler` | Bitaxe JSON → screen content mapping.                                                                                                                                                          |
+| `test_nostrdisplay`  | Nostr event → screen content mapping.                                                                                                                                                          |
+| `test_mining_pool`   | Pool adapters (Ocean, Braiins, Public Pool) — response shape → display.                                                                                                                        |
+| `test_dnd_window`    | Pure DND time-range algebra (`lib/btclock/dnd_window.hpp`). Same-day windows, midnight wrap, one-minute windows, whole-day-minus-one windows, `start == end` degenerate case. Added in 3.4.0.  |
+| `test_pref_keys`     | NVS key inventory guard rails: 15-char cap, non-empty, uniqueness, and a guard that the test table matches the header count. Added in 3.4.0.                                                   |
+| `test_price_policy`  | `price_policy.hpp` decision logic for currency conversion / per-screen formatting.                                                                                                             |
+| `test_data_source_policy` | Gate that suppresses the "data source disconnected" LED effect while WiFi itself is down (to avoid a long purple-red strobe).                                                              |
+| `test_screen_nav`    | Screen / currency navigation helpers in `lib/btclock/screen_nav.hpp`.                                                                                                                          |
+| `test_screen_order`  | User-configurable screen rotation order, including the catalog-merge logic that drops disabled IDs and reserves the bitaxe icon / pool label slots.                                            |
 
-These suites link the code under `lib/btclock/` (plus in `test_pref_keys`'s
-case, the `PrefKeys::` constants from `src/lib/system/pref_keys.hpp`)
-against the [Unity](https://www.throwtheswitch.org/unity) test framework
-and run on the host. No Arduino, FreeRTOS, WiFi, or MCP stack is
-involved, so tests finish in ≲ 6 s for the whole suite.
+These suites link the code under `lib/btclock/` (plus, for
+`test_pref_keys`, the `PrefKeys::` constants from
+`main/lib/system/pref_keys.hpp`) against
+[Unity](https://www.throwtheswitch.org/unity) and run on the host. No
+Arduino, FreeRTOS, WiFi, or MCP stack is involved, so the whole suite
+finishes in ≲ 2 s.
 
 ### Running the native tests
 
+The test harness is a stock CMake project under `tests/`. Configure
+and build once, then invoke `ctest` for fast re-runs.
+
 ```bash
-export PATH="$HOME/.platformio/penv/bin:$PATH"   # if pio isn't on PATH
-pio test -e native_test_only
+cmake -G Ninja -B .builds/tests -S tests
+cmake --build .builds/tests -j
+ctest --test-dir .builds/tests --output-on-failure
 ```
 
 Filter to one suite:
 
 ```bash
-pio test -e native_test_only -f test_dnd_window
+ctest --test-dir .builds/tests -R test_dnd_window --output-on-failure
 ```
+
+For the sanitizer build (ASan + UBSan, matches `BTCLOCK_TEST_SANITIZE=ON`):
+
+```bash
+cmake -G Ninja -B .builds/tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON
+cmake --build .builds/tests-asan -j
+ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 \
+UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 \
+ctest --test-dir .builds/tests-asan --output-on-failure
+```
+
+Unity itself is fetched at configure time via `FetchContent` (pinned
+to v2.6.0 in `tests/CMakeLists.txt`); no vendored copy.
 
 ### Adding a test
 
-1. Create `test/test_<subject>/test_main.cpp`.
+1. Create `tests/test_<subject>/test_main.cpp`.
 2. Include the header you want to exercise. If the header transitively
    pulls in Arduino / FreeRTOS / ESP-IDF, it can't be unit-tested on
-   the host; either extract the pure logic into `lib/btclock/` first
-   (that's what [`dnd_window`](../lib/btclock/dnd_window.hpp) does) or
-   add it to the on-device test list instead.
+   the host; extract the pure logic into `lib/btclock/` first (that's
+   what [`dnd_window`](../lib/btclock/dnd_window.hpp) does) or add it
+   to the on-device test list instead.
 3. Write the test with the standard Unity macros
    (`TEST_ASSERT_*`, `RUN_TEST`).
-4. Run it via `pio test -e native_test_only -f test_<subject>`.
+4. Re-run cmake — `tests/CMakeLists.txt` globs `test_*` so no edits
+   needed there.
+5. Run with `ctest --test-dir .builds/tests -R test_<subject>`.
+
+If your test file doesn't define `setUp` / `tearDown`, the weak default
+stubs from `tests/unity_defaults.c` keep the linker happy.
 
 ### DND time window
 
@@ -59,15 +85,16 @@ pio test -e native_test_only -f test_dnd_window
 `btclock::isTimeInDNDRange(h, m, startH, startM, endH, endM)`:
 
 - Same-day window (`22:00 → 23:00`): `22:30` ∈ window.
-- Midnight-crossing (`22:00 → 06:00`): `23:00` and `02:30` ∈ window, `12:00` ∉.
+- Midnight-crossing (`22:00 → 06:00`): `23:00` and `02:30` ∈ window,
+  `12:00` ∉.
 - Boundary: `start` ∈ window, `end` ∉ window.
 - One-minute window: `22:00 → 22:01` contains exactly one minute.
 - `start == end` is treated as "DND window disabled" — picking the same
   time in both dropdowns cannot accidentally lock DND on forever. This
   is a behaviour change from earlier firmware versions.
 
-The LedHandler delegates to this pure function, so both the runtime path
-and the test path exercise the same algorithm.
+The LedHandler delegates to this pure function, so both the runtime
+path and the test path exercise the same algorithm.
 
 ### Pref keys
 
@@ -79,31 +106,27 @@ and the test path exercise the same algorithm.
 4. The test's local copy of the keys (`kAllKeys[]`) contains exactly
    the number the header defines. If you add a new `inline constexpr`
    key to `pref_keys.hpp`, you must also add it to `kAllKeys[]` and
-   bump the expected count — CI will catch it loudly otherwise, rather
-   than silently skipping half the inventory.
+   bump the expected count — CI catches drift loudly otherwise.
 
 See [PREFERENCES.md](PREFERENCES.md) for the "why" of those rules.
 
 ## On-device tests
 
 There is no automated on-device test harness in CI. The Forgejo CI
-container builds firmware but does not flash it to hardware; running
-Unity tests against a real MCP23017 + GxEPD2 stack requires a USB-
-attached board and lives in a commented HIL (hardware-in-the-loop) hook
-in the Forgejo workflow for future use.
+container builds firmware but does not flash it — running Unity tests
+against a real MCP23017 + GxEPD2 stack requires a USB-attached board
+and lives outside the automated flow.
 
-For local on-device smoke tests, the standard PlatformIO flow is:
+For local on-device smoke tests of the assembled board, flash the
+release image and prod the WebUI / API by hand:
 
 ```bash
-pio test -e lolin_s3_mini_213epd --upload-port /dev/ttyACM0
+PORT=/dev/cu.usbmodemXXXX ./scripts/build.sh lolin_s3_mini_213epd flash
 ```
 
-This builds a per-suite firmware image, flashes it, and reads the
-Unity output over serial. It is intentionally a local, human-driven
-workflow — the only tests that make sense to run this way are ones
-that actually exercise the ESP32 peripherals (MCP I/O, BH1750 light
-reads, PCA9685 PWM), and those are usually one-off debugging aids
-rather than regression-worthy tests.
+That gets the firmware on the board; the LittleFS image still has to
+be flashed separately (the device's `/upload/webui` endpoint is the
+easiest path — see [API.md](API.md)).
 
 ## CI
 
@@ -113,48 +136,38 @@ rather than regression-worthy tests.
 push and tag it:
 
 1. Checks out with submodules.
-2. Installs pnpm + node for the WebUI and pip + PlatformIO for
-   firmware.
-3. Runs `pio test -e native_test_only` and emits JUnit XML into
-   `junit-reports/`.
-4. Builds all four default PlatformIO envs (`pio run`).
-5. Builds the LittleFS filesystem image (`pio run --target buildfs`).
-6. Merges bootloader + partitions + firmware + littlefs into a
-   single flashable binary per hardware variant.
-7. Computes SHA-256 sums for the merged binary, firmware binary, and
-   filesystem partition.
-8. Uploads artifacts; on a tag, publishes a release with the binaries
-   and checksums attached.
+2. Runs `host-tests`: configures `tests/CMakeLists.txt` in both plain
+   and sanitize mode, builds, runs `ctest --output-on-failure`.
+3. `build` matrix runs `scripts/build-release.sh <variant>` per
+   variant. PRs build only `lolin_s3_mini_213epd` + `btclock_rev_b_213epd`
+   to keep PR latency reasonable; tags + workflow_dispatch build the
+   full 4-variant matrix.
+4. `release` (tag pushes only): pulls every per-variant artifact,
+   stages the release directory + `manifest.json`, computes per-asset
+   sha256, publishes the release through the Forgejo release action,
+   and pushes the bundle to the `btclock/web-flasher` repo.
 
 ### GitHub (mirror)
 
-`.github/workflows/` holds a reduced mirror. It intentionally tracks
-Forgejo and should not acquire its own CI steps — if you add a step
-to one CI, mirror it to the other. The device autoupdate endpoint
-only fetches from the Forgejo release, so GitHub's job is to keep the
-mirror usable as a backup.
+`.github/workflows/` holds a reduced mirror. It tracks the Forgejo
+pipeline — if you add a step to one CI, mirror it to the other.
 
-### Firmware-size guard (planned)
+### Lint
 
-The Lolin S3 Mini has a 1.75 MB OTA slot
-([BUILD.md#partition-layout](BUILD.md#partition-layout)) and is the
-first target that will refuse to boot if the firmware overflows.
-Adding a `pio check` step that fails the CI job if
-`.pio/build/lolin_s3_mini_213epd/firmware.bin` exceeds the slot size
-(with a small headroom margin) is tracked as a low-priority
-follow-up; until then, CI will still fail at link time when this
-happens, just with a less friendly message than a dedicated check.
+`.forgejo/workflows/lint.yaml` runs clang-format and clang-tidy. The
+tidy job derives `compile_commands.json` from the host-test CMake
+project (`CMAKE_EXPORT_COMPILE_COMMANDS=ON` is on by default in
+`tests/CMakeLists.txt`) — that's a clean compilation set with no
+ESP32-only headers leaking in.
 
 ## Pitfalls
 
-- **Don't `#include <Arduino.h>` in a native test.** The `native`
-  platform has no Arduino toolchain. If your target pulls in Arduino,
-  extract the pure logic into `lib/btclock/` first.
+- **Don't `#include <Arduino.h>` in a native test.** The host has no
+  Arduino toolchain. If your target pulls in Arduino, extract the
+  pure logic into `lib/btclock/` first.
 - **Don't `strlen()` a possibly-null `const char*` on macOS.** It
   spins forever instead of crashing. Always null-check. (The bug that
   surfaced this was an off-by-one in the `test_pref_keys` array size.)
-- **Run `pio test` from the repo root**, not from inside a test
-  subdirectory — PlatformIO uses `platformio.ini` to find the test env.
-- **After a `pio test` crash, kill stragglers.** PlatformIO spawns the
-  test binary as a subprocess and a hang can leave zombies:
-  `pkill -9 -f "native_test_only/program"`.
+- **Re-running cmake doesn't pick up a deleted source file**
+  automatically — if a test file disappears, cmake still has a stale
+  entry. `rm -rf .builds/tests` and reconfigure when in doubt.

@@ -1,0 +1,14 @@
+# BTClock Rev B (custom 8 MB board, ESP32-S3) with 2.13" e-paper panels.
+# Mirrors the [env:btclock_rev_b] + [env:btclock_rev_b_213epd] build from
+# platformio.ini. Adds PCA9685 (frontlight) and BH1750 (ambient LDR)
+# compared to the Lolin S3 Mini variants — those are unconditionally in
+# REQUIRES so dead-code elimination keeps them out of the Rev A image.
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partition_8mb.csv"
+
+# 8 MB flash, QIO mode (matches boards/btclock_rev_b.json).
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHMODE="qio"

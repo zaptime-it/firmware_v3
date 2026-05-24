@@ -1,7 +1,8 @@
 # Architecture
 
-The firmware is an ESP32-S3 Arduino-as-an-ESP-IDF-component project built
-with PlatformIO. It drives up to 8 e-paper displays through one or two
+The firmware is an ESP32-S3 ESP-IDF 5.5 project that pulls in
+arduino-esp32 as an IDF managed component. It drives up to 8 e-paper
+displays through one or two
 MCP23017 GPIO expanders, a ring of NeoPixel LEDs, an optional
 PCA9685-driven frontlight, and an optional BH1750 ambient light sensor.
 It exposes a small HTTP + Server-Sent-Events API and a SvelteKit WebUI
@@ -9,15 +10,18 @@ It exposes a small HTTP + Server-Sent-Events API and a SvelteKit WebUI
 
 ## Tree layout
 
-After the 3.4.0 reorganisation (Phase 3.5), the code under `src/lib/` is
+After the 3.4.0 reorganisation (Phase 3.5), the code under `main/lib/` is
 grouped by concern rather than dumped flat. Each group is one directory
 and each directory is responsible for one cross-cutting concern:
 
 ```
-src/
-├── main.cpp                   # PlatformIO entry, loop(), watchdogs
+main/                          # IDF main component (firmware source + entry)
+├── CMakeLists.txt             # component def — globs *.cpp + ../lib/btclock
+├── idf_component.yml          # IDF Component Manager deps (Arduino-ESP32 etc.)
+├── main.cpp                   # Arduino entry, loop(), watchdogs
 ├── fonts/                     # Compressed bitmap fonts (PSRAM targets)
-├── img/                       # Static bitmap assets (icons)
+├── icons/                     # Static bitmap assets
+├── timezone_data.hpp          # Generated POSIX-TZ string table
 └── lib/
     ├── data_sources/          # Everything that fetches or listens for
     │   ├── block_notify.*       #   upstream data. Implements the
@@ -65,29 +69,51 @@ lib/
 │   └── dnd_window.*             #   pure DND time-range algebra
 └── qrcode/                    # Upstream qrcodegen, unmodified
 
-test/
+tests/                         # Host-only Unity tests + CMake driver
+├── CMakeLists.txt             #   FetchContent's Unity, autoglobs test_*
+├── unity_defaults.c           #   weak setUp/tearDown stubs
 ├── test_utils/                #   utils.hpp
 ├── test_datahandler/          #   data_handler.hpp
 ├── test_bitaxehandler/        #   bitaxe_handler.hpp
 ├── test_nostrdisplay/         #   nostrdisplay_handler.hpp
 ├── test_mining_pool/          #   pool adapters
 ├── test_dnd_window/           #   dnd_window.hpp        (added in 3.4.0)
-└── test_pref_keys/            #   pref_keys.hpp         (added in 3.4.0)
+├── test_pref_keys/            #   pref_keys.hpp         (added in 3.4.0)
+├── test_price_policy/         #   price_policy.hpp
+├── test_data_source_policy/   #   data_source_policy.hpp
+├── test_screen_nav/           #   screen_nav.hpp
+└── test_screen_order/         #   screen_order.hpp
+
+# Standard IDF project files at the repo root:
+CMakeLists.txt                 # IDF project file
+sdkconfig.defaults             # cross-variant size trim + Kconfig
+sdkconfig.defaults.<variant>   # per-variant flash/PSRAM/partition selection
+partition.csv, partition_8mb.csv, partition_16mb.csv
+arduino_libraries.json         # vendored Arduino lib pins
+dependencies.lock              # IDF Component Manager lockfile
+
+scripts/
+├── build.sh, build-release.sh # variant + release wrappers
+└── fetch_arduino_libs.py      # one-shot vendor script
+
+arduino_libraries/             # gitignored, populated by fetch script
 ```
 
 Things that are intentionally left flat:
 
-- `src/main.cpp` is the PlatformIO entry point and can't move.
-- `src/fonts/` and `src/img/` are already logically grouped.
-- `lib/btclock/` is a PlatformIO library root at the repo level; renaming
-  it would also move the `lib_deps` resolution boundary.
+- `main/main.cpp` is the Arduino entry point and can't move.
+- `main/fonts/` and `main/icons/` are already logically grouped.
+- `lib/btclock/` holds the host-testable pieces (no Arduino / IDF deps),
+  pulled in by both the firmware (globbed from `main/CMakeLists.txt`)
+  and the host tests (linked from `tests/CMakeLists.txt`). Renaming it
+  would touch both build systems.
 - `lib/qrcode/` is vendored from upstream.
 
 ## Data-source model
 
 The device has three functional data-source modes, selected by the NVS
 key `dataSource` (values match the `DataSourceType` enum in
-[`src/lib/system/defaults.hpp`](../src/lib/system/defaults.hpp)):
+[`main/lib/system/defaults.hpp`](../main/lib/system/defaults.hpp)):
 
 ```mermaid
 flowchart LR
@@ -112,7 +138,7 @@ is a separate, always-on feed for Lightning zap events.
 
 All live feeds — V2, Nostr, Block, Price, Bitaxe poll, Mining-pool-stats
 poll — implement the `LiveService` interface
-([`src/lib/data_sources/live_service.hpp`](../src/lib/data_sources/live_service.hpp))
+([`main/lib/data_sources/live_service.hpp`](../main/lib/data_sources/live_service.hpp))
 and register themselves with the process-wide `LiveServiceRegistry`
 during `setupDataSource()`. The main loop calls
 `LiveServiceRegistry::instance().monitor()` every ~5 s, which drives the
@@ -156,7 +182,7 @@ tested natively.
 
 ## Main loop and tasks
 
-`src/main.cpp` is deliberately short. It does three things on a 5-second
+`main/main.cpp` is deliberately short. It does three things on a 5-second
 cadence:
 
 1. Ping the event-source task so SSE clients get a fresh status frame.
@@ -218,7 +244,7 @@ writes.
 
 See [API.md](API.md) for the authoritative list. The short version:
 
-- **One folder, one concern.** `src/lib/net/webserver/` contains one
+- **One folder, one concern.** `main/lib/net/webserver/` contains one
   registration function per concern (`registerStatusRoutes`,
   `registerSettingsRoutes`, `registerActionRoutes`,
   `registerLightsRoutes`, `registerDndRoutes`, `registerOtaRoutes`),
@@ -238,7 +264,7 @@ See [API.md](API.md) for the authoritative list. The short version:
 ## Preferences (NVS)
 
 NVS key strings are centralised in
-[`src/lib/system/pref_keys.hpp`](../src/lib/system/pref_keys.hpp) under
+[`main/lib/system/pref_keys.hpp`](../main/lib/system/pref_keys.hpp) under
 `namespace PrefKeys`. Hard-coded `"stringLiteral"` keys are a code-review
 red flag since 3.4.0. See [PREFERENCES.md](PREFERENCES.md) for the full
 policy (15-character NVS name cap, WebUI compatibility contract, etc.)
@@ -267,7 +293,7 @@ Deliberately narrow — the device targets a trusted LAN:
 ## Further reading
 
 - [plan file](../README.md) — commit-by-commit history of the 3.4.0 refactor.
-- [BUILD.md](BUILD.md) — platformio envs, RAM/flash budgets, partition sizes.
+- [BUILD.md](BUILD.md) — build variants, RAM/flash budgets, partition sizes.
 - [API.md](API.md) — HTTP endpoint reference.
 - [TESTING.md](TESTING.md) — unit tests and CI.
 - [PREFERENCES.md](PREFERENCES.md) — NVS key inventory.

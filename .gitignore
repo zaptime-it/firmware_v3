@@ -1,27 +1,60 @@
-.pio
+# IDE / OS
 .vscode/.browse.c_cpp.db*
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-managed_components
-data/build/*
+.DS_Store
+
+# Node / webui
+node_modules
 data/build
+data/build/*
 data/.yarn
 data/node_modules
-node_modules
-.DS_Store
-*.bin
-ci/cache
 
-# PlatformIO drops per-env sdkconfig.* checkpoints at the repo root, which
-# pollute `git status`. Keep the shared sdkconfig.defaults but exclude the
-# env-specific generated ones.
-sdkconfig.*
-!sdkconfig.defaults
+# IDF managed components are downloaded under managed_components/ by the
+# Component Manager on every configure — never tracked.
+managed_components
 
-# Font/asset conversion byproducts that used to end up at the repo root
-# while experimenting with tools/ helpers. The real source files live
-# under data/ or src/fonts/; nothing at the root needs to be tracked.
+# All build trees land under .builds/<name>/ (firmware variants, host
+# tests, host tests with sanitizers, the lint compile_commands.json
+# project). Single hidden dir so `ls` at repo root stays clean.
+/.builds/
+/compile_commands.json
+
+# Legacy IDF build dirs from before .builds/ existed — keep ignored so
+# stragglers (or older branches) don't pollute the index.
+/build/
+/build_*/
+
+# Vendored Arduino libraries — fetched on demand by
+# scripts/fetch_arduino_libs.py from arduino_libraries.json. The JSON
+# spec IS tracked; the populated arduino_libraries/ tree is not.
+/arduino_libraries/
+
+# Generated IDF sdkconfig (chained from the tracked
+# sdkconfig.defaults + sdkconfig.defaults.<variant>).
+/sdkconfig
+
+# LittleFS staging dir for ad-hoc image builds.
+/spiffs/
+
+# CI release staging dir produced by scripts/build-release.sh
+/release-stage/
+
+# The PIO VSCode extension keeps regenerating these PIO-project
+# boilerplate files even though we have no platformio.ini and recommend
+# the IDF extension instead. Ignore so they never come back as untracked
+# noise.
+/platformio.ini
+/include/
+/test/
+/src/
+/README.md.bak
+
+# Font/asset conversion byproducts that end up at the repo root while
+# experimenting with tools/ helpers. The real source files live under
+# data/ or src/fonts/; nothing at the root needs to be tracked.
 /*.c
 /*.c.gz
 /*.bin.gz
@@ -40,5 +73,5 @@ settings.csv
 /verify_timezone_data.py
 
 # tools/ is a scratch area for local asset/font/timezone helpers that
-# are not part of the build. The real build-time scripts live under scripts/.
+# aren't part of the build.
 /tools/

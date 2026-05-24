@@ -1,0 +1,12 @@
+# Lolin S3 Mini (Rev A hardware) with 2.13" e-paper panels (7 panels).
+# Mirrors the [env:lolin_s3_mini] + [env:lolin_s3_mini_213epd] build_flags
+# from platformio.ini. Each define becomes a CONFIG_* via add_compile_definitions
+# in the variant section below.
+
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partition.csv"
+
+# 4 MB onboard flash, no octal PSRAM.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+

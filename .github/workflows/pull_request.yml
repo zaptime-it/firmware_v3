@@ -1,19 +1,179 @@
 name: Pull Request Workflow
 
+# PR variant of tagging.yml. Same pipeline + same 4-variant matrix so
+# every PR is gated by a full firmware build; only the release-publish
+# job is dropped (that one lives in tagging.yml and fires on tag pushes
+# / manual dispatch).
+
 on:
   pull_request:
     branches:
       - main
 
 jobs:
-  build:
+  host-tests:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      checks: write
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: "Install and build"
-        uses: ./.github/actions/install-build
+      - name: Validate dependencies.lock has no absolute paths
+        run: ./scripts/check-deps-lock.sh
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build ccache
+      - uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-host-tests-${{ github.sha }}
+          restore-keys: |
+            ccache-host-tests-
+      - name: Configure + build host tests (plain)
+        run: |
+          ccache -M 500M
+          cmake -G Ninja -B .builds/tests -S tests \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build .builds/tests -j
+      - name: Configure + build host tests (ASan + UBSan)
+        run: |
+          cmake -G Ninja -B .builds/tests-asan -S tests -DBTCLOCK_TEST_SANITIZE=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build .builds/tests-asan -j
+      - name: Run plain tests
+        run: ctest --test-dir .builds/tests --output-on-failure --output-junit junit-plain.xml
+      - name: Run sanitize tests
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ctest --test-dir .builds/tests-asan --output-on-failure --output-junit junit-asan.xml
+      - name: Publish test report
+        if: success() || failure()
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: '.builds/tests*/junit-*.xml'
+          detailed_summary: true
+      - name: ccache stats
+        if: always()
+        run: ccache -s
+
+  webui-and-lfs:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.5
+    needs: host-tests
+    steps:
+      - name: Install Node.js (for JS-based GitHub actions)
+        shell: bash
+        run: |
+          apt-get update
+          curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          apt-get install -y --no-install-recommends nodejs
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: data/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+      - name: Build WebUI
+        shell: bash
+        working-directory: data
+        run: |
+          CI=true pnpm install --frozen-lockfile
+          pnpm build
+          python3 gzip_build.py
+      - name: Install littlefs-python
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          pip install littlefs-python==0.17.1
+      - name: Pack LFS images (4MB / 8MB / 16MB)
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          mkdir -p dist-lfs
+          for size in 4MB 8MB 16MB; do
+            ./scripts/pack-lfs-image.sh "$size" dist-lfs
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lfs-images
+          path: dist-lfs/*.bin
+          retention-days: 7
+
+  firmware:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v5.5
+    needs: webui-and-lfs
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - lolin_s3_mini_213epd
+          - lolin_s3_mini_29epd
+          - btclock_rev_b_213epd
+          - btclock_v8_213epd
+    env:
+      IDF_CCACHE_ENABLE: "1"
+      CCACHE_DIR: /root/.ccache
+    steps:
+      - name: Install Node.js (for JS-based GitHub actions)
+        shell: bash
+        run: |
+          apt-get update
+          curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          apt-get install -y --no-install-recommends nodejs ccache
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/cache@v4
+        with:
+          path: |
+            managed_components
+            .builds/${{ matrix.variant }}
+          key: idf-v5.5-${{ matrix.variant }}-${{ hashFiles('dependencies.lock', 'sdkconfig.defaults', format('sdkconfig.defaults.{0}', matrix.variant)) }}
+          restore-keys: |
+            idf-v5.5-${{ matrix.variant }}-
+      - uses: actions/cache@v4
+        with:
+          path: /root/.ccache
+          key: ccache-idf-v5.5-${{ matrix.variant }}-${{ github.sha }}
+          restore-keys: |
+            ccache-idf-v5.5-${{ matrix.variant }}-
+            ccache-idf-v5.5-
+      - name: Install littlefs-python + esptool
+        shell: bash
+        run: |
+          . /opt/esp/idf/export.sh
+          pip install --upgrade littlefs-python==0.17.1 esptool
+      - name: Download prebuilt LFS images
+        uses: actions/download-artifact@v4
+        with:
+          name: lfs-images
+          path: dist-lfs
+      - name: Build ${{ matrix.variant }}
+        shell: bash
+        env:
+          BTCLOCK_USE_PREBUILT_LFS: ${{ github.workspace }}/dist-lfs
+        run: |
+          . /opt/esp/idf/export.sh
+          ccache -M 2G
+          ./scripts/build-release.sh ${{ matrix.variant }}
+      - name: ccache stats
+        if: always()
+        shell: bash
+        run: ccache -s
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-build-${{ matrix.variant }}
+          path: |
+            release-stage/${{ matrix.variant }}/*.bin
+            release-stage/${{ matrix.variant }}/*.sha256
+          retention-days: 7
