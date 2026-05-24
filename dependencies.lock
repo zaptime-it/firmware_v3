@@ -23,6 +23,25 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 3.4.91
+  esp32async/espasyncwebserver:
+    component_hash: 7d2d7609209d78e26c9b8521e2fafafb569ab92075fa9bee40ff1ad49802d606
+    dependencies:
+    - name: bblanchon/arduinojson
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^7.4.3
+    - name: esp32async/asynctcp
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^3.4.10
+    - name: espressif/arduino-esp32
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^3.1.1
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 3.11.0
   espressif/arduino-esp32:
     component_hash: 40614111c1f42f83585134d7105761fb95dd6cee38c0a66e1b572fe6212ffaa7
     dependencies:
@@ -492,10 +511,11 @@ dependencies:
 direct_dependencies:
 - bblanchon/arduinojson
 - esp32async/asynctcp
+- esp32async/espasyncwebserver
 - espressif/arduino-esp32
 - espressif/mdns
 - idf
 - joltwallet/littlefs
-manifest_hash: 8b8f8f999b2c3560630a42aa829e79bb3c23c0e97c7b163bcaee26cc6b0b36fd
+manifest_hash: 02eb3e89cbe679470b5c4eabe9169dd9adb17ddbaa6e74308db8f8480db670c9
 target: esp32s3
 version: 2.0.0

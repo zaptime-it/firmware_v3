@@ -41,8 +41,10 @@ idf_component_register(
         esp-tls
         esp_partition
         esp_lcd
-        # ArduinoJson via IDF Component Manager (header-only).
+        # IDF Component Registry deps (see main/idf_component.yml).
         bblanchon__arduinojson
+        esp32async__asynctcp
+        esp32async__espasyncwebserver
         # Vendored Arduino libraries (see arduino_libraries.json).
         # Direct deps of BTClock src/.
         MCP23017
@@ -53,8 +55,6 @@ idf_component_register(
         Adafruit_BusIO
         WiFiManager
         WebSockets
-        AsyncTCP
-        ESPAsyncWebServer
         universal_pin
         GxEPD2
         Nostrduino

@@ -10,3 +10,10 @@ dependencies:
   espressif/mdns: "^1.2.0"
   # Header-only; published as an official IDF component by the author.
   bblanchon/arduinojson: "^7.4.3"
+  # Async webserver stack — same ESP32Async upstream as the previously
+  # vendored arduino_libraries/AsyncTCP + ESPAsyncWebServer pair, just
+  # published to the IDF Component Registry. ESPAsyncWebServer pulls in
+  # asynctcp transitively, but we declare it explicitly so a fresh
+  # dependency resolve still records the tighter constraint.
+  esp32async/asynctcp: "^3.4.10"
+  esp32async/espasyncwebserver: "^3.11.0"
