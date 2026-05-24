@@ -30,6 +30,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Validate dependencies.lock has no absolute paths
+        run: ./scripts/check-deps-lock.sh
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build ccache
       - uses: actions/cache@v4
