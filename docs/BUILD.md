@@ -16,10 +16,10 @@
 
 - **Node + pnpm** (for the WebUI build).
 - **Python 3** (already pulled in by ESP-IDF) plus
-  `littlefs-python==0.15.0` and `esptool` on the IDF venv:
+  `littlefs-python==0.17.1` and `esptool` on the IDF venv:
 
   ```bash
-  pip install --upgrade littlefs-python==0.15.0 esptool
+  pip install --upgrade littlefs-python==0.17.1 esptool
   ```
 
 - **Git** with submodules, so the `data/` WebUI submodule comes along:

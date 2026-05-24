@@ -91,7 +91,7 @@ jobs:
         shell: bash
         run: |
           . /opt/esp/idf/export.sh
-          pip install littlefs-python==0.15.0
+          pip install littlefs-python==0.17.1
       - name: Pack LFS images (4MB / 8MB / 16MB)
         shell: bash
         run: |
@@ -151,7 +151,7 @@ jobs:
         shell: bash
         run: |
           . /opt/esp/idf/export.sh
-          pip install --upgrade littlefs-python==0.15.0 esptool
+          pip install --upgrade littlefs-python==0.17.1 esptool
       - name: Download prebuilt LFS images
         uses: actions/download-artifact@v4
         with:

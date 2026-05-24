@@ -331,22 +331,27 @@ def ensure_cmakelists(lib_dir: Path, extra_requires: list[str] | None = None) ->
         sentinel = "# patched by fetch_arduino_libs.py: arduino -> espressif__arduino-esp32"
         src = cmake.read_text()
         if sentinel not in src:
-            new = re.sub(
-                r"\b(arduino)\b(?=[\s\n)\\]*(?:#.*)?$)",
-                "espressif__arduino-esp32",
-                src,
-                flags=re.MULTILINE,
-            )
-            # Simpler/safer pass: any standalone "arduino" word inside
-            # a REQUIRES/PRIV_REQUIRES line.
+            # Match `arduino` or `arduino-esp32` as a whole token (the
+            # `(-esp32)?` is critical: without it, the bare-word regex
+            # also fires inside `arduino-esp32` and produces the busted
+            # `espressif__arduino-esp32-esp32`). Run only inside
+            # REQUIRES / PRIV_REQUIRES lines so a stray `arduino` in a
+            # comment doesn't get rewritten.
             new_lines = []
             for line in src.splitlines():
                 stripped = line.strip()
                 if (stripped.startswith(("REQUIRES", "PRIV_REQUIRES"))
                         or "REQUIRES " in line or "PRIV_REQUIRES " in line):
-                    line = re.sub(r"\barduino\b", "espressif__arduino-esp32", line)
+                    line = re.sub(
+                        r"\barduino(?:-esp32)?\b",
+                        "espressif__arduino-esp32",
+                        line,
+                    )
                 new_lines.append(line)
             new = "\n".join(new_lines)
+            # Preserve trailing newline if the original had one.
+            if src.endswith("\n") and not new.endswith("\n"):
+                new += "\n"
             if new != src:
                 cmake.write_text(f"{sentinel}\n{new}")
                 print(f"        patched CMakeLists.txt: arduino -> espressif__arduino-esp32")

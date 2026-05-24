@@ -13,7 +13,7 @@
 # Inputs:
 #   - data/build_gz/www/ must already exist (pnpm build + gzip_build.py
 #     have run); we don't rebuild the WebUI here.
-#   - littlefs-python must be on $PATH (pip install littlefs-python==0.15.0).
+#   - littlefs-python must be on $PATH (pip install littlefs-python==0.17.1).
 
 set -euo pipefail
 
