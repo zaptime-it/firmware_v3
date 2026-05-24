@@ -79,6 +79,31 @@ fs_image_size=$(( fs_blocks * 4096 ))
 mkdir -p "$out_dir"
 out_bin="${out_dir}/littlefs_${flash_size}.bin"
 
+# /fs_hash.txt on the LittleFS root identifies the WebUI bundle revision
+# — getFsRev() in main/lib/system/config.cpp reads it and exposes the
+# value as `fsRev` on /api/settings, which the WebUI's update-checker
+# diffs against the latest release. Without this file fsRev comes back
+# empty and the "WebUI update available" badge never fires.
+#
+# data/'s own gzip_build.py writes the gzipped assets to
+# data/build_gz/www/ but does NOT write fs_hash.txt; that step lives in
+# the data submodule's CI workflow (data/.forgejo/workflows/build.yaml).
+# When we pack from build_gz/www/ here, the hash file gets skipped.
+# Re-derive it from the data/ submodule's current HEAD instead so a
+# local pack matches what the data CI would have written.
+hash_file="${data_root}/fs_hash.txt"
+data_sha=""
+if git -C "${repo_root}/data" rev-parse --verify HEAD >/dev/null 2>&1; then
+    data_sha="$(git -C "${repo_root}/data" rev-parse HEAD)"
+fi
+if [[ -n "$data_sha" ]]; then
+    printf "%s" "$data_sha" > "$hash_file"
+    echo "fs_hash.txt = $data_sha"
+else
+    echo "WARNING: data/ is not a git repo; fs_hash.txt will be empty" >&2
+    printf "" > "$hash_file"
+fi
+
 # CONFIG_LITTLEFS_OBJ_NAME_LEN=64 in sdkconfig.defaults — the image's
 # on-disk name_max must match or the runtime mount fails.
 littlefs-python create "$data_root" "$out_bin" -v \
