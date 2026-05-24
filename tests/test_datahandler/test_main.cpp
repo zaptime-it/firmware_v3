@@ -380,7 +380,7 @@ void test_SatsPerCurrency_PriceZero(void) {
   std::array<std::string, NUM_SCREENS> output =
       parseSatsPerCurrency(0, CURRENCY_USD, false);
   // Must not crash. Label should be present so the UI shows *something*.
-  TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+  TEST_ASSERT_TRUE_MESSAGE(!output[0].empty(), output[0].c_str());
 }
 
 void test_SatsPerCurrency_PriceZero_WithSymbol(void) {
@@ -388,7 +388,7 @@ void test_SatsPerCurrency_PriceZero_WithSymbol(void) {
   // insertSatSymbol index underflows (size_t/uint8_t wrap).
   std::array<std::string, NUM_SCREENS> output =
       parseSatsPerCurrency(0, CURRENCY_USD, true);
-  TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+  TEST_ASSERT_TRUE_MESSAGE(!output[0].empty(), output[0].c_str());
 }
 
 void test_SatsPerCurrency_LowPriceWithSymbol(void) {
@@ -397,7 +397,7 @@ void test_SatsPerCurrency_LowPriceWithSymbol(void) {
   // uint8_t, triggering an OOB write. Must stay in-bounds.
   std::array<std::string, NUM_SCREENS> output =
       parseSatsPerCurrency(100, CURRENCY_USD, true);
-  TEST_ASSERT_TRUE_MESSAGE(output[0].length() > 0, output[0].c_str());
+  TEST_ASSERT_TRUE_MESSAGE(!output[0].empty(), output[0].c_str());
   // No element should ever be the literal "STS" at an impossible position;
   // simply surviving the call is the main assertion.
 }

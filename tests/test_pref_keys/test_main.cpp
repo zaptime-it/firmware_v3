@@ -153,8 +153,7 @@ void test_KeyTableMatchesHeader(void) {
 }
 
 void test_AllKeysRespectNvsLengthCap(void) {
-  for (size_t i = 0; i < kNumKeys; ++i) {
-    const auto &entry = kAllKeys[i];
+  for (const auto &entry : kAllKeys) {
     const size_t len = std::strlen(entry.value);
     if (len > kNvsMaxKeyLen) {
       char msg[128];
@@ -167,8 +166,7 @@ void test_AllKeysRespectNvsLengthCap(void) {
 }
 
 void test_AllKeysNonEmpty(void) {
-  for (size_t i = 0; i < kNumKeys; ++i) {
-    const auto &entry = kAllKeys[i];
+  for (const auto &entry : kAllKeys) {
     if (std::strlen(entry.value) == 0) {
       char msg[128];
       snprintf(msg, sizeof(msg), "PrefKeys::%s is empty", entry.name);

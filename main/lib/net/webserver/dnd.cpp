@@ -49,6 +49,8 @@ static void onApiDNDDisable(AsyncWebServerRequest *request) {
 
 void registerDndRoutes() {
   server.on("/api/dnd/status", AsyncWebRequestMethod::HTTP_GET, onApiDNDStatus);
-  server.on("/api/dnd/enable", AsyncWebRequestMethod::HTTP_POST, onApiDNDEnable);
-  server.on("/api/dnd/disable", AsyncWebRequestMethod::HTTP_POST, onApiDNDDisable);
+  server.on("/api/dnd/enable", AsyncWebRequestMethod::HTTP_POST,
+            onApiDNDEnable);
+  server.on("/api/dnd/disable", AsyncWebRequestMethod::HTTP_POST,
+            onApiDNDDisable);
 }

@@ -159,20 +159,26 @@ void registerLightsRoutes() {
   lightsJsonHandler->setMethod(AsyncWebRequestMethod::HTTP_POST);
   server.addHandler(lightsJsonHandler);
 
-  server.on("/api/lights/off", AsyncWebRequestMethod::HTTP_POST, onApiLightsOff);
-  server.on("/api/lights/color", AsyncWebRequestMethod::HTTP_POST, onApiLightsSetColor);
+  server.on("/api/lights/off", AsyncWebRequestMethod::HTTP_POST,
+            onApiLightsOff);
+  server.on("/api/lights/color", AsyncWebRequestMethod::HTTP_POST,
+            onApiLightsSetColor);
   server.on("/api/lights", AsyncWebRequestMethod::HTTP_GET, onApiLightsStatus);
 
   server.addRewrite(new OneParamRewrite("/api/lights/color/{color}",
                                         "/api/lights/color?c={color}"));
 
 #ifdef HAS_FRONTLIGHT
-  server.on("/api/frontlight/on", AsyncWebRequestMethod::HTTP_POST, onApiFrontlightOn);
-  server.on("/api/frontlight/flash", AsyncWebRequestMethod::HTTP_POST, onApiFrontlightFlash);
-  server.on("/api/frontlight/status", AsyncWebRequestMethod::HTTP_GET, onApiFrontlightStatus);
+  server.on("/api/frontlight/on", AsyncWebRequestMethod::HTTP_POST,
+            onApiFrontlightOn);
+  server.on("/api/frontlight/flash", AsyncWebRequestMethod::HTTP_POST,
+            onApiFrontlightFlash);
+  server.on("/api/frontlight/status", AsyncWebRequestMethod::HTTP_GET,
+            onApiFrontlightStatus);
   server.on("/api/frontlight/brightness", AsyncWebRequestMethod::HTTP_POST,
             onApiFrontlightSetBrightness);
-  server.on("/api/frontlight/off", AsyncWebRequestMethod::HTTP_POST, onApiFrontlightOff);
+  server.on("/api/frontlight/off", AsyncWebRequestMethod::HTTP_POST,
+            onApiFrontlightOff);
 
   server.addRewrite(new OneParamRewrite("/api/frontlight/brightness/{b}",
                                         "/api/frontlight/brightness?b={b}"));

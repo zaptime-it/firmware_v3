@@ -174,7 +174,8 @@ HTTPClient *HttpHelper::begin(const String &url) {
     // (sets two global pointers + one struct field) so re-calling it
     // each time is fine.
     secureClient.setCACertBundle(rootca_crt_bundle_start,
-                                 rootca_crt_bundle_end - rootca_crt_bundle_start);
+                                 rootca_crt_bundle_end -
+                                     rootca_crt_bundle_start);
     http->begin(secureClient, url);
   } else {
     http->begin(insecureClient, url);

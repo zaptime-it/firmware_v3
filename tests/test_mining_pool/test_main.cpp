@@ -2,7 +2,6 @@
 #include <utils.hpp>
 
 void test_parseMiningPoolStatsHashRate1dot34TH(void) {
-  std::string hashrate;
   std::string label;
   std::string output;
 
@@ -24,7 +23,7 @@ void test_parseMiningPoolStatsHashRate645GH(void) {
 }
 
 void test_parseMiningPoolStatsHashRateEmpty(void) {
-  std::string hashrate = "";
+  std::string hashrate;
   std::string label;
   std::string output;
 

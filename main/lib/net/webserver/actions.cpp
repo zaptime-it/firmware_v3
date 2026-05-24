@@ -192,17 +192,27 @@ void registerActionRoutes() {
   // browser history, bookmark warmers, and <link rel="prefetch"> runs. The
   // old GET routes are intentionally not registered; the WebUI is being
   // rebuilt against 3.4.0.
-  server.on("/api/wifi_set_tx_power", AsyncWebRequestMethod::HTTP_POST, onApiSetWifiTxPower);
-  server.on("/api/full_refresh", AsyncWebRequestMethod::HTTP_POST, onApiFullRefresh);
-  server.on("/api/stop_datasources", AsyncWebRequestMethod::HTTP_POST, onApiStopDataSources);
-  server.on("/api/restart_datasources", AsyncWebRequestMethod::HTTP_POST, onApiRestartDataSources);
-  server.on("/api/action/pause", AsyncWebRequestMethod::HTTP_POST, onApiActionPause);
-  server.on("/api/action/timer_restart", AsyncWebRequestMethod::HTTP_POST, onApiActionTimerRestart);
-  server.on("/api/show/screen", AsyncWebRequestMethod::HTTP_POST, onApiShowScreen);
-  server.on("/api/show/currency", AsyncWebRequestMethod::HTTP_POST, onApiShowCurrency);
+  server.on("/api/wifi_set_tx_power", AsyncWebRequestMethod::HTTP_POST,
+            onApiSetWifiTxPower);
+  server.on("/api/full_refresh", AsyncWebRequestMethod::HTTP_POST,
+            onApiFullRefresh);
+  server.on("/api/stop_datasources", AsyncWebRequestMethod::HTTP_POST,
+            onApiStopDataSources);
+  server.on("/api/restart_datasources", AsyncWebRequestMethod::HTTP_POST,
+            onApiRestartDataSources);
+  server.on("/api/action/pause", AsyncWebRequestMethod::HTTP_POST,
+            onApiActionPause);
+  server.on("/api/action/timer_restart", AsyncWebRequestMethod::HTTP_POST,
+            onApiActionTimerRestart);
+  server.on("/api/show/screen", AsyncWebRequestMethod::HTTP_POST,
+            onApiShowScreen);
+  server.on("/api/show/currency", AsyncWebRequestMethod::HTTP_POST,
+            onApiShowCurrency);
   server.on("/api/show/text", AsyncWebRequestMethod::HTTP_POST, onApiShowText);
-  server.on("/api/screen/next", AsyncWebRequestMethod::HTTP_POST, onApiScreenControl);
-  server.on("/api/screen/previous", AsyncWebRequestMethod::HTTP_POST, onApiScreenControl);
+  server.on("/api/screen/next", AsyncWebRequestMethod::HTTP_POST,
+            onApiScreenControl);
+  server.on("/api/screen/previous", AsyncWebRequestMethod::HTTP_POST,
+            onApiScreenControl);
   server.on("/api/identify", AsyncWebRequestMethod::HTTP_POST, onApiIdentify);
   server.on("/api/restart", AsyncWebRequestMethod::HTTP_POST, onApiRestart);
 

@@ -79,8 +79,7 @@ const int msPerSecond = 1000;
 
 extern const uint8_t
     rootca_crt_bundle_start[] asm("_binary_x509_crt_bundle_start");
-extern const uint8_t
-    rootca_crt_bundle_end[] asm("_binary_x509_crt_bundle_end");
+extern const uint8_t rootca_crt_bundle_end[] asm("_binary_x509_crt_bundle_end");
 // extern const uint8_t ocean_logo_comp[] asm("_binary_ocean_gz_start");
 // extern const uint8_t ocean_logo_comp_end[] asm("_binary_ocean_gz_end");
 

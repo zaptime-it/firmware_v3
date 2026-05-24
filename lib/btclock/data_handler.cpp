@@ -99,7 +99,7 @@ parsePriceData(std::uint32_t price, char currencySymbol, bool useSuffixFormat,
           tempArray.push_back(std::string(1, priceString[i]) + ".");
           ++i; // Skip the dot in the next iteration
         } else {
-          tempArray.push_back(std::string(1, priceString[i]));
+          tempArray.emplace_back(1, priceString[i]);
         }
       }
 
@@ -326,7 +326,8 @@ parseBitcoinSupply(std::uint32_t blockHeight, bool bigChars,
 
     ret[NUM_SCREENS - groups - 1] = std::string(" ");
     for (std::uint32_t i = 0; i < groups; i++) {
-      ret[(NUM_SCREENS - groups + i)] = supplyString.substr(i * 3, 3).c_str();
+      ret[(NUM_SCREENS - groups + i)] =
+          supplyString.substr(static_cast<size_t>(i) * 3, 3);
     }
   }
   return ret;
@@ -373,7 +374,8 @@ std::array<std::string, NUM_SCREENS> parseMarketCap(std::uint32_t blockHeight,
 
     ret[NUM_SCREENS - groups - 1] = std::string(" ") + currencySymbol + " ";
     for (std::uint32_t i = 0; i < groups; i++) {
-      ret[(NUM_SCREENS - groups + i)] = stringValue.substr(i * 3, 3).c_str();
+      ret[(NUM_SCREENS - groups + i)] =
+          stringValue.substr(static_cast<size_t>(i) * 3, 3);
     }
   }
 

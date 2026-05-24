@@ -95,7 +95,7 @@ void test_BitaxeParseBestDiff_Huge(void) {
   TEST_ASSERT_EQUAL_STRING("mdi:bitaxe", output[0].c_str());
   TEST_ASSERT_EQUAL_STRING("mdi:rocket", output[1].c_str());
   // Last slot should be the suffix letter.
-  TEST_ASSERT_TRUE_MESSAGE(output[NUM_SCREENS - 1].length() > 0,
+  TEST_ASSERT_TRUE_MESSAGE(!output[NUM_SCREENS - 1].empty(),
                            output[NUM_SCREENS - 1].c_str());
 }
 

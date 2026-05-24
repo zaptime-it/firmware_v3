@@ -66,19 +66,16 @@ std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters,
   } else if (num >= billion || numDigits > 9) {
     numDouble /= billion;
     suffix = 'B';
-  } else if (num >= million || numDigits > 6 || (mowMode && num >= thousand)) {
+  } else if (mowMode || num >= million || numDigits > 6) {
+    // mowMode always renders as 'M' even when num < million.
     numDouble /= million;
     suffix = 'M';
-  } else if (!mowMode && (num >= thousand || numDigits > 3)) {
+  } else if (num >= thousand || numDigits > 3) {
     numDouble /= thousand;
     suffix = 'K';
-  } else if (!mowMode) {
+  } else {
     snprintf(result, sizeof(result), "%llu", (unsigned long long)num);
     return result;
-  } else // mowMode is true and num < 1000
-  {
-    numDouble /= million;
-    suffix = 'M';
   }
 
   // Add suffix
@@ -89,7 +86,7 @@ std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters,
   if (mowMode) {
     // Default to one decimal place
     len = snprintf(result, sizeof(result), "%s%c",
-                   mowAsString.substr(0, mowAsString.find(".") + 2).c_str(),
+                   mowAsString.substr(0, mowAsString.find('.') + 2).c_str(),
                    suffix);
   } else {
     len = snprintf(result, sizeof(result), "%.0f%c", numDouble, suffix);
@@ -102,7 +99,7 @@ std::string formatNumberWithSuffix(std::uint64_t num, int numCharacters,
     if (mowMode) {
       snprintf(
           result, sizeof(result), "%s%c",
-          mowAsString.substr(0, mowAsString.find(".") + 2 + restLen).c_str(),
+          mowAsString.substr(0, mowAsString.find('.') + 2 + restLen).c_str(),
           suffix);
     } else {
       snprintf(result, sizeof(result), "%.*f%c", restLen, numDouble, suffix);
