@@ -2,6 +2,8 @@
 
 #include "lib/system/shared.hpp"
 
+#include "mdns.h"
+
 // Module-wide globals. Route files reach these through internal.hpp.
 AsyncWebServer server(80);
 AsyncEventSource events("/events");
@@ -137,13 +139,17 @@ void setupWebserver() {
 
   if (preferences.getBool("mdnsEnabled", DEFAULT_MDNS_ENABLED)) {
     // Must not hang the whole device if mDNS fails to start (see prior
-    // bug); one attempt, log on failure, continue.
-    if (MDNS.begin(getMyHostname())) {
-      MDNS.addService("http", "tcp", 80);
-      MDNS.addServiceTxt("http", "tcp", "model", "BTClock");
-      MDNS.addServiceTxt("http", "tcp", "version", "3.0");
-      MDNS.addServiceTxt("http", "tcp", "rev", GIT_REV);
-      MDNS.addServiceTxt("http", "tcp", "hw_rev", getHwRev());
+    // bug); one attempt, log on failure, continue. Native IDF mdns_*
+    // API (espressif/mdns managed component) instead of the Arduino
+    // ESPmDNS wrapper — same component underneath, one indirection less
+    // and we lose the Arduino-side global ctor.
+    if (mdns_init() == ESP_OK &&
+        mdns_hostname_set(getMyHostname().c_str()) == ESP_OK) {
+      mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+      mdns_service_txt_item_set("_http", "_tcp", "model", "BTClock");
+      mdns_service_txt_item_set("_http", "_tcp", "version", "3.0");
+      mdns_service_txt_item_set("_http", "_tcp", "rev", GIT_REV);
+      mdns_service_txt_item_set("_http", "_tcp", "hw_rev", getHwRev());
     }
   }
 

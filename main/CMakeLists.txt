@@ -45,6 +45,7 @@ idf_component_register(
         bblanchon__arduinojson
         esp32async__asynctcp
         esp32async__espasyncwebserver
+        espressif__mdns
         # Vendored Arduino libraries (see arduino_libraries.json).
         # Direct deps of BTClock src/.
         MCP23017
