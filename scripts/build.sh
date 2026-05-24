@@ -19,6 +19,13 @@ set -euo pipefail
 # Repo root = directory containing this script's parent dir (scripts/).
 cd "$(dirname "$0")/.."
 
+# Vendor the Arduino libraries that aren't on the IDF Component Registry
+# (see arduino_libraries.json). Idempotent: each entry is a no-op once
+# already present, so re-running the build doesn't re-clone. Without
+# this the root CMakeLists.txt fails with "EXTRA_COMPONENT_DIRS doesn't
+# exist: arduino_libraries" on a clean checkout (notably CI runners).
+python3 scripts/fetch_arduino_libs.py
+
 ALL_VARIANTS=(
     lolin_s3_mini_213epd
     lolin_s3_mini_29epd
