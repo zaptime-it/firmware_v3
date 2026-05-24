@@ -40,6 +40,24 @@ if [[ ! -d "$data_root" ]]; then
     exit 65
 fi
 
+# SvelteKit bakes PUBLIC_BASE_URL into build/env.js at pnpm-build time
+# from $PUBLIC_BASE_URL or data/.env. The device build needs it to be
+# the empty string so the WebUI does relative API calls against the
+# host it was loaded from. A non-empty value (typically a dev's local
+# IP for offline UI development) sneaks through unless we check, and
+# the flashed image then sends every /api/* call to a stale IP.
+env_js="${data_root}/build/env.js.gz"
+if [[ -f "$env_js" ]]; then
+    baked="$(gzip -dc "$env_js" | grep -oE '"PUBLIC_BASE_URL":"[^"]*"' || true)"
+    if [[ -n "$baked" && "$baked" != '"PUBLIC_BASE_URL":""' ]]; then
+        echo "WebUI was built with a non-empty PUBLIC_BASE_URL: $baked" >&2
+        echo "Rebuild the bundle for device flashing:" >&2
+        echo "  cd data && PUBLIC_BASE_URL= pnpm build && PUBLIC_BASE_URL= python3 gzip_build.py" >&2
+        echo "(Empty PUBLIC_BASE_URL keeps API calls relative to the device host.)" >&2
+        exit 68
+    fi
+fi
+
 fs_size_hex=$(awk -F',' '
     /^[[:space:]]*spiffs[[:space:]]*,/ {
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", $5)

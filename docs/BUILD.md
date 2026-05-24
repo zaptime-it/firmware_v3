@@ -131,9 +131,19 @@ The WebUI lives in the `data/` submodule and is built separately;
 ```bash
 cd data
 CI=true pnpm install --frozen-lockfile
-pnpm build
-python3 gzip_build.py          # repacks dist/ into build_gz/www/*.gz
+PUBLIC_BASE_URL= pnpm build
+PUBLIC_BASE_URL= python3 gzip_build.py   # repacks dist/ into build_gz/www/*.gz
 ```
+
+`PUBLIC_BASE_URL` is statically baked into `build/env.js` by SvelteKit
+at build time and tells the WebUI where to send `/api/*` calls. For a
+device flash it has to be the empty string so the WebUI uses URLs
+relative to the host it's loaded from. `data/.env` typically sets it
+to a developer's local BTClock IP for offline UI development (see
+[data/README.md](https://git.btclock.dev/btclock/btclock_v3-webui/src/branch/main/README.md));
+passing `PUBLIC_BASE_URL=` on the command line overrides that for the
+flash-bound build. `scripts/pack-lfs-image.sh` (and CI by extension)
+refuses to pack an image whose `env.js` carries a non-empty value.
 
 After that, either:
 
