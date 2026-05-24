@@ -103,6 +103,19 @@ endif()
 if(NOT DEFINED BTCLOCK_BUILD_TIME)
     string(TIMESTAMP BTCLOCK_BUILD_TIME "%s")
 endif()
+if(NOT DEFINED BTCLOCK_GIT_TAG)
+    # Empty unless HEAD matches a tag exactly — surfaced as `gitTag` on
+    # /api/settings and used in the IRC restart notice when set. Matches
+    # the old PlatformIO extra_script behavior (git describe --tags
+    # --exact-match, fall through to empty on non-tagged commits).
+    execute_process(
+        COMMAND git describe --tags --exact-match
+        WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
+        OUTPUT_VARIABLE BTCLOCK_GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+endif()
 
 # ---- Cross-variant defines (every BTClock build needs these) ----
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
@@ -115,6 +128,11 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     # the root CMakeLists.txt — they need to reach the arduino-esp32
     # component too, not just main.
 )
+if(BTCLOCK_GIT_TAG)
+    target_compile_definitions(${COMPONENT_LIB} PRIVATE
+        GIT_TAG="${BTCLOCK_GIT_TAG}"
+    )
+endif()
 
 # ---- Variant-specific defines ----
 # Driven by the BTCLOCK_VARIANT CMake variable, set by the caller via
