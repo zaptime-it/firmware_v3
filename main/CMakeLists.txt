@@ -107,6 +107,9 @@ target_compile_definitions(${COMPONENT_LIB} PRIVATE
     WEBSOCKETS_MAX_DATA_SIZE=32768
     GIT_REV="${BTCLOCK_GIT_REV}"
     LAST_BUILD_TIME=${BTCLOCK_BUILD_TIME}
+    # ARDUINO_USB_MODE / ARDUINO_USB_CDC_ON_BOOT are set globally in
+    # the root CMakeLists.txt — they need to reach the arduino-esp32
+    # component too, not just main.
 )
 
 # ---- Variant-specific defines ----
