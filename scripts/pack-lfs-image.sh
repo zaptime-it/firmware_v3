@@ -85,22 +85,23 @@ out_bin="${out_dir}/littlefs_${flash_size}.bin"
 # diffs against the latest release. Without this file fsRev comes back
 # empty and the "WebUI update available" badge never fires.
 #
-# data/'s own gzip_build.py writes the gzipped assets to
-# data/build_gz/www/ but does NOT write fs_hash.txt; that step lives in
-# the data submodule's CI workflow (data/.forgejo/workflows/build.yaml).
-# When we pack from build_gz/www/ here, the hash file gets skipped.
-# Re-derive it from the data/ submodule's current HEAD instead so a
-# local pack matches what the data CI would have written.
+# v3 lineage compatibility: PlatformIO's extra_script.py wrote the
+# firmware repo's HEAD here, not the data submodule's SHA. Strictly
+# speaking the WebUI bundle is tracked by data/, but the v3 release
+# series has always reported the firmware SHA so updaters keyed on
+# `fsRev` keep behaving the same after the IDF migration. The full
+# SHA also lines up with `gitRev` (the short form of the same commit)
+# in /api/settings.
 hash_file="${data_root}/fs_hash.txt"
-data_sha=""
-if git -C "${repo_root}/data" rev-parse --verify HEAD >/dev/null 2>&1; then
-    data_sha="$(git -C "${repo_root}/data" rev-parse HEAD)"
+fw_sha="${BTCLOCK_GIT_REV:-}"
+if [[ -z "$fw_sha" ]] && git -C "${repo_root}" rev-parse --verify HEAD >/dev/null 2>&1; then
+    fw_sha="$(git -C "${repo_root}" rev-parse HEAD)"
 fi
-if [[ -n "$data_sha" ]]; then
-    printf "%s" "$data_sha" > "$hash_file"
-    echo "fs_hash.txt = $data_sha"
+if [[ -n "$fw_sha" ]]; then
+    printf "%s" "$fw_sha" > "$hash_file"
+    echo "fs_hash.txt = $fw_sha"
 else
-    echo "WARNING: data/ is not a git repo; fs_hash.txt will be empty" >&2
+    echo "WARNING: firmware repo HEAD unavailable; fs_hash.txt will be empty" >&2
     printf "" > "$hash_file"
 fi
 

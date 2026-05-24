@@ -85,8 +85,12 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
 # Both regenerate every configure. For a reproducible build, override on
 # the idf.py command line with -DBTCLOCK_GIT_REV="..." -DBTCLOCK_BUILD_TIME=0.
 if(NOT DEFINED BTCLOCK_GIT_REV)
+    # Full SHA (not --short): the WebUI's update-checker compares
+    # gitRev byte-for-byte against fsRev, which pack-lfs-image.sh
+    # writes as the full 40-char HEAD. Keep them the same width or
+    # the comparison always reports "out of date".
     execute_process(
-        COMMAND git rev-parse --short HEAD
+        COMMAND git rev-parse HEAD
         WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
         OUTPUT_VARIABLE BTCLOCK_GIT_REV
         OUTPUT_STRIP_TRAILING_WHITESPACE
