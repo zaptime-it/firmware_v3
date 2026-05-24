@@ -3,7 +3,7 @@
 #include <Arduino.h>
 #include <MCP23017.h>
 #include <Preferences.h>
-#include <WiFiClientSecure.h>
+#include <NetworkClientSecure.h>
 #include <WiFiManager.h>
 #include <base64.h>
 #include <esp_task_wdt.h>

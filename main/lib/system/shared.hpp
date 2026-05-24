@@ -6,8 +6,8 @@
 #include <GxEPD2.h>
 #include <GxEPD2_BW.h>
 #include <Preferences.h>
-#include <WiFiClient.h>
-#include <WiFiClientSecure.h>
+#include <NetworkClient.h>
+#include <NetworkClientSecure.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <mbedtls/md.h>
@@ -97,7 +97,7 @@ struct ScreenMapping {
 };
 
 String calculateSHA256(uint8_t *data, size_t len);
-String calculateSHA256(WiFiClient *stream, size_t contentLength);
+String calculateSHA256(NetworkClient *stream, size_t contentLength);
 
 namespace ArduinoJson {
 template <typename T> struct Converter<std::vector<T>> {
@@ -132,7 +132,7 @@ public:
   //      concurrently. They all share the same static secureClient,
   //      whose mbedtls SSL context is not reentrancy-safe: two
   //      overlapping HTTPS requests corrupt each other's state, and
-  //      the second WiFiClientSecure::stop() then trips a heap-
+  //      the second NetworkClientSecure::stop() then trips a heap-
   //      poisoning assert ("CORRUPT HEAP: Bad head").
   //   2. Every HTTPS request allocates a fresh mbedtls context
   //      (~16 KB IN buffer + scratch). Doing that in parallel with
@@ -153,6 +153,6 @@ public:
   }
 
 private:
-  static WiFiClientSecure secureClient;
-  static WiFiClient insecureClient;
+  static NetworkClientSecure secureClient;
+  static NetworkClient insecureClient;
 };

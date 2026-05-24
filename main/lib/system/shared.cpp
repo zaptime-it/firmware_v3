@@ -111,7 +111,7 @@ String calculateSHA256(uint8_t *data, size_t len) {
   return String(sha256_str);
 }
 
-String calculateSHA256(WiFiClient *stream, size_t contentLength) {
+String calculateSHA256(NetworkClient *stream, size_t contentLength) {
   mbedtls_md_context_t ctx;
   mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
 
@@ -156,8 +156,8 @@ String calculateSHA256(WiFiClient *stream, size_t contentLength) {
 //   ocean_logo_size, pUncompressed);
 // }
 
-WiFiClientSecure HttpHelper::secureClient;
-WiFiClient HttpHelper::insecureClient;
+NetworkClientSecure HttpHelper::secureClient;
+NetworkClient HttpHelper::insecureClient;
 
 HTTPClient *HttpHelper::begin(const String &url) {
   HTTPClient *http = new HTTPClient();
