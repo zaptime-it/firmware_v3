@@ -8,7 +8,5 @@ dependencies:
   joltwallet/littlefs: "^1.16.4"
   # Used by getMyHostname() / mDNS broadcast.
   espressif/mdns: "^1.2.0"
-  # Replaces the Links2004/WebSockets Arduino lib (mempool.space WS).
-  espressif/esp_websocket_client: "^1.3.0"
   # Header-only; published as an official IDF component by the author.
   bblanchon/arduinojson: "^7.4.3"

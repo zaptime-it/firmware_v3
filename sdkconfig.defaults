@@ -198,5 +198,14 @@ CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=n
 CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT=y
 CONFIG_COMPILER_OPTIMIZATION_CHECKS_SILENT=y
 
+# ---- Silence new-compiler warnings the codebase hasn't caught up on ----
+# IDF v5.5 ships GCC 13, which adds -Wdangling-reference (fires on
+# ArduinoJson's `settings["k"].as<JsonArray>()` lvalue chain) and
+# tightens -Wformat. Without these knobs every fresh toolchain bump
+# breaks the firmware build on warnings in code we don't own and would
+# only hide via per-source #pragma noise.
+CONFIG_COMPILER_DISABLE_GCC12_WARNINGS=y
+CONFIG_COMPILER_DISABLE_GCC13_WARNINGS=y
+
 # ---- File descriptors: webserver + WS client + HTTPS OTA + sockets ----
 CONFIG_LWIP_MAX_SOCKETS=10

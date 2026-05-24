@@ -12,7 +12,7 @@
     {"name": "WebSockets",           "git": "https://github.com/Links2004/arduinoWebSockets", "ref": "2.7.2",       "patches": ["websockets_max_data_size", "websockets_rx_internal_dram"]},
     {"name": "AsyncTCP",             "git": "https://github.com/ESP32Async/AsyncTCP",         "ref": "v3.4.10"},
     {"name": "ESPAsyncWebServer",    "git": "https://github.com/ESP32Async/ESPAsyncWebServer","ref": "v3.11.0"},
-    {"name": "universal_pin",        "git": "https://github.com/dsbaars/universal_pin",       "ref": "feature/mcp23017_rt", "extra_requires": ["MCP23017", "PCA9685"]},
+    {"name": "universal_pin",        "git": "https://github.com/dsbaars/universal_pin",       "ref": "feature/mcp23017_rt", "extra_requires": ["MCP23017", "PCA9685"], "patches": ["universal_pin_mcp_reorder"]},
     {"name": "GxEPD2",               "git": "https://github.com/dsbaars/GxEPD2",              "ref": "universal_pin", "extra_requires": ["universal_pin", "Adafruit_GFX_Library", "Adafruit_BusIO"], "patches": ["gxepd2_pointer_compare", "gxepd2_stdexcept"]},
     {"name": "Nostrduino",           "git": "https://github.com/dsbaars/nostrduino",          "ref": "feature/fix-btclock", "extra_requires": ["bblanchon__arduinojson", "uBitcoin", "WebSockets"]},
     {"name": "uBitcoin",             "git": "https://github.com/micro-bitcoin/uBitcoin",      "ref": "v0.2.0",      "patches": ["ubitcoin_esp_random"]}

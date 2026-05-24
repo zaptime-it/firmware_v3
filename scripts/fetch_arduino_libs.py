@@ -78,6 +78,14 @@ idf_component_register(
     INCLUDE_DIRS ${_inc_dirs}
     REQUIRES espressif__arduino-esp32 mbedtls esp_http_client
 )
+
+# Vendored Arduino-lib source — IDF compiles every component with
+# -Werror=all by default, which on the GCC 13 toolchain that ships
+# with ESP-IDF v5.5 promotes -Wformat / -Wreorder / -Wdangling-reference
+# in upstream code we don't own. Silence warnings here so a toolchain
+# bump never breaks the firmware build on warnings we can't fix in
+# place.
+target_compile_options(${COMPONENT_LIB} PRIVATE -w)
 """
 
 
@@ -222,12 +230,34 @@ def patch_websockets_rx_internal_dram(lib_dir: Path) -> bool:
     return True
 
 
+def patch_universal_pin_mcp_reorder(lib_dir: Path) -> bool:
+    """Fix -Werror=reorder in MCP23X17_Pin's constructor.
+
+    The fork lists `mcp(mcp)` before the `UniversalPin{pinNumber}` base
+    initializer, but a member field can never legally precede the base
+    in init order; GCC 13 (shipping in ESP-IDF v5.5's xtensa toolchain)
+    promotes the warning to an error.
+    """
+    cpp = lib_dir / "mcp23x17_pin.cpp"
+    if not cpp.exists():
+        return False
+    src = cpp.read_text()
+    old = "MCP23X17_Pin::MCP23X17_Pin(MCP23017& mcp, uint pinNumber) : mcp(mcp), UniversalPin{pinNumber} {"
+    new_ctor = "MCP23X17_Pin::MCP23X17_Pin(MCP23017& mcp, uint pinNumber) : UniversalPin{pinNumber}, mcp(mcp) {"
+    if old not in src:
+        # Idempotency: already patched (or upstream rewrote).
+        return False
+    cpp.write_text(src.replace(old, new_ctor, 1))
+    return True
+
+
 PATCH_FNS = {
     "ubitcoin_esp_random": patch_ubitcoin_esp_random,
     "gxepd2_pointer_compare": patch_gxepd2_pointer_compare,
     "gxepd2_stdexcept": patch_gxepd2_stdexcept,
     "websockets_max_data_size": patch_websockets_max_data_size,
     "websockets_rx_internal_dram": patch_websockets_rx_internal_dram,
+    "universal_pin_mcp_reorder": patch_universal_pin_mcp_reorder,
 }
 
 
@@ -239,7 +269,7 @@ def fetch(name: str, git: str, ref: str, force: bool) -> Path:
         if force:
             shutil.rmtree(dst)
         else:
-            print(f"[skip ] {name} (already present at {dst.relative_to(HERE)})")
+            print(f"[skip ] {name} (already present at {dst.relative_to(REPO_ROOT)})")
             return dst
 
     TARGET_DIR.mkdir(exist_ok=True)
@@ -265,6 +295,28 @@ def fetch(name: str, git: str, ref: str, force: bool) -> Path:
     # Strip .git so the vendored tree doesn't show up as a submodule.
     shutil.rmtree(dst / ".git", ignore_errors=True)
     return dst
+
+
+_NO_WERROR_SENTINEL = "# patched by fetch_arduino_libs.py: disable -Werror for vendored Arduino lib"
+_NO_WERROR_BLOCK = (
+    f"\n{_NO_WERROR_SENTINEL}\n"
+    "# Same rationale as the auto-generated CMakeLists template: IDF\n"
+    "# defaults to -Werror=all per component, but GCC 13 (shipping in\n"
+    "# ESP-IDF v5.5's toolchain) flags new warnings in upstream Arduino\n"
+    "# libs we don't own (WiFiManager -Wformat, universal_pin -Wreorder,\n"
+    "# Nostrduino -Wdangling-reference, etc). -w on third-party source.\n"
+    "target_compile_options(${COMPONENT_LIB} PRIVATE -w)\n"
+)
+
+
+def _append_no_werror(cmake: Path) -> bool:
+    src = cmake.read_text()
+    if _NO_WERROR_SENTINEL in src:
+        return False
+    if not src.endswith("\n"):
+        src += "\n"
+    cmake.write_text(src + _NO_WERROR_BLOCK)
+    return True
 
 
 def ensure_cmakelists(lib_dir: Path, extra_requires: list[str] | None = None) -> None:
@@ -298,6 +350,8 @@ def ensure_cmakelists(lib_dir: Path, extra_requires: list[str] | None = None) ->
             if new != src:
                 cmake.write_text(f"{sentinel}\n{new}")
                 print(f"        patched CMakeLists.txt: arduino -> espressif__arduino-esp32")
+        if _append_no_werror(cmake):
+            print(f"        patched CMakeLists.txt: appended -w compile flag")
         return
     template = CMAKE_TEMPLATE
     if extra_requires:
