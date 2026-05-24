@@ -4,10 +4,12 @@ name: "BTClock CI"
 #
 #   push/PR/tag/dispatch
 #     ├── host-tests          (plain + sanitize unit tests, host gcc)
-#     ├── set-matrix          (decide which firmware variants to build)
 #     └── webui-and-lfs       (build WebUI once; pack 4MB/8MB/16MB LFS)
 #           └── build matrix  (one row per variant, consumes prebuilt LFS)
-#                 └── release (tags only; collect, prefix, manifest, ship)
+#                 └── release (tags + main + manual dispatch only)
+#
+# Every PR runs the full 4-variant firmware matrix as a merge gate —
+# we only skip the release publication on PRs, not the build itself.
 #
 # We use the espressif/idf:v5.5 container so the firmware jobs don't burn
 # ~8 minutes per matrix row cloning and installing ESP-IDF from scratch.
@@ -75,24 +77,6 @@ jobs:
         shell: bash
         run: ccache -s
 
-  set-matrix:
-    runs-on: docker
-    container:
-      image: ghcr.io/catthehacker/ubuntu:js-24.04
-    outputs:
-      matrix: ${{ steps.gen.outputs.matrix }}
-    steps:
-      - id: gen
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # PR latency budget: build only the two boards we ship most
-            # bugfixes against. Other variants run on tags/dispatch.
-            echo 'matrix={"variant":["lolin_s3_mini_213epd","btclock_rev_b_213epd"]}' >> "$GITHUB_OUTPUT"
-          else
-            echo 'matrix={"variant":["lolin_s3_mini_213epd","lolin_s3_mini_29epd","btclock_rev_b_213epd","btclock_v8_213epd"]}' >> "$GITHUB_OUTPUT"
-          fi
-
   webui-and-lfs:
     # Build the WebUI once, pack one LittleFS image per supported flash
     # size, and publish them as an artifact for the firmware matrix.
@@ -155,13 +139,18 @@ jobs:
     runs-on: docker
     container:
       image: espressif/idf:v5.5
-    needs: [webui-and-lfs, set-matrix]
+    needs: webui-and-lfs
     permissions:
       contents: write
       checks: write
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.set-matrix.outputs.matrix) }}
+      matrix:
+        variant:
+          - lolin_s3_mini_213epd
+          - lolin_s3_mini_29epd
+          - btclock_rev_b_213epd
+          - btclock_v8_213epd
     env:
       # ccache shaves cache-miss rebuilds (sdkconfig touched but source
       # unchanged) from ~10 min/variant to a link + a few recompiles.

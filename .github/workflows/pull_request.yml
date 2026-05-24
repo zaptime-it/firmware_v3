@@ -1,9 +1,9 @@
 name: Pull Request Workflow
 
-# PR variant of tagging.yml. Same pipeline shape (host-tests →
-# webui-and-lfs → firmware matrix) but skips the release job and runs
-# only the two variants we ship most bugfixes against. The full 4-
-# variant matrix runs on tag pushes via tagging.yml.
+# PR variant of tagging.yml. Same pipeline + same 4-variant matrix so
+# every PR is gated by a full firmware build; only the release-publish
+# job is dropped (that one lives in tagging.yml and fires on tag pushes
+# / manual dispatch).
 
 on:
   pull_request:
@@ -90,15 +90,12 @@ jobs:
         run: |
           . /opt/esp/idf/export.sh
           pip install littlefs-python==0.17.1
-      - name: "Pack LFS images (PR subset: 4MB + 8MB)"
+      - name: Pack LFS images (4MB / 8MB / 16MB)
         shell: bash
-        # The PR matrix only builds Rev A (4MB) + Rev B (8MB) so we skip
-        # the 16MB pack to shave a few seconds. tagging.yml packs all
-        # three sizes for release builds.
         run: |
           . /opt/esp/idf/export.sh
           mkdir -p dist-lfs
-          for size in 4MB 8MB; do
+          for size in 4MB 8MB 16MB; do
             ./scripts/pack-lfs-image.sh "$size" dist-lfs
           done
       - uses: actions/upload-artifact@v4
@@ -115,10 +112,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Mirror the PR subset the Forgejo workflow runs (Rev A + Rev B
-        # only). V8 and lolin_s3_mini_29epd run on release tags via
-        # tagging.yml.
-        variant: [lolin_s3_mini_213epd, btclock_rev_b_213epd]
+        variant:
+          - lolin_s3_mini_213epd
+          - lolin_s3_mini_29epd
+          - btclock_rev_b_213epd
+          - btclock_v8_213epd
     env:
       IDF_CCACHE_ENABLE: "1"
       CCACHE_DIR: /root/.ccache
