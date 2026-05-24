@@ -17,3 +17,31 @@ dependencies:
   # dependency resolve still records the tighter constraint.
   esp32async/asynctcp: "^3.4.10"
   esp32async/espasyncwebserver: "^3.11.0"
+  # Override transitive arduino-esp32 pulls that we don't actually use.
+  # Without these, the whole RainMaker family (esp_rainmaker,
+  # rmaker_common, esp_diagnostics, esp_diag_data_store, esp_insights,
+  # esp_schedule) gets fetched and built even though
+  # CONFIG_ARDUINO_SELECTIVE_RainMaker=n / SELECTIVE_Insights=n stub
+  # out the Arduino-side wrappers. esp_rainmaker alone embeds ~40 KiB
+  # of MQTT/claim/OTA server certs. Redirect each to an empty stub in
+  # main/component_overrides/. The bunch has to be stubbed together
+  # because esp_diagnostics / esp_insights both #include rmaker headers
+  # directly, so stubbing only rmaker_common leaves dangling includes.
+  espressif/esp_rainmaker:
+    version: "*"
+    override_path: "./component_overrides/esp_rainmaker"
+  espressif/rmaker_common:
+    version: "*"
+    override_path: "./component_overrides/rmaker_common"
+  espressif/esp_diagnostics:
+    version: "*"
+    override_path: "./component_overrides/esp_diagnostics"
+  espressif/esp_diag_data_store:
+    version: "*"
+    override_path: "./component_overrides/esp_diag_data_store"
+  espressif/esp_insights:
+    version: "*"
+    override_path: "./component_overrides/esp_insights"
+  espressif/esp_schedule:
+    version: "*"
+    override_path: "./component_overrides/esp_schedule"
