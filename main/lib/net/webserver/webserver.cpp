@@ -149,7 +149,8 @@ void setupWebserver() {
       mdns_service_txt_item_set("_http", "_tcp", "model", "BTClock");
       mdns_service_txt_item_set("_http", "_tcp", "version", "3.0");
       mdns_service_txt_item_set("_http", "_tcp", "rev", GIT_REV);
-      mdns_service_txt_item_set("_http", "_tcp", "hw_rev", getHwRev());
+      mdns_service_txt_item_set("_http", "_tcp", "hw_rev",
+                                getHwRev().c_str());
     }
   }
 
