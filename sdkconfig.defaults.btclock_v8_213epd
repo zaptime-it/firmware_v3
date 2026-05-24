@@ -16,6 +16,3 @@ CONFIG_ESPTOOLPY_FLASHMODE="qio"
 # bandwidth and we have to flip the controller mode here.
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
-
-# USB-CDC on boot, same as Rev B.
-CONFIG_ESP_CONSOLE_USB_CDC=y

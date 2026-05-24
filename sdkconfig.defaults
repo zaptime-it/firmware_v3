@@ -198,6 +198,14 @@ CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_ENABLE=n
 CONFIG_COMPILER_OPTIMIZATION_ASSERTIONS_SILENT=y
 CONFIG_COMPILER_OPTIMIZATION_CHECKS_SILENT=y
 
+# ---- Serial console over the chip's built-in USB-Serial-JTAG ----
+# All three BTClock boards expose a single USB-C jack wired straight to
+# the ESP32-S3's USB pins. The chip's USB-Serial-JTAG controller is the
+# zero-config path here: no native USB stack, no Arduino USB-CDC
+# swizzle, no driver fiddling on the host. Picked up out-of-the-box as
+# /dev/cu.usbmodem* on macOS and /dev/ttyACM* on Linux.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
 # ---- Silence new-compiler warnings the codebase hasn't caught up on ----
 # IDF v5.5 ships GCC 13, which adds -Wdangling-reference (fires on
 # ArduinoJson's `settings["k"].as<JsonArray>()` lvalue chain) and
