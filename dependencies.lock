@@ -272,19 +272,19 @@ dependencies:
   espressif/esp_diag_data_store:
     dependencies: []
     source:
-      path: /Users/padjuri/src/btclock_v3_fci/main/component_overrides/esp_diag_data_store
+      path: main/component_overrides/esp_diag_data_store
       type: local
     version: '*'
   espressif/esp_diagnostics:
     dependencies: []
     source:
-      path: /Users/padjuri/src/btclock_v3_fci/main/component_overrides/esp_diagnostics
+      path: main/component_overrides/esp_diagnostics
       type: local
     version: '*'
   espressif/esp_insights:
     dependencies: []
     source:
-      path: /Users/padjuri/src/btclock_v3_fci/main/component_overrides/esp_insights
+      path: main/component_overrides/esp_insights
       type: local
     version: '*'
   espressif/esp_modem:
@@ -300,13 +300,13 @@ dependencies:
   espressif/esp_rainmaker:
     dependencies: []
     source:
-      path: /Users/padjuri/src/btclock_v3_fci/main/component_overrides/esp_rainmaker
+      path: main/component_overrides/esp_rainmaker
       type: local
     version: '*'
   espressif/esp_schedule:
     dependencies: []
     source:
-      path: /Users/padjuri/src/btclock_v3_fci/main/component_overrides/esp_schedule
+      path: main/component_overrides/esp_schedule
       type: local
     version: '*'
   espressif/libsodium:
@@ -349,7 +349,7 @@ dependencies:
   espressif/rmaker_common:
     dependencies: []
     source:
-      path: /Users/padjuri/src/btclock_v3_fci/main/component_overrides/rmaker_common
+      path: main/component_overrides/rmaker_common
       type: local
     version: '*'
   idf:
