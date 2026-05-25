@@ -376,5 +376,16 @@ String downloadSHA256(const String &sha256Url) {
 
   String sha256 = http->getString();
   sha256.trim();
+  // Release manifests follow the `shasum` output format: "<hex>  <filename>\n".
+  // We only want the hex token; the trailing "  <filename>" makes a direct
+  // equalsIgnoreCase(64-char hex) comparison always fail. (Latent since v3.x;
+  // the old WebUI path masked it because Update.h had already written the
+  // partition by the time the check ran. esp_https_ota stages and aborts
+  // properly, which surfaced this on the firmware OTA path.)
+  int sep = sha256.indexOf(' ');
+  if (sep < 0)
+    sep = sha256.indexOf('\t');
+  if (sep > 0)
+    sha256 = sha256.substring(0, sep);
   return sha256;
 }
