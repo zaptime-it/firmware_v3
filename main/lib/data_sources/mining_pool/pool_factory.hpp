@@ -6,6 +6,7 @@
 #include <string>
 
 #include "braiins/brains_pool.hpp"
+#include "btcpowlab/btcpowlab_pool.hpp"
 #include "ckpool/ckpool.hpp"
 #include "ckpool/eu_ckpool.hpp"
 #include "gobrrr_pool/gobrrr_pool.hpp"
@@ -27,7 +28,7 @@ public:
             MINING_POOL_NAME_SATOSHI_RADIO, MINING_POOL_NAME_BRAIINS,
             MINING_POOL_NAME_PUBLIC_POOL,   MINING_POOL_NAME_LOCAL_PUBLIC_POOL,
             MINING_POOL_NAME_GOBRRR_POOL,   MINING_POOL_NAME_CKPOOL,
-            MINING_POOL_NAME_EU_CKPOOL};
+            MINING_POOL_NAME_EU_CKPOOL,     MINING_POOL_NAME_BTCPOWLAB};
   }
 
   static std::string getAvailablePoolsAsString() {
@@ -57,5 +58,6 @@ private:
   static const char *MINING_POOL_NAME_GOBRRR_POOL;
   static const char *MINING_POOL_NAME_CKPOOL;
   static const char *MINING_POOL_NAME_EU_CKPOOL;
+  static const char *MINING_POOL_NAME_BTCPOWLAB;
   static const char *LOGOS_DIR;
 };

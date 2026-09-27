@@ -10,6 +10,7 @@ const char *PoolFactory::MINING_POOL_NAME_LOCAL_PUBLIC_POOL =
 const char *PoolFactory::MINING_POOL_NAME_GOBRRR_POOL = "gobrrr_pool";
 const char *PoolFactory::MINING_POOL_NAME_CKPOOL = "ckpool";
 const char *PoolFactory::MINING_POOL_NAME_EU_CKPOOL = "eu_ckpool";
+const char *PoolFactory::MINING_POOL_NAME_BTCPOWLAB = "btcpowlab";
 const char *PoolFactory::LOGOS_DIR = "/logos";
 
 std::unique_ptr<MiningPoolInterface>
@@ -33,7 +34,9 @@ PoolFactory::createPool(const std::string &poolName) {
                        {MINING_POOL_NAME_CKPOOL,
                         []() { return std::make_unique<CKPool>(); }},
                        {MINING_POOL_NAME_EU_CKPOOL,
-                        []() { return std::make_unique<EUCKPool>(); }}};
+                        []() { return std::make_unique<EUCKPool>(); }},
+                       {MINING_POOL_NAME_BTCPOWLAB,
+                        []() { return std::make_unique<BtcPowLabPool>(); }}};
 
   auto it = poolFactories.find(poolName);
   if (it == poolFactories.end()) {
