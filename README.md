@@ -52,6 +52,7 @@ repo.
   - GoBrrr Pool
   - CKPool
   - EU CKPool
+  - [BTC PoW Lab](https://btcpowlab-pool.com)
 
   Noderunners and Satoshi Radio additionally expose a pool-wide
   hashrate; a "Show pool-wide hashrate" toggle switches the screen from
@@ -112,6 +113,11 @@ The Mining Pool Earnings screen displays:
 For solo pools there are no earnings estimations; your username is the
 on-chain withdrawal address you configured at the pool, without the worker
 name.
+
+For BTC PoW Lab, select **BTC PoW Lab** and enter the Bitcoin address used as
+your pool username. The screen uses the pool's public miner summary and shows
+the one hour hashrate, with the five minute hashrate as a fallback for newly
+connected miners.
 
 ### Braiins Pool integration
 

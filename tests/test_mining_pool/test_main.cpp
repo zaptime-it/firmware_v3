@@ -1,3 +1,4 @@
+#include <btc_pow_lab_stats.hpp>
 #include <unity.h>
 #include <utils.hpp>
 
@@ -81,6 +82,23 @@ void test_parseHashrateString_MaxCharsWideInteger(void) {
   TEST_ASSERT_EQUAL_STRING("123", output.c_str());
 }
 
+void test_btcPowLab_prefersOneHourHashrate(void) {
+  TEST_ASSERT_EQUAL_STRING(
+      "123456789012",
+      btclock::selectBtcPowLabHashrate(123456789012.4, 900).c_str());
+}
+
+void test_btcPowLab_fallsBackToFiveMinuteHashrate(void) {
+  TEST_ASSERT_EQUAL_STRING(
+      "250000000000",
+      btclock::selectBtcPowLabHashrate(0, 250000000000.0).c_str());
+}
+
+void test_btcPowLab_handlesUnavailableHashrate(void) {
+  TEST_ASSERT_EQUAL_STRING("0",
+                           btclock::selectBtcPowLabHashrate(-1, 0).c_str());
+}
+
 // not needed when using generate_test_runner.rb
 int runUnityTests(void) {
   UNITY_BEGIN();
@@ -91,6 +109,9 @@ int runUnityTests(void) {
   RUN_TEST(test_parseHashrateString_ZettaHash);
   RUN_TEST(test_parseHashrateString_Garbage);
   RUN_TEST(test_parseHashrateString_MaxCharsWideInteger);
+  RUN_TEST(test_btcPowLab_prefersOneHourHashrate);
+  RUN_TEST(test_btcPowLab_fallsBackToFiveMinuteHashrate);
+  RUN_TEST(test_btcPowLab_handlesUnavailableHashrate);
 
   return UNITY_END();
 }
